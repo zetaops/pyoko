@@ -8,4 +8,4 @@
 # (GPLv3).  See LICENSE.txt for details.
 import timeit
 
-timeit.timeit('save_students()', 'from riak_test import save_students', number=1000)
+print timeit.timeit('save_students()', 'from riak_test import save_students', number=1000)
