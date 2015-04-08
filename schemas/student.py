@@ -41,7 +41,7 @@ data = lambda: {
                 "postal_code": f.postcode(),
                 "city": f.city(),
                 "town": f.city_prefix(),
-                "neighborhood": "f.city()"
+                "neighborhood": f.city()
             } for i in range(randint(1, 3))
         ],
         "phones": {
