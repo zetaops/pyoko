@@ -51,7 +51,7 @@ data = lambda: {
     },
     "auth_information": {
         "username": f.simple_profile()['username'],
-        "password": hashlib.sha256(f.password()).hexdigest(),
+        "password": f.sha256(),
         "email": f.email(),
         "last_login": f.date_time_this_year().isoformat(),
         "last_login_ip": f.ipv4(),
