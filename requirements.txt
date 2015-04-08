@@ -1,3 +1,2 @@
-
 fake-factory=0.5.0
-riak==2.2.0
+-e git://github.com/basho/riak-python-client.git#egg=riak

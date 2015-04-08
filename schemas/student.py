@@ -7,7 +7,6 @@ test data schema for student bucket
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
-import hashlib
 from random import randint
 from faker import Faker
 
@@ -25,7 +24,7 @@ data = lambda: {
         "name_of_father": f.first_name(),
         "name_of_mother": f.first_name_female(),
         "place_of_birth": f.city(),
-        "date_of_birth": f.date_time_between('-40y', '-18y').date().isoformat(),
+        "date_of_birth": f.date_time_between('-40y', '-16y').date().isoformat(),
         "city": f.city(),
         "town": f.city(),
         "neighborhood": f.city_prefix(),
@@ -56,7 +55,7 @@ data = lambda: {
         "last_login": f.date_time_this_year().isoformat(),
         "last_login_ip": f.ipv4(),
         "password_reset": {
-            "token": hashlib.sha256(f.password()).hexdigest(),
+            "token": f.sha256(),
             "request_ip": f.ipv4(),
             "date": f.date_time_this_year().isoformat(),
             "client": f.user_agent()
