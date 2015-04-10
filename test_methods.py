@@ -12,6 +12,8 @@ import time
 
 import sys
 from gevent import monkey
+from py2map import Dictomap
+
 monkey.patch_all()
 
 import threading
@@ -24,15 +26,16 @@ DEFAULT_BUCKET_NAME = 'my_bucket'
 
 
 class RiakTest(object):
-    def __init__(self, workers=1, bucket_name=None, total_records=100):
+    def __init__(self, workers=1, total_records=100):
 
-        self.BUCKET_NAME = bucket_name or DEFAULT_BUCKET_NAME
+        self.bucket_name = None
+        self.bucket_type = None
         self.workers = workers
-
         self.record_per_worker = total_records / self.workers
         self.total_records = total_records
         self.student = make_student_data()
         self.client = riak.RiakClient
+        self.bucket = riak.RiakBucket
 
 
     def setup_client(self, host, port, typ='pbc'):
@@ -40,15 +43,27 @@ class RiakTest(object):
             if typ == 'pbc' else \
             riak.RiakClient(protocol='http', host=host, http_port=port)
 
+
+    def set_bucket(self, bucket_type, bucket_name):
+        self.bucket_type = bucket_type
+        self.bucket_name = bucket_name
+        self.bucket = self.client.bucket_type(self.bucket_type).bucket(self.bucket_name)
+
     def save_students(self):
-        # sleep(0.1)
         student = make_student_data()
-        # sleep(0.1)
-        self.client.bucket(self.BUCKET_NAME).new(student['identity_information']['tc_no'], student).store()
+        self.bucket.new(student['identity_information']['tc_no'], student).store()
 
     def save_same_student(self):
-        self.client.bucket(self.BUCKET_NAME).new(str(uuid.uuid1()), self.student).store()
+        self.bucket.new(str(uuid.uuid1()), self.student).store()
 
+    def save_map_student(self):
+        student = make_student_data()
+        m_student = Dictomap(self.bucket, student, student['identity_information']['tc_no'])
+        m_student.map.store()
+
+    def save_same_map_student(self):
+        m_student = Dictomap(self.bucket, self.student, str(uuid.uuid1()))
+        m_student.map.store()
 
     def range_save(self):
         for i in range(self.record_per_worker):
@@ -63,7 +78,7 @@ class RiakTest(object):
 
 
     def count_keys(self):
-        return sum([len(key_list) for key_list in self.client.bucket(self.BUCKET_NAME).stream_keys()])
+        return sum([len(key_list) for key_list in self.bucket.stream_keys()])
 
     def start_test(self, method):
         self.test_method = getattr(self, method)
@@ -90,7 +105,11 @@ class RiakTest(object):
 
 
 if __name__ == '__main__':
-    rt = RiakTest(workers=5, bucket_name='student', total_records=10000)
+    rt = RiakTest(workers=5, total_records=1000)
     rt.setup_client(host='10.91.5.26', port=8087, typ='pbc')  # z5 public ip: 62.210.245.199 http port: 8098
-    rt.start_test(method='save_students')
+    # rt.set_bucket('default', 'student')
+    # rt.start_test(method='save_students')
+    rt.set_bucket('maps', 'student')
+    # rt.start_test(method='save_map_student')
+    rt.start_test(method='save_same_map_student')
     # rt.start_test(method='save_same_student')

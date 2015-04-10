@@ -25,9 +25,9 @@ class Dictomap(object):
     ('l__lst.2', 'map'): {('c', 'register'): '3'}}
     """
     def __init__(self, bucket, dct, key):
-        self.mp = Map(bucket, key)
-        self.traverse(dct, self.mp)
-        self.mp.store()
+        self.map = Map(bucket, key)
+        self.traverse(dct, self.map)
+        # self.map.store()
 
 
     def traverse(self, dct, mp):
