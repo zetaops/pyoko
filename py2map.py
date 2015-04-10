@@ -14,9 +14,10 @@ from schemas import  make_student_data
 class Dictomap(object):
     """
     Dictomap converts a given Python dict into riak Map
-    supports str, unicode, lists and other dict's as values
-    since riak Sets does not support anything other than Registers as a value,
-    we flatten and enumarate "list of dicts".
+    supports str, unicode, numbers, lists and other dict's as values
+    since riak Sets does not support anything other than Register as a value,
+    we are flattening and enumarating "list of dicts".
+    eg:
     d = {'lst':[{'a':1},{'b':2},{'c':3}]}
     becames:
     {('l__lst.0', 'map'): {('a', 'register'): '1'},
@@ -26,7 +27,7 @@ class Dictomap(object):
     def __init__(self, bucket, dct, key):
         self.mp = Map(bucket, key)
         self.traverse(dct, self.mp)
-        # self.mp.store()
+        self.mp.store()
 
 
     def traverse(self, dct, mp):
