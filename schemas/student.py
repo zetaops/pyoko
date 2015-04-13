@@ -13,20 +13,21 @@ from faker import Faker
 f = Faker(locale='tr_TR')
 
 data = lambda: {
-    "student_number": f.ean(),
-    "join_date": f.date(),
+    "student_number_s": f.ean(),
+    "tname_s": f.name(),
+    "join_date_dt": f.date(),
     "identity_information": {
-        "tc_no": str(f.random_int(10000000000, 19999999999)),
+        "tc_no_l": str(f.random_int(10000000000, 19999999999)),
         "id_card_serial": "%s%s%s" % (f.random_letter(), f.random_digit(), f.random_digit()),
         "id_card_no": str(f.random_int(10000, 99999)),
-        "first_name": f.first_name(),
-        "last_name": f.last_name(),
-        "name_of_father": f.first_name(),
-        "name_of_mother": f.first_name_female(),
-        "place_of_birth": f.city(),
-        "date_of_birth": f.date_time_between('-40y', '-16y').date().isoformat(),
-        "city": f.city(),
-        "town": f.city(),
+        "first_name_s": f.first_name(),
+        "last_name_s": f.last_name(),
+        "name_of_father_s": f.first_name(),
+        "name_of_mother_s": f.first_name_female(),
+        "place_of_birth_s": f.city(),
+        "date_of_birth_dt": f.date_time_between('-40y', '-16y').date().isoformat(),
+        "city_s": f.city(),
+        "town_s": f.city(),
         "neighborhood": f.city_prefix(),
         "logbook": str(f.random_int(100, 999)),
         "family_order": str(f.random_int(1, 3000)),
@@ -35,12 +36,12 @@ data = lambda: {
     "contact_information": {
         "addresses": [
             {
-                "name": f.name(),
-                "street": f.street_name(),
-                "postal_code": f.postcode(),
-                "city": f.city(),
-                "town": f.city_prefix(),
-                "neighborhood": f.city()
+                "name_s": f.name(),
+                "street_s": f.street_name(),
+                "postal_code_i": f.postcode(),
+                "city_s": f.city(),
+                "town_s": f.city_prefix(),
+                "neighborhood_s": f.city()
             } for i in range(randint(1, 3))
         ],
         "phones": {
@@ -49,10 +50,10 @@ data = lambda: {
         }
     },
     "auth_information": {
-        "username": f.simple_profile()['username'],
+        "username_s": f.simple_profile()['username'],
         "password": f.sha256(),
-        "email": f.email(),
-        "last_login": f.date_time_this_year().isoformat(),
+        "email_s": f.email(),
+        "last_login_dt": f.date_time_this_year().isoformat(),
         "last_login_ip": f.ipv4(),
         "password_reset": {
             "token": f.sha256(),
