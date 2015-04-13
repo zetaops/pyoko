@@ -35,18 +35,18 @@ def virtualenv():
             yield
 
 
-def sync():
+def sync(foo=None):
     """
     syncs the files with test machine (to home dir. by default)
     """
     rsync_project(env.directory, local_dir=".", default_opts='-pthrz',
-                  exclude="*.log *.json fabfile *.pyc *~ .idea .git *.png".split(' '),
+                  exclude="*.log local_settings.py *.json fabfile *.pyc *~ .idea .git *.png".split(' '),
                   )
 
 
 def _test():
     with virtualenv():
-        run("python test_methods.py")
+        run("python data_generator.py")
 
 
 def test(foo=None):

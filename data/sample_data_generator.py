@@ -9,8 +9,6 @@ test data generator
 # (GPLv3).  See LICENSE.txt for details.
 import json
 
-__author__ = 'evren'
-
 from schemas import make_student_data
-
-open("sample_fake_student_object.json", 'w').write(json.dumps(make_student_data(), ensure_ascii=False).encode('utf8'))
+open("sample_student_data.json", 'w').write(json.dumps(
+    [make_student_data() for k in xrange(10000)], ensure_ascii=False).encode('utf8'))

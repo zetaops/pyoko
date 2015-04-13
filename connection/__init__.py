@@ -10,10 +10,11 @@ riak client configuration
 
 import riak
 from riak.security import SecurityCreds
+from local_settings import SERVER_IP
 
 
 creds = SecurityCreds(username='esat', password='qwe-asd', cacert_file='riak.crt')
-# client = riak.RiakClient(protocol='pbc', host='62.210.245.199', pb_port='8087', credentials=creds)
-client = riak.RiakClient(protocol='pbc', host='62.210.245.199', pb_port='8087')
-# client = riak.RiakClient(protocol='http', host='62.210.245.199', http_port='8098')
+# client = riak.RiakClient(protocol='pbc', host=SERVER_IP, pb_port='8087', credentials=creds)
+client = riak.RiakClient(protocol='pbc', host=SERVER_IP, pb_port='8087')
+# client = riak.RiakClient(protocol='http', host=SERVER_IP, http_port='8098')
 # client =

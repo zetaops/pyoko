@@ -12,6 +12,7 @@ import sys
 
 from gevent import monkey
 from connection import client
+from lib.data_access import RiakDataAccess
 
 from lib.py2map import Dictomap
 
@@ -26,31 +27,15 @@ from faker import Faker
 
 fake = Faker(locale='tr_TR')
 
-class RiakTest(object):
-    def __init__(self, client, workers=1, total_records=100):
-        self.client = client
-        self.bucket_name = None
-        self.bucket_type = None
+class GenerateRandomData(RiakDataAccess):
+    def __init__(self, riak_client, workers=1, total_records=100):
+        super(GenerateRandomData, self).__init__(riak_client)
         self.workers = workers
         self.record_per_worker = total_records / self.workers
         self.total_records = total_records
         self.student = make_student_data()
-        self.client = riak.RiakClient
-        self.bucket = riak.RiakBucket
 
-
-    def setup_client(self, host, port, typ='pbc'):
-        self.client = riak.RiakClient(protocol='pbc', host=host, pb_port=port) \
-            if typ == 'pbc' else \
-            riak.RiakClient(protocol='http', host=host, http_port=port)
-
-
-    def set_bucket(self, bucket_type, bucket_name):
-        self.bucket_type = bucket_type
-        self.bucket_name = bucket_name
-        self.bucket = self.client.bucket_type(self.bucket_type).bucket(self.bucket_name)
-
-    def save_students(self):
+    def save_student(self):
         student = make_student_data()
         self.bucket.new(student['identity_information']['tc_no_l'], student).store()
 
@@ -68,7 +53,8 @@ class RiakTest(object):
 
     def save_something(self):
         self.bucket.new(str(uuid.uuid1()),
-	{"name_s":fake.name(), "note_i":fake.random_int(1, 100)}).store()
+            {"name_s":fake.name(), "note_i":fake.random_int(1, 100)}
+        ).store()
 
 
     def range_save(self):
@@ -112,14 +98,17 @@ class RiakTest(object):
 
 
 if __name__ == '__main__':
-    rt = RiakTest(client, workers=5, total_records=1000)
+    rt = GenerateRandomData(client, workers=5, total_records=100)
 
     # rt.set_bucket('default', 'student')
-    rt.set_bucket('student', 'student2')
-    rt.start_test(method='save_something')
+    # rt.set_bucket('student', 'student2').start_test(method='save_something')
+
+    rt.set_bucket('student', 'student4')
+    rt.start_test(method='save_student')
+
     # rt.start_test(method='save_same_student')
 
     #rt.set_bucket('student_map2', 'test3')
-    #rt.start_test(method='save_map_student')
+
     # rt.start_test(method='save_same_map_student')
 

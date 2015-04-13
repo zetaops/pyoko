@@ -1,6 +1,6 @@
 # -*-  coding: utf-8 -*-
 """
-test data schema for student bucket
+test data schema for personel bucket
 """
 
 # Copyright (C) 2015 ZetaOps Inc.
@@ -18,7 +18,7 @@ def data():
     last_name = f.last_name()
     name = "%s %s" % (first_name, last_name)
     return {
-    "student_number_s": f.ean(),
+    "personel_number_s": f.ean(),
     "name_s": name,
     "join_date_dt": f.date_time_between('-4y').strftime("%Y-%m-%dT00:00:00Z"),
     "identity_information": {
@@ -82,23 +82,5 @@ def data():
             }
         }
     },
-    "scholarship": {
-        "active_term": f.random_int(1, 12)
-    },
-    "lectures": [
-        {
-            "code_ss": f.color_name()[:3].upper(),
-            "name_ss": f.sentence(5),
-            "credit": f.random_int(1, 8),
-            "ects_credit": f.random_int(1, 8),
-            "note": f.random_int(1, 100),
-            "exams": [
-                {
-                    "type": f.random_element(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']),
-                    "date": f.date_time_between('-4y').strftime("%Y-%m-%dT00:00:00Z"),
-                    "points": f.random_int(1, 100)
-                } for i in range(randint(1, 10))
-            ]
-        } for i in range(randint(1, 40))
-    ]
+
 }
