@@ -87,9 +87,9 @@ def data():
         "payment_information": {
             "iban": "%s%s%s" % (f.country_code(), f.ean(), f.ean()),
             "tuition_fees": {
-                "paid": paid_tuition_fees,
-                "unpaid": unpaid_tuition_fees,
-                "charge_back": [],
+                "paid_ss": paid_tuition_fees,
+                "unpaid_ss": unpaid_tuition_fees,
+                "charge_back_ss": [],
             }
         },
         "scholarship": {

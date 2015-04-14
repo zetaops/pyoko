@@ -9,18 +9,31 @@
 from lib.db.base import RiakDataAccess
 
 
-class Students(RiakDataAccess):
-
-    def __init__(self, riak_client, light=True):
-        super(Students, self).__init__(riak_client, just_indexed_data=light)
+class Student(RiakDataAccess):
+    """
+    contains common db access patterns for Student bucket
+    usage:
+    stdnt = Student().set_bucket(type='student', name='student4')
+    stdnt.by_tcno('10623465730').get()
+    stdnt.by_city('Kon*').all()
+    """
+    def __init__(self):
+        super(Student, self).__init__()
+        self.set_bucket('student', 'student5')
+        self.index = 'student2'
 
 
     def by_id(self, student_id):
-        return self.bucket.get(student_id)
+        return self.bucket.get(str(student_id))
+
+    def by_tcno(self, student_id):
+        self._query("identity_information.tc_no_l:%s" % student_id)
+
 
     def by_city(self, city):
-        self.pack_up(self.bucket.search("city_ss:%s" % city, self.index))
+        return self._query("contact_information.addresses.city_ss:%s" % city)
+
 
     def with_unpaid_fees(self):
-        pass
+        return self._query('payment_information.tuition_fees.unpaid_ss:[* TO *]')
 
