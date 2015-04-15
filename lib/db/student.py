@@ -13,9 +13,19 @@ class Student(RiakDataAccess):
     """
     contains common db access patterns for Student bucket
     usage:
-    stdnt = Student().set_bucket(type='student', name='student4')
-    stdnt.by_tcno('10623465730').get()
-    stdnt.by_city('Kon*').all()
+    st = Student()
+    st.by_tcno('10623465730').get()
+    st.by_city('Kon*').all()
+
+
+    In [2]: st.with_unpaid_fees().count()
+    Out[2]: 818
+
+    In [3]: st.with_unpaid_fees().by_city('Ar*').count()
+    Out[3]: 7
+
+    In [4]: st.with_unpaid_fees().by_city('Ar*').get()
+    ~~~~ MultipleObjectsReturned Exception
     """
     def __init__(self):
         super(Student, self).__init__()
