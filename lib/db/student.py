@@ -19,21 +19,20 @@ class Student(RiakDataAccess):
     """
     def __init__(self):
         super(Student, self).__init__()
+        self.conf.index = 'student2'
         self.set_bucket('student', 'student5')
-        self.index = 'student2'
 
 
     def by_id(self, student_id):
         return self.bucket.get(str(student_id))
 
     def by_tcno(self, student_id):
-        self._query("identity_information.tc_no_l:%s" % student_id)
+        return self.filter(identity_information__tc_no_l=student_id)
 
 
     def by_city(self, city):
-        return self._query("contact_information.addresses.city_ss:%s" % city)
+        return self.filter(contact_information__addresses__city_ss=city)
 
 
     def with_unpaid_fees(self):
-        return self._query('payment_information.tuition_fees.unpaid_ss:[* TO *]')
-
+        return self.filter(payment_information__tuition_fees__unpaid_ss=None)

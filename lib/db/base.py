@@ -10,26 +10,41 @@ this module contains a base class for other db access classes
 import riak
 import time
 from connection import client
+from lib.py2map import Dictomap
+from lib.utils import DotDict
+
 
 class MultipleObjectsReturned(Exception):
     """The query returned multiple objects when only one was expected."""
     pass
 
+# TODO: Add simple query caching
+# TODO: Add OR support
+
 class RiakDataAccess(object):
-    def __init__(self, riak_client=client, index=None):
+    """
+
+    """
+    def __init__(self, riak_client=client, **conf):
         # , get_all_data=False
         # self.get_all_data = get_all_data
         self.client = riak_client
-        self.index = index
+        self.conf = DotDict(conf)
         self.bucket_name = None
         self.bucket_type = None
         self.result_set = []
+        self.search_query = []
         self.bucket = riak.RiakBucket
+        self.datatype = None
+
 
     def set_bucket(self, type, name):
         self.bucket_type = type
         self.bucket_name = name
         self.bucket = self.client.bucket_type(self.bucket_type).bucket(self.bucket_name)
+        if 'index' not in self.conf:
+            self.conf.index = self.bucket_name
+        self.datatype = self.bucket.get_properties().get('datatype', None)
         return self
 
     @staticmethod
@@ -43,6 +58,9 @@ class RiakDataAccess(object):
         return sum([len(key_list) for key_list in self.bucket.stream_keys()])
 
     def _delete_all(self):
+        """
+        just for development, normally we should never delete anything, let alone whole bucket!
+        """
         count = self.count_bucket()
         for pck in self.bucket.stream_keys():
             for k in pck:
@@ -50,32 +68,59 @@ class RiakDataAccess(object):
         return count
 
     def count(self):
+        self._exec_query(rows=0)
         return self.result_set['num_found']
 
     def all(self):
+        self._exec_query()
         return [self.bucket.get(r['_yz_rk']) for r in self.result_set['docs']]
 
     def get(self):
+        self._exec_query()
         if self.count() > 1:
             raise MultipleObjectsReturned()
         return self.bucket.get(self.result_set['docs'][0]['_yz_rk'])
 
-    def results(self):
+    def raw(self):
+        """
+        returns raw solr result set
+        """
+        self._exec_query()
         return self.result_set['docs']
 
-    def _query(self, query):
-        self.result_set = self.bucket.search(query, self.index)
+    def filter(self, **filters):
+        """
+        this will support OR and other more advanced queries as well
+        """
+        for key, val in filters.items():
+            key = key.replace('__', '.')
+            if val is None:
+                key = '-%s' % key
+                val = '[* TO *]'
+            self.search_query.append("%s:%s" % (key, val))
         return self
 
-    # def _pack_up(self, result):
-    #     """
-    #     if it's enough for us return self.just_indexed_data)
-    #     otherwise get the whole objects from riak.
-    #     :param result: dict, riak search resultset
-    #     :return: dict, brief or full result set
-    #     """
-    #     if not self.just_indexed_data:
-    #         return result['docs']
-    #     else:
-    #         return self.all(result)
+
+    def _query(self, query):
+        self.search_query.append(query)
+        self.result_set = []
+        return self
+
+    def save(self, key, value):
+        if self.datatype == 'map' and isinstance(value, dict):
+            return Dictomap(self.bucket, value, str(key)).map.store()
+        else:
+            return self.bucket.new(key, value).store()
+
+    def _compile_query(self):
+        """
+        this will support OR and other more advanced queries as well
+        :return: Solr query string
+        """
+        return ' AND '.join(self.search_query)
+
+    def _exec_query(self, **params):
+
+        self.result_set = self.bucket.search(self._compile_query(), self.conf.index, **params)
+        return self
 
