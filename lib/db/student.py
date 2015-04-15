@@ -27,9 +27,9 @@ class Student(RiakDataAccess):
     In [4]: st.with_unpaid_fees().by_city('Ar*').get()
     ~~~~ MultipleObjectsReturned Exception
     """
-    def __init__(self):
-        super(Student, self).__init__()
-        self.conf.index = 'student2'
+    def __init__(self, client=None):
+        super(Student, self).__init__(client)
+        self.config.index = 'student2'
         self.set_bucket('student', 'student5')
 
 

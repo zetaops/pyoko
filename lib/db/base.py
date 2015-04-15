@@ -9,7 +9,7 @@ this module contains a base class for other db access classes
 # (GPLv3).  See LICENSE.txt for details.
 import riak
 import time
-from connection import client
+from connection import *
 from lib.py2map import Dictomap
 from lib.utils import DotDict
 
@@ -18,6 +18,7 @@ class MultipleObjectsReturned(Exception):
     """The query returned multiple objects when only one was expected."""
     pass
 
+
 # TODO: Add simple query caching
 # TODO: Add OR support
 
@@ -25,15 +26,17 @@ class RiakDataAccess(object):
     """
 
     """
-    def __init__(self, riak_client=client, **conf):
+
+    def __init__(self, riak_client=None, **config):
         # , get_all_data=False
         # self.get_all_data = get_all_data
-        self.client = riak_client
-        self.conf = DotDict(conf)
+        self.client = riak_client or pbc_client
+        self.config = DotDict(config)
         self.bucket_name = None
         self.bucket_type = None
         self.result_set = []
         self.search_query = []
+        self.search_params = {}
         self.bucket = riak.RiakBucket
         self.datatype = None
 
@@ -42,8 +45,8 @@ class RiakDataAccess(object):
         self.bucket_type = type
         self.bucket_name = name
         self.bucket = self.client.bucket_type(self.bucket_type).bucket(self.bucket_name)
-        if 'index' not in self.conf:
-            self.conf.index = self.bucket_name
+        if 'index' not in self.config:
+            self.config.index = self.bucket_name
         self.datatype = self.bucket.get_properties().get('datatype', None)
         return self
 
@@ -72,8 +75,8 @@ class RiakDataAccess(object):
         return self.result_set['num_found']
 
     def all(self):
-        self._exec_query()
-        return [self.bucket.get(r['_yz_rk']) for r in self.result_set['docs']]
+        self._exec_query(fl='_yz_rk')
+        return self.bucket.multiget(map(lambda k: k['_yz_rk'], self.result_set['docs']))
 
     def get(self):
         self._exec_query()
@@ -92,6 +95,7 @@ class RiakDataAccess(object):
         """
         this will support OR and other more advanced queries as well
         """
+        self.reset()
         for key, val in filters.items():
             key = key.replace('__', '.')
             if val is None:
@@ -100,10 +104,13 @@ class RiakDataAccess(object):
             self.search_query.append("%s:%s" % (key, val))
         return self
 
+    def reset(self):
+        self.result_set = []
+        self.search_params = {}
 
     def _query(self, query):
         self.search_query.append(query)
-        self.result_set = []
+        self.reset()
         return self
 
     def save(self, key, value):
@@ -119,8 +126,12 @@ class RiakDataAccess(object):
         """
         return ' AND '.join(self.search_query)
 
-    def _exec_query(self, **params):
+    def conf(self, **params):
+        self.search_params.update(params)
+        return self
 
-        self.result_set = self.bucket.search(self._compile_query(), self.conf.index, **params)
+    def _exec_query(self, **params):
+        self.search_params.update(params)
+        self.result_set = self.bucket.search(self._compile_query(), self.config.index, **self.search_params)
         return self
 
