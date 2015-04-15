@@ -34,11 +34,14 @@ class RiakDataAccess(object):
         self.config = DotDict(config)
         self.bucket_name = None
         self.bucket_type = None
-        self.result_set = []
-        self.search_query = []
+        self.solr_result_set = []
+        self.search_query = set()
         self.search_params = {}
+        self.result_cache = []
         self.bucket = riak.RiakBucket
         self.datatype = None
+        self.last_query_string = ''
+        self.return_solr_result = False
 
 
     def set_bucket(self, type, name):
@@ -72,24 +75,31 @@ class RiakDataAccess(object):
 
     def count(self):
         self._exec_query(rows=0)
-        return self.result_set['num_found']
+        return self.solr_result_set['num_found']
 
     def all(self):
-        self._exec_query(fl='_yz_rk')
-        return self.bucket.multiget(map(lambda k: k['_yz_rk'], self.result_set['docs']))
+        self.conf(fl='_yz_rk')
+        return self
 
     def get(self):
         self._exec_query()
         if self.count() > 1:
             raise MultipleObjectsReturned()
-        return self.bucket.get(self.result_set['docs'][0]['_yz_rk'])
+        return self._get()
 
-    def raw(self):
+    def _get(self):
+        self._exec_query()
+        result = self.bucket.get(self.solr_result_set['docs'][0]['_yz_rk'])
+        self.reset()
+        return result
+
+    def solr(self):
         """
         returns raw solr result set
         """
         self._exec_query()
-        return self.result_set['docs']
+        self.return_solr_result = True
+        return self
 
     def filter(self, **filters):
         """
@@ -101,15 +111,16 @@ class RiakDataAccess(object):
             if val is None:
                 key = '-%s' % key
                 val = '[* TO *]'
-            self.search_query.append("%s:%s" % (key, val))
+            self.search_query.add("%s:%s" % (key, val))
         return self
 
     def reset(self):
-        self.result_set = []
+        self.solr_result_set = []
         self.search_params = {}
+        self.search_query.clear()
 
     def _query(self, query):
-        self.search_query.append(query)
+        self.search_query.add(query)
         self.reset()
         return self
 
@@ -126,12 +137,41 @@ class RiakDataAccess(object):
         """
         return ' AND '.join(self.search_query)
 
+    def __getitem__(self, index):
+        if isinstance(index, int):
+            self.conf(rows=1, start=index)
+            return self._get()
+        elif isinstance(index, slice):
+            start, stop, step = index.indices(len(self))
+            self.conf(rows=stop - start, start=start)
+            return self
+        else:
+            raise TypeError("index must be int or slice")
+
+    def _get_from_db(self):
+        self.reset()
+        return self.bucket.multiget(map(lambda k: k['_yz_rk'], self.solr_result_set['docs']))
+
+    def __iter__(self):
+        self._exec_query()
+        self.reset()
+        return iter(self._get_from_db() if not self.return_solr_result else self.solr_result_set)
+
+
     def conf(self, **params):
+        """
+        solr query parameters
+        """
         self.search_params.update(params)
         return self
 
     def _exec_query(self, **params):
         self.search_params.update(params)
-        self.result_set = self.bucket.search(self._compile_query(), self.config.index, **self.search_params)
+        query_string = self._compile_query()
+        print "query str", query_string
+        if query_string != self.last_query_string:
+            print( "yess, exec")
+            self.last_query_string = query_string
+            self.solr_result_set = self.bucket.search(query_string, self.config.index, **self.search_params)
         return self
 
