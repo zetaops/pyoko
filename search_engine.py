@@ -7,10 +7,10 @@ this module contains some methods to help testing search and data retrieval on R
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
-from lib.db.base import RiakDataAccess
+from lib.db.base import SolRiakcess
 
 
-class Seeker(RiakDataAccess):
+class Seeker(SolRiakcess):
     """
     this class sequantally extracts searchable field names and their actual values
     then tries to access same values by various features of Yokozuna API

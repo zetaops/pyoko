@@ -6,10 +6,10 @@
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
-from lib.db.base import RiakDataAccess
+from lib.db.base import SolRiakcess
 
 
-class Student(RiakDataAccess):
+class Student(SolRiakcess):
     """
     contains common db access patterns for Student bucket
     usage:
@@ -27,9 +27,9 @@ class Student(RiakDataAccess):
     In [4]: st.with_unpaid_fees().by_city('Ar*').get()
     ~~~~ MultipleObjectsReturned Exception
     """
-    def __init__(self, client=None):
-        super(Student, self).__init__(client)
-        self.config.index = 'student2'
+    def __init__(self, **kwargs):
+        super(Student, self).__init__(**kwargs)
+        self._cfg.index = 'student2'
         self.set_bucket('student', 'student5')
 
 
@@ -46,3 +46,12 @@ class Student(RiakDataAccess):
 
     def with_unpaid_fees(self):
         return self.filter(payment_information__tuition_fees__unpaid_ss=None)
+
+
+if __name__ == '__main__':
+    from connection import http_client
+    st = Student(client=http_client)
+    st.__DEBUG = True
+    print list(st.by_city('Ak*').all())
+    print list(st.by_city('Ak*').all())
+    print(st)

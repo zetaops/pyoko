@@ -9,7 +9,8 @@ Mass data storage test case for Riak
 # (GPLv3).  See LICENSE.txt for details.
 import sys
 from gevent import monkey
-from lib.db.base import RiakDataAccess
+import time
+from lib.db.base import SolRiakcess
 from lib.py2map import Dictomap
 
 
@@ -24,13 +25,14 @@ from faker import Faker
 fake = Faker(locale='tr_TR')
 
 
-class GenerateRandomData(RiakDataAccess):
+class GenerateRandomData(SolRiakcess):
     def __init__(self, workers=1, total_records=100):
         super(GenerateRandomData, self).__init__()
         self.workers = workers
         self.record_per_worker = total_records / self.workers
         self.total_records = total_records
         self.student = make_student_data()
+
 
     def save_student(self):
         student = make_student_data()
@@ -64,6 +66,13 @@ class GenerateRandomData(RiakDataAccess):
             t.start()
         for t in threads:
             t.join()
+
+    @staticmethod
+    def _timeit(method, round_by=1):
+        start_time = time.time()
+        method()
+        end_time = time.time()
+        return round(end_time - start_time, round_by)
 
     def start_process(self, method):
         self.test_method = getattr(self, method)
