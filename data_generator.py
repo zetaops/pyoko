@@ -97,7 +97,7 @@ class GenerateRandomData(SolRiakcess):
 
 
 if __name__ == '__main__':
-    rt = GenerateRandomData(workers=5, total_records=1000)
+    rt = GenerateRandomData(workers=4, total_records=1000)
 
     # rt.set_bucket('default', 'student')
     # rt.set_bucket('student', 'student2').start_test(method='save_something')
@@ -107,7 +107,7 @@ if __name__ == '__main__':
     # print("%s records deleted" % deleted_count)
     rt.start_process(method='save_student')
 
-    # rt.start_test(method='save_same_student')
+    # rt.start_process(method='save_same_student')
 
     # rt.set_bucket('student_map2', 'test3')
 

@@ -51,7 +51,9 @@ class Student(SolRiakcess):
 if __name__ == '__main__':
     from connection import http_client
     st = Student(client=http_client)
-    list(st.by_city('S*').all().watch()[0:10])
+    print st.by_city('A*').watch(1)[1]
+    print len(list(st.by_city('A*').watch(1)))
+    # list(st.by_city('S*').all().watch()[0:10])
     # print list(st.by_city('Ak*').all())
     # print list(st.by_city('Ak*').all())
     print(st)

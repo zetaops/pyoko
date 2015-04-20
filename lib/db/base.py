@@ -9,7 +9,8 @@ this module contains a base class for other db access classes
 # (GPLv3).  See LICENSE.txt for details.
 from connection import *
 from lib.py2map import Dictomap
-from lib.utils import DotDict
+from lib.utils import DotDict, grayed
+from enum import Enum
 
 
 class MultipleObjectsReturned(Exception):
@@ -17,10 +18,14 @@ class MultipleObjectsReturned(Exception):
     pass
 
 # TODO: Add tests
-# TODO: Implement basic functinality of "new" method
+# TODO: Implement basic functionality of "new" method
 # TODO: Add schema support for "new" method
 # TODO: Add OR support
 # TODO: Implement schema migration for Riak JSON data
+# TODO: Investigate queryResultWindowSize solr setting, see: http://bit.ly/1HzO0M3
+
+ReturnType = Enum('ReturnType', 'Object Data Solr')
+
 
 class SolRiakcess(object):
     """
@@ -32,7 +37,10 @@ class SolRiakcess(object):
         self._cfg = DotDict(config)
         self._cfg.client = self._cfg.client or pbc_client
         self.datatype = None  # we convert new object data according to bucket datatype, eg: Dictomaping for 'map' type
-        self.return_solr_result = False  # don't go to riak, solr results are enough
+
+        self.return_type = self._cfg.get('return_type', ReturnType.Object)
+        self.default_row_size = self._cfg.get('row_size', 1000)
+
         self.new_value = None  # value of the to be created by .new(**params).save(key)
 
         self.solr_result_set = {}  # caching solr results, for repeating calls
@@ -43,27 +51,35 @@ class SolRiakcess(object):
         self.solr_preceding_query = ''  # previously executed solr query
         self.riak_cache = []  # caching riak result, for repeating iterations on same query
         self.re_fetch_from_riak = True  # if we get fresh results from solr
+        self.return_methods = {
+            ReturnType.Object: self._get_from_db,
+            ReturnType.Data: self._get_data_from_db,
+            ReturnType.Solr: self._get_from_solr
+        }
+
 
     # ######## Development Methods  #########
 
-    def watch(self):
-        print "_cfg: ", self._cfg
-        print "solr_result_set : ", self.solr_result_set
-        print "solr_query : ", self.solr_query
-        print "solr_params : ", self.solr_params
-        print "last_query : ", self.solr_preceding_query
-        print "riak_cache : ", self.riak_cache
-        print "re_fetch_from_riak : ", self.re_fetch_from_riak
-        print "return_solr : ", self.return_solr_result
-        print "new_value : ", self.new_value
-        print "solr_preceding_params : ", self.solr_preceding_params
-        print "solr_preceding_query : ", self.solr_preceding_query
+    def watch(self, brief=False):
+
+        print grayed("solr_result_set : ", len(self.solr_result_set) if brief else self.solr_result_set)
+        print grayed("riak_cache : ", len(self.riak_cache) if brief else self.riak_cache)
+        print grayed("solr_query : ", self.solr_query)
+        print grayed("solr_params : ", self.solr_params)
+        print grayed("last_query : ", self.solr_preceding_query)
+        print grayed("re_fetch_from_riak : ", self.re_fetch_from_riak)
+        print grayed("return_type : ", self.return_type)
+        print grayed("new_value : ", self.new_value)
+        print grayed("solr_preceding_params : ", self.solr_preceding_params)
+        print grayed("solr_preceding_query : ", self.solr_preceding_query)
         return self
 
     def _clear_bucket(self):
         """
-        for development purposes, normally we should never delete anything, let alone whole bucket!
+        for development purposes, normally we should never delete anything, let alone the whole bucket!
         """
+        if not 'yes' == raw_input("Say yes if you really want to delete all records in this bucket % s:" % self.bucket):
+            return
         count = self.count_bucket()
         for pck in self.bucket.stream_keys():
             for k in pck:
@@ -74,13 +90,17 @@ class SolRiakcess(object):
 
     def __iter__(self):
         self._exec_query()
-        return iter(self._get_from_db() if not self.return_solr_result else self._get_from_solr())
+        # print "THIS IS ITER"
+        return iter(self.return_methods[self.return_type]())
+
 
     def __len__(self):
-        self._exec_query()
+        # self._exec_query()
+        # print "THIS IS LEN"
         return self.count()
 
     def __getitem__(self, index):
+        # print "THIS IS GETITEM"
         if isinstance(index, int):
             self.set_solr_conf(rows=1, start=index)
             return self._get()
@@ -90,6 +110,14 @@ class SolRiakcess(object):
             return self
         else:
             raise TypeError("index must be int or slice")
+
+
+    # ######## local methods #########
+
+
+
+
+
 
     # ######## Riak Methods  #########
 
@@ -128,16 +156,42 @@ class SolRiakcess(object):
 
     def _get_from_db(self):
         if self.refetch_required():
-            self.riak_cache = self.bucket.multiget(map(lambda k: k['_yz_rk'], self.solr_result_set['docs']))
+            if not self._cfg.get('multiget'):
+                self.riak_cache = map(lambda k: self.bucket.get(k['_yz_rk']), self.solr_result_set['docs'])
+            else:
+                self.riak_cache = self.bucket.multiget(map(lambda k: k['_yz_rk'], self.solr_result_set['docs']))
         self.reset_query()
-        # self.refetch_required(True)
+        return self.riak_cache
+
+    def _get_data_from_db(self, data=False):
+        if self.refetch_required():
+            if self._cfg.get('multiget'):
+                self.riak_cache = map(lambda o: o.data, self.bucket.multiget(
+                    map(lambda k: k['_yz_rk'], self.solr_result_set['docs'])))
+            else:
+                self.riak_cache = map(lambda k: self.bucket.get(k['_yz_rk']).data, self.solr_result_set['docs'])
+        self.reset_query()
         return self.riak_cache
 
     def _get(self):
         self._exec_query()
-        if self.re_fetch_from_riak:
+        if self.refetch_required() and self.return_type in (ReturnType.Object, ReturnType.Data):
             self.riak_cache = [self.bucket.get(self.solr_result_set['docs'][0]['_yz_rk'])]
-        return self.riak_cache[0]
+
+        if self.return_type == ReturnType.Object:
+            return self.riak_cache[0]
+        elif self.return_type == ReturnType.Data:
+            return self.riak_cache[0].data
+        else:
+            return self.solr_result_set['docs'][0]
+
+
+    def data(self):
+        """
+        a convience method for returning only data attributes of riak objects.
+        """
+        self.return_riak_data = True
+        return self
 
     # ######## Solr/Query Related Methods  #########
 
@@ -159,6 +213,7 @@ class SolRiakcess(object):
 
     def get(self):
         self._exec_query()
+        print "THIS IS Get"
         if self.count() > 1:
             raise MultipleObjectsReturned()
         return self._get()
@@ -166,12 +221,12 @@ class SolRiakcess(object):
     def count(self):
         if not self.solr_result_set:
             self._exec_query(rows=0)
-        return self.solr_result_set['num_found']
+        return self.solr_result_set.get('num_found', -1)
 
     def reset_query(self):
         # self.solr_result_set.clear()
         self.solr_params = {}
-        self.return_solr_result = False
+        self.return_type = self._cfg.get('return_type', ReturnType.Object)
         self.solr_query.clear()
 
     def _query(self, query):
@@ -185,11 +240,22 @@ class SolRiakcess(object):
         self.solr_params.update(params)
         return self
 
+    def fields(self, *args):  # riak client needs _yz_rk to distinguish between old and new search API.
+        self.solr_params.update({'fl': ' '.join(set(args + ('_yz_rk',)))})
+        return self
+
     def solr(self):
         """
-        returns raw solr result set
+        returns raw solr result
         """
-        self.return_solr_result = True
+        self.return_type = 3
+        return self
+
+    def data(self):
+        """
+        return data instead of riak object(s)
+        """
+        self.return_type = 2
         return self
 
     def _compile_query(self):
@@ -197,13 +263,22 @@ class SolRiakcess(object):
         this will support "OR" and maybe other more advanced queries as well
         :return: Solr query string
         """
-        if not self.solr_query:
-            self.solr_query.add('*:*')  # get/count everything
-        elif len(self.solr_query) > 1 and '*:*' in self.solr_query:
-            self.solr_query.remove('*:*')
+        # if not self.solr_query:
+        # self.solr_query.add('*:*')  # get/count everything
+        # elif len(self.solr_query) > 1 and '*:*' in self.solr_query:
+        #     self.solr_query.remove('*:*')
         anded = ' AND '.join(self.solr_query)
         query = anded
         return query
+
+
+    def _process_params(self, **params):
+        if params:
+            self.solr_params.update(params)
+        if 'rows' not in self.solr_params:
+            self.solr_params['rows'] = self.default_row_size
+        return self.solr_params
+
 
     def _get_from_solr(self):
         results = self.solr_result_set['docs']
@@ -212,17 +287,16 @@ class SolRiakcess(object):
 
     def re_search_required(self, compiled_query_string):
         result = compiled_query_string != self.solr_preceding_query or self.solr_params != self.solr_preceding_params
+        self.solr_preceding_query = compiled_query_string
+        self.solr_preceding_params = self.solr_params
         return result
 
     def _exec_query(self, **params):
-        self.solr_params.update(params)
         compiled_query_string = self._compile_query()
         if self.re_search_required(compiled_query_string):
-            self.solr_result_set = self.bucket.search(compiled_query_string, self._cfg.index, **self.solr_params)
+            self.solr_result_set = self.bucket.search(compiled_query_string, self._cfg.index, **self._process_params(**params))
             self.refetch_required(True)
-            self.solr_preceding_params = self.solr_params
-            self.solr_preceding_query = compiled_query_string
-            print "SOLR QUERY:", compiled_query_string
+            # print "SOLR QUERY:", compiled_query_string
         else:
             self.refetch_required(False)
         return self

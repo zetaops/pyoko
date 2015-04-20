@@ -4,3 +4,4 @@ fabric
 gevent
 # use following gevent for PyPy
 #-e git://github.com/surfly/gevent.git#egg=gevent
+enum34

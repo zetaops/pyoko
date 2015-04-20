@@ -21,3 +21,6 @@ UN_CAMEL_RE = re.compile('((?<=[a-z0-9])[A-Z]|(?!^)[A-Z](?=[a-z]))')
 
 def un_camel(input):
     return UN_CAMEL_RE.sub(r'_\1', input).lower()
+
+def grayed(*args):
+    return '\033[1;37m%s\033[1;m' % ' '.join(map(str, args))
