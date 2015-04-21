@@ -14,10 +14,10 @@ from lib.db.base import SolRiakcess
 from lib.py2map import Dictomap
 
 
-monkey.patch_all()
 
 import threading
-import uuid
+monkey.patch_all()
+
 from schemas import make_student_data
 
 from faker import Faker
@@ -35,11 +35,10 @@ class GenerateRandomData(SolRiakcess):
 
 
     def save_student(self):
-        student = make_student_data()
-        self.bucket.new(student['identity_information']['tc_no_l'], student).store()
+        self.bucket.new(data=make_student_data()).store()
 
     def save_same_student(self):
-        self.bucket.new(str(uuid.uuid1()), self.student).store()
+        self.bucket.new(data=self.student).store()
 
     def save_map_student(self):
         student = make_student_data()
@@ -47,13 +46,10 @@ class GenerateRandomData(SolRiakcess):
         m_student.map.store()
 
     def save_same_map_student(self):
-        m_student = Dictomap(self.bucket, self.student, str(uuid.uuid1()))
-        m_student.map.store()
+        Dictomap(self.bucket, self.student).map.store()
 
     def save_something(self):
-        self.bucket.new(str(uuid.uuid1()),
-            {"name_s": fake.name(), "note_i": fake.random_int(1, 100)}
-        ).store()
+        self.bucket.new(data={"name_s": fake.name(), "note_i": fake.random_int(1, 10)}).store()
 
 
     def range_save(self):
@@ -97,7 +93,7 @@ class GenerateRandomData(SolRiakcess):
 
 
 if __name__ == '__main__':
-    rt = GenerateRandomData(workers=4, total_records=1000)
+    rt = GenerateRandomData(workers=2, total_records=1000)
 
     # rt.set_bucket('default', 'student')
     # rt.set_bucket('student', 'student2').start_test(method='save_something')

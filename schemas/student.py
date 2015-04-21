@@ -10,8 +10,8 @@ test data schema for student bucket
 from random import randint
 from faker import Faker
 
-# f = Faker(locale='tr_TR')
-f = Faker()
+f = Faker(locale='tr_TR')
+# f = Faker()
 
 DATE_TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 DATE_FORMAT = "%Y-%m-%dT00:00:00Z"
