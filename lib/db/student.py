@@ -52,10 +52,11 @@ class Student(SolRiakcess):
 if __name__ == '__main__':
     from connection import http_client
     st = Student(client=http_client)
-    s = copy.deepcopy(st)
+    # s = copy.deepcopy(st)
     # print st.by_city('A*').watch(1)[1]
     # print len(list(st.by_city('A*').watch(1)))
-    # list(st.by_city('S*').all().watch()[0:10])
+    at = st.by_city('S*')
+    print len(list(at.w()))
     # print list(st.by_city('Ak*').all())
     # print list(st.by_city('Ak*').all())
     print(st)
