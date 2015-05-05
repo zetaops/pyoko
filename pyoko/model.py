@@ -172,7 +172,6 @@ class ListModel(Model):
         lst = []
         for ins in self.values:
             dct = {}
-            print ins
             if hasattr(ins, 'obj_cache'):
                 for k, v in ins.obj_cache.items():
                     dct[k] = v.clean_value()

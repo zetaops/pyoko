@@ -48,10 +48,10 @@ for i in range(1):
         lecture.Attendance.add(date=datetime.date.today(), hour=2, attended=False)
         lecture.Attendance.add(date=datetime.date.today(), hour=4, attended=True)
         lecture.Exams.add(date=datetime.date.today(), type='Q', point=65)
-ctime = "Creation time: %s" % round(time.time() - t1, 5)
+ctime = "Object creation : %s ms" % round(time.time() - t1, 5)
 t2 = time.time()
 st.save()
-print ctime, "\n", "Display time: %s" % round(time.time() - t2, 5)
+print ctime, "\n", "Data collection : %s ms" % round(time.time() - t2, 5)
 
 
 
