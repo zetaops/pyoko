@@ -51,7 +51,7 @@ for i in range(1):
         lecture.Exams.add(date=datetime.date.today(), type='Q', point=65)
 ctime = "Object creation : %s ms" % round(time.time() - t1, 5)
 t2 = time.time()
-st.save()
+# st.save()
 print ctime, "\n", "Data collection : %s ms" % round(time.time() - t2, 5)
 
 

@@ -65,6 +65,15 @@ class Model(object):
         self._set_node_paths()
         # self._mark_linked_models()
 
+    def _get_bucket_name(self):
+        if hasattr(self, 'Meta') and hasattr(self.Meta, 'bucket_name'):
+            return self.Meta.bucket_name
+        else:
+            return self.__class__.__name__.lower()
+
+    def _path_of(self, prop):
+        return '.'.join(list(self.path + [self.__class__.__name__.lower(), prop])[1:])
+
     def instantiate_submodels(self):
         for key in self.model_names:
             self.obj_cache[key] = getattr(self, key)()
@@ -117,11 +126,11 @@ class Model(object):
 
     def collect_index_fields(self):
         result = []
-        multi = isinstance(self.__class__, ListModel)
+        multi = isinstance(self, ListModel)
         for k in self.__class__.__dict__:
             ins = getattr(self, k)
             if isinstance(ins, field.BaseField) and ins.index:
-                result.append((k, ins.__class__.__name__.lower(), multi))
+                result.append((self._path_of(k), ins.__class__.__name__.lower(), multi))
             elif isinstance(ins, Model):
                 result.extend(ins.collect_index_fields())
         return result

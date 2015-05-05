@@ -2,7 +2,7 @@
 <schema name="schedule" version="1.5">
  <fields>
 
-     {1}
+     {0}
 
    <!-- All of these fields are required by Riak Search -->
    <field name="_yz_id"   type="_yz_str" indexed="true" stored="true"  multiValued="false" required="true"/>
