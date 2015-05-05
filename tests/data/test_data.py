@@ -45,6 +45,7 @@ for i in range(1):
     for l in s['lectures']:
         l = lecture_data[l]
         lecture = st.Lectures(**l)
+        lecture.ModelInListModel(foo='FOOOO')
         lecture.Attendance.add(date=datetime.date.today(), hour=2, attended=False)
         lecture.Attendance.add(date=datetime.date.today(), hour=4, attended=True)
         lecture.Exams.add(date=datetime.date.today(), type='Q', point=65)

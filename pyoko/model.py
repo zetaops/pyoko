@@ -87,8 +87,18 @@ class Model(object):
 
     def _init_properties(self, kwargs):
         for k, v in kwargs.items():
-            if hasattr(self, k) and isinstance(getattr(self, k), field.BaseField):
+            if hasattr(self, k):
                 self.__setattr__(k, v)
+
+    def __setattr__(self, name, value):
+        attr = getattr(self, name, None)
+        if isinstance(attr, field.BaseField):
+            # attr.set_value(value)
+            self.obj_cache[name] = copy.deepcopy(attr)  # deepcopy is a pig
+            self.obj_cache[name].set_value(value)
+        else:
+            super(Model, self).__setattr__(name, value)
+
 
     def _set_node_paths(self):
         for k, v in self.__class__.__dict__.items():
@@ -96,16 +106,6 @@ class Model(object):
             if isinstance(ins, (Model, ListModel)):
                 ins.path = self.path + [self.__class__.__name__.lower()]
                 ins._set_node_paths()
-
-
-    def __setattr__(self, name, value):
-        attr = getattr(self, name, None)
-        if isinstance(attr, field.BaseField):
-            # attr.set_value(value)
-            self.obj_cache[name] = copy.deepcopy(attr)
-            self.obj_cache[name].set_value(value)
-        else:
-            super(Model, self).__setattr__(name, value)
 
     def __getattribute__(self, key):
         if key in super(Model, self).__getattribute__('obj_cache'):
@@ -171,15 +171,17 @@ class ListModel(Model):
     def clean_value(self):
         lst = []
         for ins in self.values:
-            dct = {}
+
             if hasattr(ins, 'obj_cache'):
+                dct = {}
                 for k, v in ins.obj_cache.items():
                     dct[k] = v.clean_value()
+                lst.append(dct)
             elif hasattr(ins, 'clean_value'):
                 dct[ins.__name__] = ins.clean_value()
             else:
-                dct[self.__class__.__name__] = ins
-            lst.append(dct)
+                lst.append(ins)
+
         return lst
 
     def __len__(self):

@@ -43,7 +43,7 @@ class Student(Model):
         credit = field.Integer(default=0, index=True)
 
         class ModelInListModel(Model):
-            foo = field.String
+            foo = field.String()
 
         class Exams(ListModel):
             type = field.String()
