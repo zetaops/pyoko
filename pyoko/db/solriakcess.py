@@ -8,16 +8,17 @@ this module contains a base class for other db access classes
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 import copy
-from connection import http_client as riak_client
-from connection import *
-from lib.py2map import Dictomap
-from lib.utils import DotDict, grayed
+
 from enum import Enum
+from pyoko.db.connection import http_client, riak
+
+from pyoko.exceptions import MultipleObjectsReturned
+from pyoko.lib.py2map import Dictomap
+from pyoko.lib.utils import DotDict, grayed
 
 
-class MultipleObjectsReturned(Exception):
-    """The query returned multiple objects when only one was expected."""
-    pass
+
+
 
 # TODO: Add tests
 # TODO: Implement basic functionality of "new" method
@@ -28,8 +29,10 @@ class MultipleObjectsReturned(Exception):
 # TODO: Add OR support
 # TODO: Implement schema migration for Riak JSON data
 # : Investigate queryResultWindowSize solr setting, see: http://bit.ly/1HzO0M3
+from pyoko.db.solr_schema_fields import SOLR_FIELDS
 
-ReturnType = Enum('ReturnType', 'Object Data Solr')
+
+ReturnType = Enum('ReturnType', 'Object BaseField Solr')
 
 
 class SolRiakcess(object):
@@ -40,17 +43,17 @@ class SolRiakcess(object):
     def __init__(self, **config):
 
         self.bucket = riak.RiakBucket
-        self._cfg = DotDict(config)
-        self.__client = self._cfg.pop('client', riak_client)
-        self.data_type = None  # we convert new object data according to bucket datatype, eg: Dictomaping for 'map' type
+        self._cfg = DotDict({
+            'rtype': ReturnType.Object,
+            'row_size': 1000,
+        })
+        self.__client = self._cfg.pop('client', http_client)
+        self._data_type = None  # we convert new object data according to bucket datatype, eg: Dictomaping for 'map' type
 
-        self.return_type = self._cfg.get('return_type', ReturnType.Object)
-        self.default_row_size = self._cfg.get('row_size', 1000)
 
-        self.solr_query = {}  # query parts, will be compiled before execution
-        self.solr_params = {}  # search parameters. eg: rows, fl, start, sort etc.
-        self.solr_locked = False
-
+        self._solr_query = {}  # query parts, will be compiled before execution
+        self._solr_params = {}  # search parameters. eg: rows, fl, start, sort etc.
+        self._solr_locked = False
         self._solr_cache = {}
         self._riak_cache = []  # caching riak result, for repeating iterations on same query
 
@@ -63,15 +66,11 @@ class SolRiakcess(object):
     def w(self, brief=True):
 
         print grayed("results : ", len(self._solr_cache.get('docs', [])) if brief else self._solr_cache)
-        print grayed("query : ", self.solr_query)
-        print grayed("params : ", self.solr_params)
-        # print grayed("query updated : ", self.solr_query_updated)
-        # print grayed("params updated : ", self.solr_params_updated)
-        # print grayed("re_fetch_from_riak : ", self.re_fetch_from_riak)
+        print grayed("query : ", self._solr_query)
+        print grayed("params : ", self._solr_params)
         print grayed("riak_cache : ", len(self._riak_cache) if brief else self._riak_cache)
-        print grayed("return_type : ", self.return_type)
+        print grayed("return_type : ", self._cfg.rtype)
         print grayed("new_value : ", self._new_record_value)
-
         print " "
         return self
 
@@ -92,12 +91,13 @@ class SolRiakcess(object):
 
     def __iter__(self):
         # print "ITER", self
-        if not self._solr_cache and self.return_type in (ReturnType.Data, ReturnType.Object):
+        if not self._solr_cache and self._cfg.rtype in (ReturnType.Data, ReturnType.Object):
             self._params(fl='_yz_rk')
+            # no need to fetch everything if we going to fetch from riak anyway
         self._exec_query()
-        if self.return_type == ReturnType.Object:
+        if self._cfg.rtype == ReturnType.Object:
             self._get_from_db()
-        elif self.return_type == ReturnType.Data:
+        elif self._cfg.rtype == ReturnType.Data:
             self._get_data_from_db()
         return iter(self._riak_cache or self._solr_cache['docs'])
 
@@ -113,7 +113,10 @@ class SolRiakcess(object):
             self._params(rows=1, start=index)
             return self._get()
         elif isinstance(index, slice):
-            return self._set_slice(index)
+            start, stop, step = index.indices(len(self))
+            clone = copy.deepcopy(self)
+            clone._params(rows=stop - start, start=start)
+            return clone
         else:
             raise TypeError("index must be int or slice")
 
@@ -136,16 +139,6 @@ class SolRiakcess(object):
                 obj.__dict__[k] = copy.deepcopy(v, memo)
         return obj
 
-    # ######## local methods #########
-
-
-    def _set_slice(self, index):
-        start, stop, step = index.indices(len(self))
-        clone = copy.deepcopy(self)
-        clone._params(rows=stop - start, start=start)
-        return clone
-
-
 
     # ######## Riak Methods  #########
 
@@ -155,7 +148,7 @@ class SolRiakcess(object):
         self.bucket = self.__client.bucket_type(self._cfg.bucket_type).bucket(self._cfg.bucket_name)
         if 'index' not in self._cfg:
             self._cfg.index = self._cfg.bucket_name
-        self.data_type = self.bucket.get_properties().get('datatype', None)
+        self._data_type = self.bucket.get_properties().get('datatype', None)
         return self
 
     def count_bucket(self):
@@ -171,7 +164,7 @@ class SolRiakcess(object):
 
     def save(self, key, value=None):
         value = value or self._new_record_value
-        if self.data_type == 'map' and isinstance(value, dict):
+        if self._data_type == 'map' and isinstance(value, dict):
             return Dictomap(self.bucket, value, str(key)).map.store()
         else:
             return self.bucket.new(key, value).store()
@@ -194,12 +187,12 @@ class SolRiakcess(object):
 
     def _get(self):
         self._exec_query()
-        if not self._riak_cache and self.return_type in (ReturnType.Object, ReturnType.Data):
+        if not self._riak_cache and self._cfg.rtype in (ReturnType.Object, ReturnType.Data):
             self._riak_cache = [self.bucket.get(self._solr_cache['docs'][0]['_yz_rk'])]
 
-        if self.return_type == ReturnType.Object:
+        if self._cfg.rtype == ReturnType.Object:
             return self._riak_cache[0]
-        elif self.return_type == ReturnType.Data:
+        elif self._cfg.rtype == ReturnType.Data:
             return self._riak_cache[0].data
         else:
             return self._solr_cache['docs'][0]
@@ -235,12 +228,12 @@ class SolRiakcess(object):
         """
         add/update solr query parameters
         """
-        assert not self.solr_locked, "Query already executed, no changes can be made."
-        self.solr_params.update(params)
+        assert not self._solr_locked, "Query already executed, no changes can be made."
+        self._solr_params.update(params)
 
 
     def fields(self, *args):  # riak client needs _yz_rk to distinguish between old and new search API.
-        self.solr_params.update({'fl': ' '.join(set(args + ('_yz_rk',)))})
+        self._solr_params.update({'fl': ' '.join(set(args + ('_yz_rk',)))})
         return self
 
     def solr(self):
@@ -269,7 +262,7 @@ class SolRiakcess(object):
         # elif len(self.solr_query) > 1 and '*:*' in self.solr_query:
         # self.solr_query.remove('*:*')
         query = []
-        for key, val in self.solr_query.items():
+        for key, val in self._solr_query.items():
             key = key.replace('__', '.')
             if val is None:
                 key = '-%s' % key
@@ -282,13 +275,13 @@ class SolRiakcess(object):
         return joined_query
 
     def _process_params(self):
-        if 'rows' not in self.solr_params:
-            self.solr_params['rows'] = self.default_row_size
-        return self.solr_params
+        if 'rows' not in self._solr_params:
+            self._solr_params['rows'] = self._cfg.row_size
+        return self._solr_params
 
     def _exec_query(self):
-        if not self.solr_locked:
+        if not self._solr_locked:
             self._solr_cache = self.bucket.search(self._compile_query(), self._cfg.index, **self._process_params())
-            self.solr_locked = True
+            self._solr_locked = True
         return self
 

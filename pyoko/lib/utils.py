@@ -19,10 +19,14 @@ class DotDict(dict):
     def __deepcopy__(self, memo):
         return DotDict(copy.deepcopy(dict(self)))
 
+    def __key(self):
+        return tuple((k, self[k]) for k in sorted(self))
+
+    def __hash__(self):
+        return hash(self.__key())
+
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
-
-from copy import deepcopy
 
 
 

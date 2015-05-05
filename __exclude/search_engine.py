@@ -7,7 +7,7 @@ this module contains some methods to help testing search and data retrieval on R
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
-from lib.db.base import SolRiakcess
+from pyoko.base import SolRiakcess
 
 
 class Seeker(SolRiakcess):

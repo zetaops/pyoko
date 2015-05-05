@@ -9,7 +9,6 @@ tools to convert Python dicts to / from riak Maps
 # (GPLv3).  See LICENSE.txt for details.
 from riak.datatypes import Map
 
-from schemas import  make_student_data
 
 class Dictomap(object):
     """

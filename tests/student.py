@@ -6,8 +6,7 @@
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
-import copy
-from lib.db.base import SolRiakcess
+from pyoko.base import SolRiakcess
 
 
 class Student(SolRiakcess):
@@ -15,7 +14,7 @@ class Student(SolRiakcess):
     contains common db access patterns for Student bucket
     usage:
     st = Student()
-    st.by_tcno('10623465730').get()
+    st.by_pno('10623465730').get()
     st.by_city('Kon*').all()
 
 
@@ -37,7 +36,7 @@ class Student(SolRiakcess):
     def by_id(self, student_id):
         return self.bucket.get(str(student_id))
 
-    def by_tcno(self, student_id):
+    def by_pno(self, student_id):
         return self.filter(identity_information__tc_no_l=student_id)
 
 

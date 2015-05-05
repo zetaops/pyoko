@@ -8,17 +8,18 @@ Mass data storage test case for Riak
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 import sys
-from gevent import monkey
 import time
-from lib.db.base import SolRiakcess
-from lib.py2map import Dictomap
-
-
-
 import threading
+
+from gevent import monkey
+
+from pyoko.base import SolRiakcess
+from pyoko.lib.py2map import Dictomap
+
+
 monkey.patch_all()
 
-from schemas import make_student_data
+from __exclude.schemas import make_student_data
 
 from faker import Faker
 
