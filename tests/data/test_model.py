@@ -8,11 +8,11 @@ data models for tests
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 from pyoko.db.schema_update import SchemaUpdater
-from pyoko.model import Model, ListModel, _registry
+from pyoko.model import Model, ListModel, _registry, Base
 from pyoko import field
 
 
-class Student(Model):
+class Student(Base, Model):
     def __init__(self, **kwargs):
 
         # We define model relations in __init__ method, because Python parser raises a NameError
