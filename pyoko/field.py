@@ -6,6 +6,7 @@
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
+from time import time
 from pyoko.exceptions import ValidationError
 
 
@@ -73,6 +74,13 @@ class Boolean(BaseField):
 class Date(BaseField):
     def __repr__(self):
         return "Date field with value %s" % self.value
+
+class Timestamp(BaseField):
+    def clean_value(self):
+        return round(time())
+
+    def __repr__(self):
+        return "Object version field with value %s" % self.value
 
 
 class Integer(BaseField):

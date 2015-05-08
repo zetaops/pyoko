@@ -15,13 +15,12 @@ from pyoko.db.connection import http_client
 from pyoko.lib.utils import DotDict
 from pyoko.db.solriakcess import SolRiakcess
 
-# TODONE: refactor model and data fields in manner that not need __getattribute__, __setattr__
+# TODONE: refactor model and data fields in a manner that not need __getattribute__, __setattr__
 # TODONE: complete save method
 # TODO: update solr schema creation routine for new "store" option
 # TODO: add tests for class schema to json conversion
 # TODO: add tests for class schema / json conversion
 # TODO: add tests for solr schema creation
-# TODO: add tests for db backend
 # TODO: check for missing tests
 # TODO: add missing tests
 # TODO: implement model population from db results
@@ -66,30 +65,49 @@ class ModelMeta(type):
         return new_class
 
 
-DataSource = Enum('DataSource', 'None Solr Riak')
+DataSource = Enum('DataSource', 'None Redis Solr Riak')
 
+class Base(object):
+    # Standard fields
+
+    def __init__(self, **kwargs):
+        self._deleted = field.Boolean(default=False, index=True, store=False)
+        self._archived = field.Boolean(default=False, index=True, store=True)
+        self._timestamp = field.Timestamp()
+        self._riak_object = None
+        self._loaded_from = DataSource.None
+        self.objects = SolRiakcess(model=self)
+
+
+    def save(self):
+        data_dict = self.clean_value()
+        self.objects.save()
+
+    def delete(self):
+        self._deleted = True
+        self.save()
 
 class Model(object):
     __metaclass__ = ModelMeta
-    _deleted = field.Boolean(default=False, index=True, store=False)
-    key = None
-    _riak_object = None
+
+    # # Standard fields
+    # _deleted = field.Boolean(default=False, index=True, store=False)
+    # _archived = field.Boolean(default=False, index=True, store=True)
+    # _timestamp = field.Timestamp()
+
 
     def __init__(self, **kwargs):
+        super(Model, self).__init__()
         self.__models = {}
         self.__fields = {}
         self.key = None
         self.path = []
         self.obj_cache = {}
-        self._loaded_from = DataSource.None
-        # self.objects = SolRiakcess()
-        self._conf = self._parse_meta_attributes()
-        self._conf.update(kwargs.pop('_conf', {}))
-        self._instantiate_submodels()
         self._is_child = False
-        if not self._is_child:
-            self.objects = SolRiakcess(model=self)
-        self._init_properties(kwargs)
+        self._context = kwargs.pop('_context', {})
+        self._parse_meta_attributes()
+        self._instantiate_submodels()
+        self._set_fields(kwargs)
         # self._set_node_paths()
         # self._mark_linked_models()
 
@@ -97,7 +115,7 @@ class Model(object):
         return {k: v for k, v in self.Meta.__dict__.items() if not k.startswith('__')} if hasattr(self, 'Meta') else {}
 
     def _get_bucket_name(self):
-        self._conf.get('bucket_name', self.__class__.__name__.lower())
+        self._context.get('bucket_name', self.__class__.__name__.lower())
 
     def _path_of(self, prop):
         """
@@ -111,13 +129,13 @@ class Model(object):
         instantiate all submodels, pass path data and flag them as child
         """
             # child nodes should inherit GLOBAL_CONFigurations
-            # conf = {(k, v) for k, v in self._conf.items() if k in self._GLOBAL_CONF}
+            # conf = {(k, v) for k, v in self._context.items() if k in self._GLOBAL_CONF}
         for name, klass in self.__models.items():
-            ins = klass(_conf=self._conf)
+            ins = klass(_context=self._context)
             ins.path= self.path + [self.__class__.__name__.lower()]
             ins._is_child = True
             setattr(self, name, ins)
-            # self.obj_cache[key] = getattr(self, key)(_conf=self._conf)
+            # self.obj_cache[key] = getattr(self, key)(_context=self._context)
             # self.obj_cache[key].path = self.path + [self.__class__.__name__.lower()]
             # self.obj_cache[key]._is_child = True
             # self.obj_cache[key]._instantiate_submodels()
@@ -130,45 +148,16 @@ class Model(object):
             setattr(self, name, copy.deepcopy(klass))
 
     def __call__(self, *args, **kwargs):
-        self._init_properties(kwargs)
+        self._set_fields(kwargs)
         return self
 
     def _load_data(self, name):
         pass
 
-    def _init_properties(self, kwargs):
+    def _set_fields(self, kwargs):
         for k, v in kwargs.items():
             if hasattr(self, k):
                 setattr(self, k, v)
-
-    # def __setattr__(self, name, value):
-    #     attr = getattr(self, name, None)
-    #     if isinstance(attr, field.BaseField):
-    #         # attr.set_value(value)
-    #         self.obj_cache[name] = copy.deepcopy(attr)  # deepcopy is a pig
-    #         self.obj_cache[name].set_value(value)
-    #     else:
-    #         super(Model, self).__setattr__(name, value)
-
-    # def __getattribute__(self, key):
-    #     if key in super(Model, self).__getattribute__('obj_cache'):
-    #         # try:
-    #         return super(Model, self).__getattribute__('obj_cache')[key]
-    #     else:
-    #         # except KeyError:
-    #         return super(Model, self).__getattribute__(key)
-
-    #
-    # def _set_node_paths(self):
-    #     """
-    #     setups the
-    #     :return: None
-    #     """
-    #     for k, v in self.__class__.__dict__.items():
-    #         ins = getattr(self, k)
-    #         if isinstance(ins, (Model, ListModel)):
-    #             ins.path = self.path + [self.__class__.__name__.lower()]
-    #             ins._set_node_paths()
 
     def _collect_index_fields(self):
         result = []
@@ -185,13 +174,10 @@ class Model(object):
 
     def clean_value(self):
         dct = {}
-        for k, v in self.obj_cache.items():
+        for k, v in self.__fields.items() + self.__models.items():
             dct[k] = v.clean_value()
         return dct
 
-    def save(self):
-        data_dict = self.clean_value()
-        self.objects.save()
 
 
 

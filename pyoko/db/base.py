@@ -21,15 +21,9 @@ from pyoko.lib.utils import DotDict, grayed
 
 
 # TODO: Add tests
-# TODO: Implement basic functionality of "new" method
-# TODO: Add schema support for "new" method
-# TODO: Bitcask in memory vs Redis benchmark
-# TODO: Implement basic functionality of "update" method
-# TODO: Implement basic functionality of "(mark_as_)delete" method
+# TODO: Add "ignore marked as _deleted"
 # TODO: Add OR support
-# TODO: Implement schema migration for Riak JSON data
-# : Investigate queryResultWindowSize solr setting, see: http://bit.ly/1HzO0M3
-from pyoko.db.solr_schema_fields import SOLR_FIELDS
+
 
 
 ReturnType = Enum('ReturnType', 'Solr Object Data Model')
