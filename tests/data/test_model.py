@@ -7,7 +7,8 @@ data models for tests
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
-from pyoko.model import Model, ListModel
+from pyoko.db.schema_update import SchemaUpdater
+from pyoko.model import Model, ListModel, _registry
 from pyoko import field
 
 
@@ -21,6 +22,7 @@ class Student(Model):
 
     class Meta(object):
         bucket = 'student'
+        solr_store = True
 
 
     number = field.String(index=True)
@@ -28,6 +30,7 @@ class Student(Model):
     name = field.String(index='tr')
     surname = field.String(index='tr')
     join_date = field.Date(index=True)
+    bio = field.Text(index=True)
 
     class AuthInfo(Model):
         username = field.String(index=True)
@@ -48,7 +51,7 @@ class Student(Model):
         class Exams(ListModel):
             type = field.String()
             date = field.Date()
-            point = field.Integer()
+            point = field.Integer(store=False)
 
             class Meta(object):
                 required = False
@@ -67,8 +70,8 @@ class ContactInfo(Model):
         name = field.String()
         street = field.String()
         town = field.String()
-        city = field.String()
-        postal_code = field.Integer()
+        city = field.String(index=True)
+        postal_code = field.Integer(index=True)
 
 
     class Phones(ListModel):
@@ -76,7 +79,8 @@ class ContactInfo(Model):
         land_line = field.String()
 
 
-# s = Student()
+s = Student()
 # c = ContactInfo()
 # c.Addresses()
 
+# SchemaUpdater(_registry)

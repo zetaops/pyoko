@@ -54,6 +54,6 @@ t2 = time.time()
 # st.save()
 print ctime, "\n", "Data collection : %s ms" % round(time.time() - t2, 5)
 
-
+# qs = Student.objects.filter(name='Jack',lectures__attandance__attended=False)
 
     # Student.objects

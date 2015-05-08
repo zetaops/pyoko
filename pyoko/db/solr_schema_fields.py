@@ -1,6 +1,8 @@
 SOLR_FIELDS = {
-'string': '<field name="%s" type="string"  indexed="true" stored="true" multiValued="%s" />',
-'int': '<field name="%s" type="int" indexed="true" stored="false" multiValued="%s" />',
-'bool': '<field name="deleted" type="boolean" indexed="true" stored="false" multiValued="%s" />',
-'local': '<field name="*_tr" type="text_%s" indexed="true" stored="true" multiValued="%s" />'
+'string': '<field type="string" name="{name}"  indexed="{index}" stored="{store}" multiValued="{multi}" />',
+'text': '<field type="string"  name="{name}"  indexed="{index}" stored="{store}" multiValued="{multi}" />',
+'float': '<field type="float"  name="{name}"  indexed="{index}" stored="{store}" multiValued="{multi}" />',
+'int': '<field type="int" name="{name}"  indexed="{index}" stored="{store}" multiValued="{multi}" />',
+'bool': '<field type="boolean" name="{name}"  indexed="{index}" stored="{store}" multiValued="{multi}" />',
+'local': '<field type="text_{type}" name="{name}"  indexed="{index}" stored="{store}" multiValued="{multi}" />'
 }

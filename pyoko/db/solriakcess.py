@@ -32,7 +32,7 @@ from pyoko.lib.utils import DotDict, grayed
 from pyoko.db.solr_schema_fields import SOLR_FIELDS
 
 
-ReturnType = Enum('ReturnType', 'Object BaseField Solr')
+ReturnType = Enum('ReturnType', 'Solr Object Data Model')
 
 
 class SolRiakcess(object):
@@ -40,13 +40,15 @@ class SolRiakcess(object):
     This class implements Django-esque query APIs with the aim of fusing Solr and Riak in a more pythonic way
     """
 
-    def __init__(self, **config):
+    def __init__(self, **conf):
 
         self.bucket = riak.RiakBucket
-        self._cfg = DotDict({
-            'rtype': ReturnType.Object,
-            'row_size': 1000,
-        })
+        self._cfg = DotDict(conf)
+        self._cfg.row_size = 1000
+        if 'model' in self._cfg:
+            self._cfg['rtype'] = ReturnType.Model
+        else:
+            self._cfg['rtype'] = ReturnType.Object
         self.__client = self._cfg.pop('client', http_client)
         self._data_type = None  # we convert new object data according to bucket datatype, eg: Dictomaping for 'map' type
 
@@ -162,24 +164,38 @@ class SolRiakcess(object):
         """
         raise NotImplemented
 
-    def save(self, key, value=None):
+    def save(self, value=None, key=None):
         value = value or self._new_record_value
         if self._data_type == 'map' and isinstance(value, dict):
             return Dictomap(self.bucket, value, str(key)).map.store()
         else:
-            return self.bucket.new(key, value).store()
+            return self.bucket.new(value=value, key=key).store()
+
+    def _save_model(self):
+        model = self._cfg['model']
+        riak_object = self.save(model.clean_value(), model.key)
+        if not model.key:
+            model.key = riak_object.key
 
     def _get_from_db(self):
-        print "gfDB",self
+        """
+        get objects from riak bucket
+        :return: :class:`~riak.riak_object.RiakObject` or
+                :class:`~riak.datatypes.Datatype`
+        """
         if not self._riak_cache:
-            if not self._cfg.get('multiget'):
+            if 'multiget' not in self._cfg:
                 self._riak_cache = map(lambda k: self.bucket.get(k['_yz_rk']), self._solr_cache['docs'])
             else:
                 self._riak_cache = self.bucket.multiget(map(lambda k: k['_yz_rk'], self._solr_cache['docs']))
 
-    def _get_data_from_db(self, data=False):
+    def _get_data_from_db(self):
+        """
+        get json data from riak bucket
+        :return: Json
+        """
         if not self._riak_cache:
-            if self._cfg.get('multiget'):
+            if 'multiget' in self._cfg:
                 self._riak_cache = map(lambda o: o.data, self.bucket.multiget(
                     map(lambda k: k['_yz_rk'], self._solr_cache['docs'])))
             else:

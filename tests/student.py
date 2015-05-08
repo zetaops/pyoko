@@ -6,7 +6,7 @@
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
-from pyoko.base import SolRiakcess
+from pyoko.db.solriakcess import SolRiakcess
 
 
 class Student(SolRiakcess):
