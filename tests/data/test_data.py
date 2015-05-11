@@ -52,6 +52,7 @@ for i in range(1):
 ctime = "Object creation : %s ms" % round(time.time() - t1, 5)
 t2 = time.time()
 # st.save()
+print(st.clean_value())
 print ctime, "\n", "Data collection : %s ms" % round(time.time() - t2, 5)
 
 # qs = Student.objects.filter(name='Jack',lectures__attandance__attended=False)

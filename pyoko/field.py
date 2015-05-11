@@ -26,74 +26,64 @@ class BaseField(object):
         self.index_as = index_as
         self.index = index or bool(index_as)
         self.store = store
+        self.name = ''
         self.value = default or self.default_value
         self._updated = False  # user set or updated the value
         self._fetched = False  # value loaded from solr or riak
-
-    def set_value(self, value):
-        self._updated = self.validate(value)
-        self.value = value
+    #
+    # def set_value(self, value):
+    #     self._updated = self.validate(value)
+    #     self.value = value
 
     def __get__(self, instance, cls=None):
-        return instance.value
+        # return self
+        print "GET___", self.value, instance, cls
+        if cls is None:
+            return self
+        return instance._fields.get(self.name, None)
 
     def __set__(self, instance, value):
-        instance._updated = self.validate(value)
-        instance.value = value
+        print "__set__ called for : ", self, value
+        # self._updated = self.validate(value)
+        instance._fields[self.name] = value
 
     def __delete__(self,instance):
         raise AttributeError("Can't delete attribute")
 
-    def clean_value(self):
-        return self.value
+    def clean_value(self, val):
+        return val
 
-    def validate(self, value):
+    def validate(self, val):
         return True
 
-    def __repr__(self):
-        return self.value
 
 # class Dict(BaseField):
 #     pass
 
 
 class String(BaseField):
-
-    def __repr__(self):
-        return "String field with value %s" % self.value
+    pass
 
 class Text(BaseField):
-
-    def __repr__(self):
-        return "Text field with value %s..." % (self.value[:40] if self.value else '',)
+    pass
 
 class Boolean(BaseField):
-
-    def __repr__(self):
-        return "Boolean field with value %s" % self.value
+    pass
 
 class Date(BaseField):
-    def __repr__(self):
-        return "Date field with value %s" % self.value
+    pass
 
 class Timestamp(BaseField):
-    def clean_value(self):
+    def clean_value(self, val):
         return round(time())
 
-    def __repr__(self):
-        return "Object version field with value %s" % self.value
 
 
 class Integer(BaseField):
     default_value = 0
 
-    def clean_value(self):
+    def clean_value(self, val):
         try:
-            return int(self.value)
+            return int(val)
         except ValueError:
-            raise ValidationError("%r could not be cast to integer" % (self.value,))
-
-    def __repr__(self):
-        return "Integer field with value %s" % self.value
-
-
+            raise ValidationError("%r could not be cast to integer" % val)

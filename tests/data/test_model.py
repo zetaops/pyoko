@@ -22,7 +22,7 @@ class Student(Base, Model):
 
     class Meta(object):
         bucket = 'student'
-        solr_store = True
+        store = True
 
 
     number = field.String(index=True)
@@ -79,7 +79,15 @@ class ContactInfo(Model):
         land_line = field.String()
 
 
-s = Student()
+class Mini(Model):
+    name = field.String()
+
+
+a = Mini(name='n1')
+b = Mini()
+b(name='n2')
+c = Mini()
+c.name = 'n3'
 # c = ContactInfo()
 # c.Addresses()
 
