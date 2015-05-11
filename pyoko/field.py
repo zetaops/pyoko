@@ -21,9 +21,10 @@ class BaseField(object):
     link_type = False
     default_value = None
 
-    def __init__(self, required=False, index=False, default=None, store=SOLR_STORE_ALL):
+    def __init__(self, required=False, index=False, default=None, index_as=None, store=SOLR_STORE_ALL):
         self.required = required
-        self.index = index
+        self.index_as = index_as
+        self.index = index or bool(index_as)
         self.store = store
         self.value = default or self.default_value
         self._updated = False  # user set or updated the value
@@ -64,7 +65,7 @@ class String(BaseField):
 class Text(BaseField):
 
     def __repr__(self):
-        return "Text field with value %s..." % self.value[:40]
+        return "Text field with value %s..." % (self.value[:40] if self.value else '',)
 
 class Boolean(BaseField):
 

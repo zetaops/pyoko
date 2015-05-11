@@ -65,7 +65,7 @@ class ModelMeta(type):
         return new_class
 
 
-DataSource = Enum('DataSource', 'None Redis Solr Riak')
+DataSource = Enum('DataSource', 'None Cache Solr Riak')
 
 class Base(object):
 
@@ -106,6 +106,7 @@ class Model(object):
         self._is_child = False
         self._context = kwargs.pop('_context', {})
         self._parse_meta_attributes()
+        self._embed_fields()
         self._instantiate_submodels()
         self._set_fields(kwargs)
         # self._set_node_paths()
@@ -162,12 +163,16 @@ class Model(object):
     def _collect_index_fields(self):
         result = []
         multi = isinstance(self, ListModel)
-        for k in self.__class__.__dict__:
-            ins = getattr(self, k)
-            if isinstance(ins, field.BaseField) and ins.index:
-                result.append((self._path_of(k), ins.__class__.__name__.lower(), multi))
-            elif isinstance(ins, Model):
-                result.extend(ins._collect_index_fields())
+        for field_name, field_ins in self.__dict__.items():
+            if isinstance(field_ins, field.BaseField) and (field_ins.index or field_ins.store):
+                result.append((self._path_of(field_name),
+                               field_ins.__class__.__name__,
+                               field_ins.index_as,
+                               field_ins.index,
+                               field_ins.store,
+                               multi))
+            elif isinstance(field_ins, Model):
+                result.extend(field_ins._collect_index_fields())
         return result
 
     # ######## Public Methods  #########

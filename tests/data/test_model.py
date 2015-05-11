@@ -27,8 +27,8 @@ class Student(Base, Model):
 
     number = field.String(index=True)
     pno = field.String(index=True)
-    name = field.String(index='tr')
-    surname = field.String(index='tr')
+    name = field.String(index_as='text_tr')
+    surname = field.String(index_as='text_tr')
     join_date = field.Date(index=True)
     bio = field.Text(index=True)
 
@@ -41,7 +41,7 @@ class Student(Base, Model):
             required = False
 
     class Lectures(ListModel):
-        name = field.String(index='tr')
+        name = field.String(index_as='text_tr')
         code = field.String(required=False, index=True)
         credit = field.Integer(default=0, index=True)
 
