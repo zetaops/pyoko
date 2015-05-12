@@ -53,19 +53,19 @@ class ModelMeta(type):
     def __new__(mcs, name, bases, attrs):
         models = {}
         clean_fields = {}
-        field_names = []
+        fieldins = {}
         for key in list(attrs.keys()):
             if hasattr(attrs[key], '__base__') and attrs[key].__base__.__name__ in ('ListModel', 'Model'):
                 models[key] = attrs.pop(key)
             elif hasattr(attrs[key], 'clean_value'):
                 attrs[key].name = key
-                field_names.append(key)
+                fieldins[key] = attrs[key]
                 clean_fields[key] = attrs[key].clean_value
 
         new_class = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
         new_class._models = models
         new_class._clean_fields = clean_fields
-        new_class._field_names = field_names
+        new_class._fieldins = fieldins
         _registry.register_model(new_class)
         return new_class
 
@@ -160,23 +160,22 @@ class Model(object):
         pass
 
     def _set_fields_values(self, kwargs):
-        for k in self._field_names:
+        for k in self._fieldins:
             self._fields[k] = kwargs.get(k)
 
     def _collect_index_fields(self):
         result = []
         multi = isinstance(self, ListModel)
-        for field_name, field_ins in self.__dict__.items():
-            if isinstance(field_ins, field.BaseField) and (
-                        field_ins.index or field_ins.store):
-                result.append((self._path_of(field_name),
+        for name, field_ins in self._fieldins.items():
+            if field_ins.index or field_ins.store:
+                result.append((self._path_of(name),
                                field_ins.__class__.__name__,
                                field_ins.index_as,
                                field_ins.index,
                                field_ins.store,
                                multi))
-            elif isinstance(field_ins, Model):
-                result.extend(field_ins._collect_index_fields())
+        for mdl_ins in self._models:
+            result.extend(getattr(self, mdl_ins)._collect_index_fields())
         return result
 
     # ######## Public Methods  #########

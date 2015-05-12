@@ -12,7 +12,7 @@ from pyoko.model import Model, ListModel, Base
 from pyoko import field
 
 
-class Student(Base, Model):
+class Student(Base
     def __init__(self, **kwargs):
 
         # We define model relations in __init__ method, because Python parser raises a NameError
