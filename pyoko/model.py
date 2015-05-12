@@ -19,12 +19,12 @@ from pyoko.db.base import DBObjects
 # TODONE: refactor model and data fields in a manner that not need __getattribute__, __setattr__
 # TODONE: complete save method
 # TODONE: update solr schema creation routine for new "store" option
-# TODO: add tests for class schema to json conversion
-# TODO: add tests for class schema / json conversion
+# TODONE: add tests for class schema to json conversion
 # TODO: add tests for solr schema creation
 # TODO: check for missing tests
 # TODO: add missing tests
-# TODO: implement model population from db results
+# TODO: implement Model population from db results
+# TODO: implement ListModel population from db results
 # TODO: add tests
 # TODO: implement versioned data update mechanism (based on Redis?)
 # TODO: add tests
@@ -199,10 +199,18 @@ class ListModel(Model):
     # ######## Public Methods  #########
 
     def add(self, **datadict):
+        # Currently this method only usable on ListModels that doesnt contain another model.
+        # if user update a ListModel in this way, than codes that use this method has to be updated too!
+        # TODO: IMPORTANT::: schema updates should not cause a API changes!!!
         assert not self._models, NotCompatible
-        self.values.append(DotDict(datadict))
+        self.values.append(DotDict(datadict or self._fields))
 
     def clean_value(self):
+        """
+        currently a ListModel can contain values(list of dicts) or objects(list of it's instances)
+        but not both.
+        :return: dict
+        """
         lst = []
         if self.values:
             for val in self.values:

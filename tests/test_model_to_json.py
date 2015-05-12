@@ -47,8 +47,14 @@ def test_model_to_json_expand():
         milm = lecture.ModelInListModel()
         milm.foo = ld['ModelInListModel']['foo']
         for atd in ld['Attendance']:
-            lecture.Attendance.add(**atd)
+            lecture.Attendance.attended = atd['attended']
+            lecture.Attendance.date = atd['date']
+            lecture.Attendance.hour = atd['hour']
+            lecture.Attendance.add()
         for exam in ld['Exams']:
-            lecture.Exams.add(**exam)
+            lecture.Exams.date = exam['date']
+            lecture.Exams.point = exam['point']
+            lecture.Exams.type = exam['type']
+            lecture.Exams.add()
 
     assert data == s.clean_value()
