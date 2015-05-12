@@ -204,9 +204,7 @@ class ListModel(Model):
 
     def clean_value(self):
         lst = []
-        print self.__class__.__name__, self.values
         if self.values:
-
             for val in self.values:
                 dct = {}
                 for field_name, clean_func in self._clean_fields.items():
@@ -219,7 +217,7 @@ class ListModel(Model):
                     dct[name] = clean_func(ins._fields[name])
                 for mdl_name in ins._models:
                     dct[mdl_name] = getattr(ins, mdl_name).clean_value()
-            lst.append(dct)
+                lst.append(dct)
         return lst
 
     # ######## Python Magic  #########
