@@ -8,7 +8,7 @@ data models for tests
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 from pyoko.db.schema_update import SchemaUpdater
-from pyoko.model import Model, ListModel, _registry, Base
+from pyoko.model import Model, ListModel, Base
 from pyoko import field
 
 
@@ -76,18 +76,3 @@ class ContactInfo(Model):
     class Phones(ListModel):
         gsm = field.String()
         land_line = field.String()
-
-
-class Mini(Model):
-    name = field.String()
-
-
-a = Mini(name='n1')
-b = Mini()
-b(name='n2')
-c = Mini()
-c.name = 'n3'
-# c = ContactInfo()
-# c.Addresses()
-
-# SchemaUpdater(_registry)

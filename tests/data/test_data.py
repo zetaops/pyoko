@@ -8,54 +8,47 @@ data models for tests
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 import datetime
-from pprint import pprint
-import time
-from test_model import *
 
-lecture_data = {
-    'math101':{
-        'name': 'Introduction to Math',
-        'code': 'math101',
-        'credit': 4
-    },
-    'rock101':{
-        'name': 'Introduction to Rocking',
-        'code': 'rock101',
-        'credit': 10,
-    }
-}
+data = {'AuthInfo': {'email': 'suuper@suup.com',
+                     'password': '123',
+                     'username': 'foo_user'},
+        'Lectures': [{'Attendance': [{'attended': False,
+                                      'date': datetime.date(2015, 5, 12),
+                                      'hour': 2},
+                                     {'attended': True,
+                                      'date': datetime.date(2015, 5, 12),
+                                      'hour': 4}],
+                      'Exams': [{'date': datetime.date(2015, 5, 12),
+                                 'point': 65,
+                                 'type': 'Q'}],
+                      'ModelInListModel': {'foo': 'FOOOO'},
+                      'code': 'math101',
+                      'credit': 4,
+                      'name': 'Introduction to Math'},
+                     {'Attendance': [{'attended': False,
+                                      'date': datetime.date(2015, 5, 12),
+                                      'hour': 2},
+                                     {'attended': True,
+                                      'date': datetime.date(2015, 5, 12),
+                                      'hour': 4}],
+                      'Exams': [{'date': datetime.date(2015, 5, 12),
+                                 'point': 65,
+                                 'type': 'Q'}],
+                      'ModelInListModel': {'foo': 'FOOOO'},
+                      'code': 'rock101',
+                      'credit': 10,
+                      'name': 'Introduction to Rocking'}],
+        'bio': "Lorem impsum dolar sit amet falan filan",
+        'join_date': datetime.date(2015, 5, 12),
+        'name': 'Jack',
+        'number': '20300344',
+        'pno': '2343243433',
+        'surname': 'Black'}
 
-student_data = [
-    {
-        'name': "Jack",
-        'surname': "Black",
-        'pno': "2343243433",
-        'number': "20300344",
-        'lectures': ['math101', 'rock101'],
-        'attendance':[]
-    },
-]
 
-# if __file__ == '__main__':
-t1 = time.time()
-s = student_data[0]
-for i in range(1):
-    st = Student(**s)
-    st.join_date = datetime.date.today()
-    st.AuthInfo(username='foo_user', email='suuper@suup.com', password='123')
-    for l in s['lectures']:
-        l = lecture_data[l]
-        lecture = st.Lectures(**l)
-        lecture.ModelInListModel(foo='FOOOO')
-        lecture.Attendance.add(date=datetime.date.today(), hour=2, attended=False)
-        lecture.Attendance.add(date=datetime.date.today(), hour=4, attended=True)
-        lecture.Exams.add(date=datetime.date.today(), type='Q', point=65)
-ctime = "Object creation : %s ms" % round(time.time() - t1, 5)
-t2 = time.time()
-# st.save()
-pprint(st.clean_value())
-print ctime, "\n", "Data collection : %s ms" % round(time.time() - t2, 5)
+
+
 
 # qs = Student.objects.filter(name='Jack',lectures__attandance__attended=False)
 
-    # Student.objects
+# Student.objects
