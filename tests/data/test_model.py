@@ -73,7 +73,6 @@ class ContactInfo(Model):
         city = field.String(index=True)
         postal_code = field.Integer(index=True)
 
-
     class Phones(ListModel):
         gsm = field.String()
         land_line = field.String()

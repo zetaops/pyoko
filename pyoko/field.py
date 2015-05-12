@@ -37,13 +37,13 @@ class BaseField(object):
 
     def __get__(self, instance, cls=None):
         # return self
-        print "GET___", self.value, instance, cls
+        # print "GET___", self.value, instance, cls
         if cls is None:
             return self
         return instance._fields.get(self.name, None)
 
     def __set__(self, instance, value):
-        print "__set__ called for : ", self, value
+        # print "__set__ called for : ", self, value
         # self._updated = self.validate(value)
         instance._fields[self.name] = value
 
@@ -83,6 +83,7 @@ class Integer(BaseField):
     default_value = 0
 
     def clean_value(self, val):
+        val = val or self.default_value
         try:
             return int(val)
         except ValueError:

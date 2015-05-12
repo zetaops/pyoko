@@ -18,6 +18,10 @@ class ValidationError(PyokoError):
 class NoSuchObjectError(PyokoError):
     pass
 
+class NotCompatible(PyokoError):
+    """Incorrect usage of method / function"""
+    pass
+
 class MultipleObjectsReturned(PyokoError):
     """The query returned multiple objects when only one was expected."""
     pass

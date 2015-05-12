@@ -8,6 +8,7 @@ data models for tests
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 import datetime
+from pprint import pprint
 import time
 from test_model import *
 
@@ -52,7 +53,7 @@ for i in range(1):
 ctime = "Object creation : %s ms" % round(time.time() - t1, 5)
 t2 = time.time()
 # st.save()
-print(st.clean_value())
+pprint(st.clean_value())
 print ctime, "\n", "Data collection : %s ms" % round(time.time() - t2, 5)
 
 # qs = Student.objects.filter(name='Jack',lectures__attandance__attended=False)

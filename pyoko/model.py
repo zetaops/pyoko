@@ -12,6 +12,7 @@ from enum import Enum
 
 from pyoko import field
 from pyoko.db.connection import http_client
+from pyoko.exceptions import NotCompatible
 from pyoko.lib.utils import DotDict
 from pyoko.db.base import DBObjects
 
@@ -193,46 +194,39 @@ class ListModel(Model):
     def __init__(self, **kwargs):
         super(ListModel, self).__init__(**kwargs)
         self.values = []
+        self.models = []
 
     # ######## Public Methods  #########
 
     def add(self, **datadict):
-        # extract data fields from subclasses and store them appropriately
-        #
-        # for k, v in datadict.items():
-        #     if isinstance(getattr(self, k), (ListModel, Model)):
-        #         datadict.pop(k)
+        assert not self._models, NotCompatible
         self.values.append(DotDict(datadict))
 
     def clean_value(self):
         lst = []
-        for ins in self.values:
-            # if hasattr(ins, 'obj_cache'):
-            #     dct = {}
-            #     for k, v in ins.obj_cache.items():
-            #         dct[k] = v.clean_value()
-            #     lst.append(dct)
+        print self.__class__.__name__, self.values
+        if self.values:
 
-            # dct = {}
-            # for name in self._models:
-            #     dct[name] = getattr(self, name).clean_value()
-            # for name, func in self._clean_fields.items():
-            #     dct[name] = func(self._fields[name])
-            # return dct
-            #
-            if hasattr(ins, 'clean_value'):
-                lst.append({ins.__class__.__name__: ins.clean_value()})
-            else:
-                lst.append(ins)
+            for val in self.values:
+                dct = {}
+                for field_name, clean_func in self._clean_fields.items():
+                    dct[field_name] = clean_func(val[field_name])
+                lst.append(dct)
+        elif self.models:
+            for ins in self.models:
+                dct = {}
+                for name, clean_func in ins._clean_fields.items():
+                    dct[name] = clean_func(ins._fields[name])
+                for mdl_name in ins._models:
+                    dct[mdl_name] = getattr(ins, mdl_name).clean_value()
+            lst.append(dct)
         return lst
 
     # ######## Python Magic  #########
 
     def __call__(self, **kwargs):
         clone = self.__class__(**kwargs)
-        # clone.instantiate_submodels()
-        # clone._init_properties(kwargs)
-        self.values.append(clone)
+        self.models.append(clone)
         return clone
 
     def __len__(self):
