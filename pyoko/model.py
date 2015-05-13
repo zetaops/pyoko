@@ -52,20 +52,17 @@ _registry = Registry()
 class ModelMeta(type):
     def __new__(mcs, name, bases, attrs):
         models = {}
-        clean_fields = {}
-        fieldins = {}
+        base_fields = {}
         for key in list(attrs.keys()):
             if hasattr(attrs[key], '__base__') and attrs[key].__base__.__name__ in ('ListModel', 'Model'):
                 models[key] = attrs.pop(key)
             elif hasattr(attrs[key], 'clean_value'):
                 attrs[key].name = key
-                fieldins[key] = attrs[key]
-                clean_fields[key] = attrs[key].clean_value
+                base_fields[key] = attrs[key]
 
         new_class = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
         new_class._models = models
-        new_class._clean_fields = clean_fields
-        new_class._fieldins = fieldins
+        new_class._base_fields = base_fields
         _registry.register_model(new_class)
         return new_class
 
@@ -74,10 +71,10 @@ DataSource = Enum('DataSource', 'None Cache Solr Riak')
 
 
 class Base(object):
+    archived = field.Boolean(default=False, index=True, store=True)
+    timestamp = field.Timestamp()
+
     def __init__(self, **kwargs):
-        self._deleted = field.Boolean(default=False, index=True, store=False)
-        self._archived = field.Boolean(default=False, index=True, store=True)
-        self._timestamp = field.Timestamp()
         self._riak_object = None
         self._loaded_from = DataSource.None
         self.objects = DBObjects(model=self)
@@ -106,7 +103,7 @@ class Model(object):
         super(Model, self).__init__()
         self.key = None
         self.path = []
-        self._fields = {}
+        self._field_values = {}
         self._context = self.__defaults.copy()
         self._context.update(kwargs.pop('_context', {}))
         self._parse_meta_attributes()
@@ -149,7 +146,7 @@ class Model(object):
         """
         reinstantiates data fields of model as instance properties.
         """
-        for name, klass in self._fields.items():
+        for name, klass in self._field_values.items():
             setattr(self, name, copy.deepcopy(klass))
 
     def __call__(self, *args, **kwargs):
@@ -160,13 +157,13 @@ class Model(object):
         pass
 
     def _set_fields_values(self, kwargs):
-        for k in self._fieldins:
-            self._fields[k] = kwargs.get(k)
+        for k in self._base_fields:
+            self._field_values[k] = kwargs.get(k)
 
     def _collect_index_fields(self):
         result = []
         multi = isinstance(self, ListModel)
-        for name, field_ins in self._fieldins.items():
+        for name, field_ins in self._base_fields.items():
             if field_ins.index or field_ins.store:
                 result.append((self._path_of(name),
                                field_ins.__class__.__name__,
@@ -184,8 +181,8 @@ class Model(object):
         dct = {}
         for name in self._models:
             dct[name] = getattr(self, name).clean_value()
-        for name, func in self._clean_fields.items():
-            dct[name] = func(self._fields[name])
+        for name, field_ins in self._base_fields.items():
+            dct[name] = field_ins.clean_value(self._field_values[name])
         return dct
 
 
@@ -202,7 +199,7 @@ class ListModel(Model):
         # if user update a ListModel in this way, than codes that use this method has to be updated too!
         # TODO: IMPORTANT::: schema updates should not cause a API changes!!!
         assert not self._models, NotCompatible
-        self.values.append(DotDict(datadict or self._fields))
+        self.values.append(DotDict(datadict or self._field_values))
 
     def clean_value(self):
         """
@@ -214,14 +211,14 @@ class ListModel(Model):
         if self.values:
             for val in self.values:
                 dct = {}
-                for field_name, clean_func in self._clean_fields.items():
-                    dct[field_name] = clean_func(val[field_name])
+                for field_name, ins in self._base_fields.items():
+                    dct[field_name] = ins.clean_value(val[field_name])
                 lst.append(dct)
         elif self.models:
             for ins in self.models:
                 dct = {}
-                for name, clean_func in ins._clean_fields.items():
-                    dct[name] = clean_func(ins._fields[name])
+                for name, field_ins in ins._base_fields.items():
+                    dct[name] = field_ins.clean_value(ins._field_values[name])
                 for mdl_name in ins._models:
                     dct[mdl_name] = getattr(ins, mdl_name).clean_value()
                 lst.append(dct)

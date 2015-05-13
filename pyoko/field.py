@@ -40,12 +40,12 @@ class BaseField(object):
         # print "GET___", self.value, instance, cls
         if cls is None:
             return self
-        return instance._fields.get(self.name, None)
+        return instance._field_values.get(self.name, None)
 
     def __set__(self, instance, value):
         # print "__set__ called for : ", self, value
         # self._updated = self.validate(value)
-        instance._fields[self.name] = value
+        instance._field_values[self.name] = value
 
     def __delete__(self,instance):
         raise AttributeError("Can't delete attribute")

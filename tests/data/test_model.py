@@ -12,9 +12,8 @@ from pyoko.model import Model, ListModel, Base
 from pyoko import field
 
 
-class Student(Base
+class Student(Base, Model):
     def __init__(self, **kwargs):
-
         # We define model relations in __init__ method, because Python parser raises a NameError
         # if we refer to a not yet defined class in body of another class.
         self.contact_info = ContactInfo()
@@ -23,7 +22,6 @@ class Student(Base
     class Meta(object):
         bucket = 'student'
         store = True
-
 
     number = field.String(index=True)
     pno = field.String(index=True)
