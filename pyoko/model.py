@@ -71,8 +71,10 @@ DataSource = Enum('DataSource', 'None Cache Solr Riak')
 
 
 class Base(object):
-    archived = field.Boolean(default=False, index=True, store=True)
-    timestamp = field.Timestamp()
+    _DEFAULT_BASE_FIELDS = {
+        'archived': field.Boolean(default=False, index=True, store=True),
+        'timestamp': field.Timestamp(),
+        'deleted': field.Boolean(default=False, index=True, store=False)}
 
     def __init__(self, **kwargs):
         self._riak_object = None

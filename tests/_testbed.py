@@ -27,6 +27,7 @@ class Boo(object):
     a = {}
     b = 12345
     c = []
+
 f = Foo()
 t1 = time()
 
