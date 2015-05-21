@@ -26,8 +26,7 @@ class BaseField(object):
         self.index_as = index_as
         self.index = index or bool(index_as)
         self.store = store
-        if default:
-            self.default = default
+        self.default = default
         self.name = ''
 
         # self._updated = False  # user set or updated the value

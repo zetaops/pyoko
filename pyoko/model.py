@@ -21,8 +21,8 @@ from pyoko.db.base import DBObjects
 # TODONE: update solr schema creation routine for new "store" option
 # TODONE: add tests for class schema to json conversion
 # TODONE: add tests for solr schema creation
-# TODO: check for missing tests
-# TODO: add missing tests
+# TODO: prepare temporary riak env
+# TODO: add tests for save, filter
 # TODO: implement Model population from db results
 # TODO: implement ListModel population from db results
 # TODO: add tests
@@ -78,7 +78,7 @@ class Base(object):
     _DEFAULT_BASE_FIELDS = {
         'archived': field.Boolean(default=False, index=True, store=True),
         'timestamp': field.Date(index=True, store=True),
-        'deleted': field.Boolean(default=False, index=True, store=False)}
+        '_deleted': field.Boolean(default=False, index=True, store=False)}
 
     def __init__(self, **kwargs):
         self._riak_object = None
