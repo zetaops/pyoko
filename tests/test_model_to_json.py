@@ -21,14 +21,19 @@ def test_model_to_json_compact():
             lecture.Attendance.add(**atd)
         for exam in lct_data['Exams']:
             lecture.Exams.add(**exam)
-
-    assert data == st.clean_value()
+    print st.clean_value()
+    clean_value  = st.clean_value()
+    data['timestamp'] = clean_value['timestamp']
+    assert data == clean_value
 
 
 def test_model_to_json_expand():
     d = data
     s = Student()
     s.number = d['number']
+    s.deleted = d['deleted']
+    s.archived = d['archived']
+    s.timestamp = d['timestamp']
     s.bio = d['bio']
     s.name = d['name']
     s.surname = d['surname']

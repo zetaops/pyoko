@@ -14,10 +14,12 @@ from tests.data.test_model import Student
 def test_collect_index_fields():
     st = Student()
     result = st._collect_index_fields()
+    print result
     assert result == test_data_solr_fields
 
 def test_create_solr_schema():
     st = Student()
     fields = st._collect_index_fields()
     result = SchemaUpdater.create_schema(fields)
+    print result
     assert result == test_data_solr_schema

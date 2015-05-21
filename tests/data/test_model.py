@@ -18,6 +18,7 @@ class Student(Base, Model):
         # if we refer to a not yet defined class in body of another class.
         self.contact_info = ContactInfo()
         super(Student, self).__init__(**kwargs)
+    # contact_info = ContactInfo()
 
     class Meta(object):
         bucket = 'student'
@@ -74,3 +75,4 @@ class ContactInfo(Model):
     class Phones(ListModel):
         gsm = field.String()
         land_line = field.String()
+

@@ -20,7 +20,7 @@ from pyoko.db.base import DBObjects
 # TODONE: complete save method
 # TODONE: update solr schema creation routine for new "store" option
 # TODONE: add tests for class schema to json conversion
-# TODO: add tests for solr schema creation
+# TODONE: add tests for solr schema creation
 # TODO: check for missing tests
 # TODO: add missing tests
 # TODO: implement Model population from db results
@@ -30,6 +30,8 @@ from pyoko.db.base import DBObjects
 # TODO: add tests
 # TODO: implement one-to-many (also based on Redis?)
 # TODO: add tests
+# TODO: Add AbstractBase Model Support
+
 
 class Registry(object):
     def __init__(self):
@@ -53,6 +55,8 @@ class ModelMeta(type):
     def __new__(mcs, name, bases, attrs):
         models = {}
         base_fields = {}
+        if bases[0].__name__ == 'Base':
+            attrs.update(bases[0]._DEFAULT_BASE_FIELDS)
         for key in list(attrs.keys()):
             if hasattr(attrs[key], '__base__') and attrs[key].__base__.__name__ in ('ListModel', 'Model'):
                 models[key] = attrs.pop(key)
@@ -73,7 +77,7 @@ DataSource = Enum('DataSource', 'None Cache Solr Riak')
 class Base(object):
     _DEFAULT_BASE_FIELDS = {
         'archived': field.Boolean(default=False, index=True, store=True),
-        'timestamp': field.Timestamp(),
+        'timestamp': field.Date(index=True, store=True),
         'deleted': field.Boolean(default=False, index=True, store=False)}
 
     def __init__(self, **kwargs):
@@ -109,11 +113,9 @@ class Model(object):
         self._context = self.__defaults.copy()
         self._context.update(kwargs.pop('_context', {}))
         self._parse_meta_attributes()
-        self._embed_fields()
         self._instantiate_submodels()
         self._set_fields_values(kwargs)
-        # self._set_node_paths()
-        # self._mark_linked_models()
+
 
     def _parse_meta_attributes(self):
         if hasattr(self, 'Meta'):
@@ -140,23 +142,10 @@ class Model(object):
             ins = klass(_context=self._context)
             ins.path = self.path + [self.__class__.__name__.lower()]
             setattr(self, name, ins)
-            # self.obj_cache[key] = getattr(self, key)(_context=self._context)
-            # self.obj_cache[key].path = self.path + [self.__class__.__name__.lower()]
-            # self.obj_cache[key]._instantiate_submodels()
-
-    def _embed_fields(self):
-        """
-        reinstantiates data fields of model as instance properties.
-        """
-        for name, klass in self._field_values.items():
-            setattr(self, name, copy.deepcopy(klass))
 
     def __call__(self, *args, **kwargs):
         self._set_fields_values(kwargs)
         return self
-
-    def _load_data(self, name):
-        pass
 
     def _set_fields_values(self, kwargs):
         for k in self._base_fields:
@@ -176,6 +165,9 @@ class Model(object):
         for mdl_ins in self._models:
             result.extend(getattr(self, mdl_ins)._collect_index_fields())
         return result
+
+    def _load_data(self, name):
+        pass
 
     # ######## Public Methods  #########
 
@@ -199,7 +191,7 @@ class ListModel(Model):
     def add(self, **datadict):
         # Currently this method only usable on ListModels that doesnt contain another model.
         # if user update a ListModel in this way, than codes that use this method has to be updated too!
-        # TODO: IMPORTANT::: schema updates should not cause a API changes!!!
+        # TODO: IMPORTANT::: schema updates should not cause API changes!!!
         assert not self._models, NotCompatible
         self.values.append(DotDict(datadict or self._field_values))
 

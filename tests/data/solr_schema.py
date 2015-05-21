@@ -8,8 +8,11 @@
 # (GPLv3).  See LICENSE.txt for details.
 
 test_data_solr_fields = [('bio', 'Text', None, True, True, False),
+                         ('archived', 'Boolean', None, True, True, False),
                          ('surname', 'String', 'text_tr', True, True, False),
                          ('name', 'String', 'text_tr', True, True, False),
+                         ('deleted', 'Boolean', None, True, False, False),
+                         ('timestamp', 'Date', None, True, True, False),
                          ('number', 'String', None, True, True, False),
                          ('join_date', 'Date', None, True, True, False),
                          ('pno', 'String', None, True, True, False),
@@ -27,8 +30,11 @@ test_data_solr_fields = [('bio', 'Text', None, True, True, False),
                          ('authinfo.email', 'String', None, True, True, False)]
 
 test_data_solr_schema = ['<field type="text" name="bio"  indexed="true" stored="true" multivalued="false" />',
+                         '<field type="boolean" name="archived"  indexed="true" stored="true" multivalued="false" />',
                          '<field type="text_tr" name="surname"  indexed="true" stored="true" multivalued="false" />',
                          '<field type="text_tr" name="name"  indexed="true" stored="true" multivalued="false" />',
+                         '<field type="boolean" name="deleted"  indexed="true" stored="false" multivalued="false" />',
+                         '<field type="date" name="timestamp"  indexed="true" stored="true" multivalued="false" />',
                          '<field type="string" name="number"  indexed="true" stored="true" multivalued="false" />',
                          '<field type="date" name="join_date"  indexed="true" stored="true" multivalued="false" />',
                          '<field type="string" name="pno"  indexed="true" stored="true" multivalued="false" />',

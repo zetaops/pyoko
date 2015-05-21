@@ -7,7 +7,10 @@
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 import copy
+import json
 import re
+import datetime
+from time import mktime
 
 
 class DotDict(dict):
@@ -39,3 +42,12 @@ def un_camel(input):
 
 def grayed(*args):
     return '\033[1;37m%s\033[1;m' % ' '.join(map(str, args))
+
+class MyEncoder(json.JSONEncoder):
+
+    def default(self, obj):
+        if isinstance(obj, datetime.datetime):
+            return int(mktime(obj.timetuple()))
+
+        return json.JSONEncoder.default(self, obj)
+

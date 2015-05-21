@@ -41,6 +41,8 @@ data = {'AuthInfo': {'email': 'suuper@suup.com',
         'bio': "Lorem impsum dolar sit amet falan filan",
         'join_date': datetime.date(2015, 5, 12),
         'name': 'Jack',
+        'archived': False,
+        'deleted': False,
         'number': '20300344',
         'pno': '2343243433',
         'surname': 'Black'}
