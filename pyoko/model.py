@@ -13,7 +13,6 @@ from enum import Enum
 from pyoko import field
 from pyoko.db.connection import http_client
 from pyoko.exceptions import NotCompatible
-from pyoko.lib.utils import DotDict
 from pyoko.db.base import DBObjects
 
 # TODONE: refactor model and data fields in a manner that not need __getattribute__, __setattr__
@@ -21,17 +20,16 @@ from pyoko.db.base import DBObjects
 # TODONE: update solr schema creation routine for new "store" option
 # TODONE: add tests for class schema to json conversion
 # TODONE: add tests for solr schema creation
-# TODO: prepare temporary riak env
+# NOT-TODONE: prepare temporary riak env [ "test server" support removed from riak 2.0 ]
 # TODO: add tests for save, filter
+# TODO: IMPORTANT::: schema updates should not cause API changes!!!
 # TODO: implement Model population from db results
 # TODO: implement ListModel population from db results
-# TODO: add tests
 # TODO: implement versioned data update mechanism (based on Redis?)
-# TODO: add tests
 # TODO: implement one-to-many (also based on Redis?)
-# TODO: add tests
 # TODO: Add AbstractBase Model Support
-
+# TODO: Add Migration support with automatic 'schema_version' field.
+# TODO: Add backwards migrations
 
 class Registry(object):
     def __init__(self):
@@ -66,7 +64,7 @@ class ModelMeta(type):
 
         new_class = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
         new_class._models = models
-        new_class._base_fields = base_fields
+        new_class._fields = base_fields
         _registry.register_model(new_class)
         return new_class
 
@@ -96,6 +94,16 @@ class Base(object):
 
 
 class Model(object):
+    """
+    Sub-models are moved to _models[] attribute in ModelMeta,
+    then replaced to instance model at _instantiate_submodels()
+
+    Since fields are defined as descriptors, they can access to instance they called from but
+    we can't access their methods and attributes from model instance.
+    I've solved this issue by copying fields in to _fields[] attribute of model instance in ModelMeta
+    so we access field values from _field_values[] attribute, fields themselves from _fields[]
+
+    """
     __metaclass__ = ModelMeta
 
     __defaults = {
@@ -148,13 +156,13 @@ class Model(object):
         return self
 
     def _set_fields_values(self, kwargs):
-        for k in self._base_fields:
+        for k in self._fields:
             self._field_values[k] = kwargs.get(k)
 
     def _collect_index_fields(self):
         result = []
         multi = isinstance(self, ListModel)
-        for name, field_ins in self._base_fields.items():
+        for name, field_ins in self._fields.items():
             if field_ins.index or field_ins.store:
                 result.append((self._path_of(name),
                                field_ins.__class__.__name__,
@@ -175,7 +183,7 @@ class Model(object):
         dct = {}
         for name in self._models:
             dct[name] = getattr(self, name).clean_value()
-        for name, field_ins in self._base_fields.items():
+        for name, field_ins in self._fields.items():
             dct[name] = field_ins.clean_value(self._field_values[name])
         return dct
 
@@ -191,9 +199,9 @@ class ListModel(Model):
     def add(self, **datadict):
         # Currently this method only usable on ListModels that doesnt contain another model.
         # if user update a ListModel in this way, than codes that use this method has to be updated too!
-        # TODO: IMPORTANT::: schema updates should not cause API changes!!!
+
         assert not self._models, NotCompatible
-        self.values.append(DotDict(datadict or self._field_values))
+        self.values.append(datadict or self._field_values)
 
     def clean_value(self):
         """
@@ -205,13 +213,13 @@ class ListModel(Model):
         if self.values:
             for val in self.values:
                 dct = {}
-                for field_name, ins in self._base_fields.items():
+                for field_name, ins in self._fields.items():
                     dct[field_name] = ins.clean_value(val[field_name])
                 lst.append(dct)
         elif self.models:
             for ins in self.models:
                 dct = {}
-                for name, field_ins in ins._base_fields.items():
+                for name, field_ins in ins._fields.items():
                     dct[name] = field_ins.clean_value(ins._field_values[name])
                 for mdl_name in ins._models:
                     dct[mdl_name] = getattr(ins, mdl_name).clean_value()

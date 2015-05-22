@@ -21,7 +21,7 @@ def test_model_to_json_compact():
             lecture.Attendance.add(**atd)
         for exam in lct_data['Exams']:
             lecture.Exams.add(**exam)
-    print st.clean_value()
+    # print st.clean_value()
     clean_value  = st.clean_value()
     data['timestamp'] = clean_value['timestamp']
     assert data == clean_value
