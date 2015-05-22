@@ -6,12 +6,9 @@
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
-import copy
-from pprint import pprint
-from enum import Enum
 
+from enum import Enum
 from pyoko import field
-from pyoko.db.connection import http_client
 from pyoko.exceptions import NotCompatible
 from pyoko.db.base import DBObjects
 

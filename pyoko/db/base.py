@@ -37,8 +37,8 @@ class DBObjects(object):
     def __init__(self, **conf):
 
         self.bucket = riak.RiakBucket
-        self._cfg = DotDict(conf)
-        self._cfg.row_size = 1000
+        self._cfg = conf
+        self._cfg['row_size'] = 1000
         if 'model' in self._cfg:
             self._cfg['rtype'] = ReturnType.Model
         else:
@@ -65,7 +65,7 @@ class DBObjects(object):
         print grayed("query : ", self._solr_query)
         print grayed("params : ", self._solr_params)
         print grayed("riak_cache : ", len(self._riak_cache) if brief else self._riak_cache)
-        print grayed("return_type : ", self._cfg.rtype)
+        print grayed("return_type : ", self._cfg['rtype'])
         print grayed("new_value : ", self._new_record_value)
         print " "
         return self
@@ -87,13 +87,13 @@ class DBObjects(object):
 
     def __iter__(self):
         # print "ITER", self
-        if not self._solr_cache and self._cfg.rtype in (ReturnType.Data, ReturnType.Object):
+        if not self._solr_cache and self._cfg['rtype'] in (ReturnType.Data, ReturnType.Object):
             self._params(fl='_yz_rk')
             # no need to fetch everything if we going to fetch from riak anyway
         self._exec_query()
-        if self._cfg.rtype == ReturnType.Object:
+        if self._cfg['rtype'] == ReturnType.Object:
             self._get_from_db()
-        elif self._cfg.rtype == ReturnType.Data:
+        elif self._cfg['rtype'] == ReturnType.Data:
             self._get_data_from_db()
         return iter(self._riak_cache or self._solr_cache['docs'])
 
@@ -139,11 +139,11 @@ class DBObjects(object):
     # ######## Riak Methods  #########
 
     def set_bucket(self, type, name):
-        self._cfg.bucket_type = type
-        self._cfg.bucket_name = name
-        self.bucket = self.__client.bucket_type(self._cfg.bucket_type).bucket(self._cfg.bucket_name)
+        self._cfg['bucket_type'] = type
+        self._cfg['bucket_name'] = name
+        self.bucket = self.__client.bucket_type(self._cfg['bucket_type']).bucket(self._cfg['bucket_name'])
         if 'index' not in self._cfg:
-            self._cfg.index = self._cfg.bucket_name
+            self._cfg.index = self._cfg['bucket_name']
         self._data_type = self.bucket.get_properties().get('datatype', None)
         return self
 
@@ -163,7 +163,7 @@ class DBObjects(object):
         if self._data_type == 'map' and isinstance(value, dict):
             return Dictomap(self.bucket, value, str(key)).map.store()
         else:
-            return self.bucket.new(value=value, key=key).store()
+            return self.bucket.new(data=value, key=key).store()
 
     def _save_model(self):
         model = self._cfg['model']
@@ -181,7 +181,8 @@ class DBObjects(object):
             if 'multiget' not in self._cfg:
                 self._riak_cache = map(lambda k: self.bucket.get(k['_yz_rk']), self._solr_cache['docs'])
             else:
-                self._riak_cache = self.bucket.multiget(map(lambda k: k['_yz_rk'], self._solr_cache['docs']))
+                self._riak_cache = self.bucket.multiget(keys=map(lambda k: k['_yz_rk'], self._solr_cache['docs']))
+
 
     def _get_data_from_db(self):
         """
@@ -190,19 +191,19 @@ class DBObjects(object):
         """
         if not self._riak_cache:
             if 'multiget' in self._cfg:
-                self._riak_cache = map(lambda o: o.data, self.bucket.multiget(
+                self._riak_cache = map(lambda o: o.data, self.bucket.multiget(keys=
                     map(lambda k: k['_yz_rk'], self._solr_cache['docs'])))
             else:
                 self._riak_cache = map(lambda k: self.bucket.get(k['_yz_rk']).data, self._solr_cache['docs'])
 
     def _get(self):
         self._exec_query()
-        if not self._riak_cache and self._cfg.rtype in (ReturnType.Object, ReturnType.Data):
+        if not self._riak_cache and self._cfg['rtype'] in (ReturnType.Object, ReturnType.Data):
             self._riak_cache = [self.bucket.get(self._solr_cache['docs'][0]['_yz_rk'])]
 
-        if self._cfg.rtype == ReturnType.Object:
+        if self._cfg['rtype'] == ReturnType.Object:
             return self._riak_cache[0]
-        elif self._cfg.rtype == ReturnType.Data:
+        elif self._cfg['rtype'] == ReturnType.Data:
             return self._riak_cache[0].data
         else:
             return self._solr_cache['docs'][0]
@@ -286,12 +287,12 @@ class DBObjects(object):
 
     def _process_params(self):
         if 'rows' not in self._solr_params:
-            self._solr_params['rows'] = self._cfg.row_size
+            self._solr_params['rows'] = self._cfg['row_size']
         return self._solr_params
 
     def _exec_query(self):
         if not self._solr_locked:
-            self._solr_cache = self.bucket.search(self._compile_query(), self._cfg.index, **self._process_params())
+            self._solr_cache = self.bucket.search(self._compile_query(), self._cfg['index'], **self._process_params())
             self._solr_locked = True
         return self
 
