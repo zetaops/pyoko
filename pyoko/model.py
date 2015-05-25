@@ -18,13 +18,16 @@ from pyoko.db.base import DBObjects
 # TODONE: add tests for class schema to json conversion
 # TODONE: add tests for solr schema creation
 # NOT-TODONE: prepare temporary riak env [ "test server" support removed from riak 2.0 ]
+# TODONE: IMPORTANT::: schema updates should not cause API changes!!!
 # TODO: add tests for save, filter
-# TODO: IMPORTANT::: schema updates should not cause API changes!!!
 # TODO: implement Model population from db results
 # TODO: implement ListModel population from db results
 # TODO: implement versioned data update mechanism (based on Redis?)
-# TODO: implement one-to-many (also based on Redis?)
 # TODO: Add AbstractBase Model Support
+# TODO: implement one-to-many
+# TODO: implement many-to-many
+# TODO: Add validation checks
+# TODO: Check for missing magic methods and add if needed.
 # TODO: Add Migration support with automatic 'schema_version' field.
 # TODO: Add backwards migrations
 
@@ -193,35 +196,12 @@ class ListModel(Model):
 
     # ######## Public Methods  #########
 
-    def add(self, **datadict):
-        # Currently this method only usable on ListModels that doesnt contain another model.
-        # if user update a ListModel in this way, than codes that use this method has to be updated too!
-
-        assert not self._models, NotCompatible
-        self.values.append(datadict or self._field_values)
-
     def clean_value(self):
         """
-        currently a ListModel can contain values(list of dicts) or objects(list of it's instances)
-        but not both.
-        :return: dict
+        :return: [{},]
         """
-        lst = []
-        if self.values:
-            for val in self.values:
-                dct = {}
-                for field_name, ins in self._fields.items():
-                    dct[field_name] = ins.clean_value(val[field_name])
-                lst.append(dct)
-        elif self.models:
-            for ins in self.models:
-                dct = {}
-                for name, field_ins in ins._fields.items():
-                    dct[name] = field_ins.clean_value(ins._field_values[name])
-                for mdl_name in ins._models:
-                    dct[mdl_name] = getattr(ins, mdl_name).clean_value()
-                lst.append(dct)
-        return lst
+        return [super(ListModel, mdl).clean_value() for mdl in self.models]
+
 
     # ######## Python Magic  #########
 
@@ -231,17 +211,17 @@ class ListModel(Model):
         return clone
 
     def __len__(self):
-        return len(self.values)
-
-    def __getitem__(self, key):
-        # if key is of invalid type or value, the list values will raise the error
-        return self.values[key]
-
-    def __setitem__(self, key, value):
-        self.values[key] = value
-
-    def __delitem__(self, key):
-        del self.values[key]
+        return len(self.models)
+    #
+    # def __getitem__(self, key):
+    #     # if key is of invalid type or value, the list values will raise the error
+    #     return self.values[key]
+    #
+    # def __setitem__(self, key, value):
+    #     self.values[key] = value
+    #
+    # def __delitem__(self, key):
+    #     del self.values[key]
 
     def __iter__(self):
-        return iter(self.values)
+        return iter(self.models)
