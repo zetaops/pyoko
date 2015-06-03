@@ -9,6 +9,7 @@ this module contains a base class for other db access classes
 # (GPLv3).  See LICENSE.txt for details.
 import copy
 
+# noinspection PyCompatibility
 from enum import Enum
 from pyoko.db.connection import http_client, riak
 
@@ -16,6 +17,7 @@ from pyoko.exceptions import MultipleObjectsReturned
 from pyoko.lib.py2map import Dictomap
 from pyoko.lib.utils import  grayed
 
+from six import moves
 
 
 
@@ -61,20 +63,22 @@ class DBObjects(object):
 
     def w(self, brief=True):
 
-        print grayed("results : ", len(self._solr_cache.get('docs', [])) if brief else self._solr_cache)
-        print grayed("query : ", self._solr_query)
-        print grayed("params : ", self._solr_params)
-        print grayed("riak_cache : ", len(self._riak_cache) if brief else self._riak_cache)
-        print grayed("return_type : ", self._cfg['rtype'])
-        print grayed("new_value : ", self._new_record_value)
-        print " "
+        print(grayed("results : ", len(
+            self._solr_cache.get('docs', [])) if brief else self._solr_cache))
+        print(grayed("query : ", self._solr_query))
+        print(grayed("params : ", self._solr_params))
+        print(grayed("riak_cache : ",
+                     len(self._riak_cache) if brief else self._riak_cache))
+        print(grayed("return_type : ", self._cfg['rtype']))
+        print(grayed("new_value : ", self._new_record_value))
+        print(" ")
         return self
 
     def _clear_bucket(self):
         """
         for development purposes, normally we should never delete anything, let alone the whole bucket!
         """
-        if not 'yes' == raw_input("Say yes if you really want to delete all records in this bucket % s:" % self.bucket):
+        if not 'yes' == moves.input("Say yes if you really want to delete all records in this bucket % s:" % self.bucket):
             return
         i = 0
         for pck in self.bucket.stream_keys():

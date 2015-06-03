@@ -10,6 +10,7 @@
 from enum import Enum
 from pyoko import field
 from pyoko.db.base import DBObjects
+from six import with_metaclass
 
 # TODO: add tests for save, filter
 # TODO: unify sub/model context with request context
@@ -56,19 +57,20 @@ class ModelMeta(type):
             elif hasattr(attrs[key], 'clean_value'):
                 attrs[key].name = key
                 base_fields[key] = attrs[key]
-
+        attrs['_models'] = models
+        attrs['_fields'] = base_fields
         new_class = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
-        new_class._models = models
-        new_class._fields = base_fields
+        # new_class._models = models
+        # new_class._fields = base_fields
         _registry.register_model(new_class)
         return new_class
 
 
-DataSource = Enum('DataSource', 'None Cache Solr Riak')
+DataSource = Enum('DataSource', 'Null Cache Solr Riak')
 
 
 
-class Node(object):
+class Node(with_metaclass(ModelMeta, object)):
     """
     We move sub-models in to _models[] attribute at ModelMeta,
     then replace to instance model at _instantiate_submodels()
@@ -174,7 +176,7 @@ class Model(Node):
 
     def __init__(self, context=None, **kwargs):
         self._riak_object = None
-        self._loaded_from = DataSource.None
+        self._loaded_from = DataSource.Null
         self._context = context
         self.objects = DBObjects(model=self, )
         self.row_level_access()
@@ -202,7 +204,7 @@ class Model(Node):
 
 
 
-class ListNode(Node):
+class ListNode(Model):
     def __init__(self, **kwargs):
         super(ListNode, self).__init__(**kwargs)
         self.values = []

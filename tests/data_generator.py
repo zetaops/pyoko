@@ -11,13 +11,13 @@ import sys
 import time
 import threading
 
-from gevent import monkey
+# from gevent import monkey
 
-from pyoko.base import SolRiakcess
+# from pyoko.base import SolRiakcess
 from pyoko.lib.py2map import Dictomap
 
 
-monkey.patch_all()
+# monkey.patch_all()
 
 from __exclude.schemas import make_student_data
 
