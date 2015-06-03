@@ -19,7 +19,7 @@ def test_model_to_json_compact():
     st.AuthInfo(**data['AuthInfo'])
     for lct_data in data['Lectures']:
         lecture = st.Lectures(**lct_data)
-        lecture.ModelInListModel(**lct_data['ModelInListModel'])
+        lecture.NodeInListNode(**lct_data['NodeInListNode'])
         for atd in lct_data['Attendance']:
             lecture.Attendance(**atd)
         for exam in lct_data['Exams']:
@@ -56,8 +56,8 @@ def test_model_to_json_expanded():
         lecture.code = ld['code']
         lecture.credit = ld['credit']
         lecture.name = ld['name']
-        milm = lecture.ModelInListModel()
-        milm.foo = ld['ModelInListModel']['foo']
+        milm = lecture.NodeInListNode()
+        milm.foo = ld['NodeInListNode']['foo']
         for atd in ld['Attendance']:
             attendance = lecture.Attendance()
             attendance.attended = atd['attended']

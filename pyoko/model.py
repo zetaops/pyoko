@@ -13,10 +13,10 @@ from pyoko.db.base import DBObjects
 
 # TODO: add tests for save, filter
 # TODO: unify sub/model context with request context
-# TODO: implement Model population from db results
-# TODO: implement ListModel population from db results
+# TODO: implement Node population from db results
+# TODO: implement ListNode population from db results
 # TODO: implement versioned data update mechanism (based on Redis?)
-# TODO: Add AbstractBase Model Support
+# TODO: Add AbstractBase Node Support
 # TODO: implement one-to-many
 # TODO: implement many-to-many
 # TODO: Add validation checks
@@ -30,7 +30,7 @@ class Registry(object):
         self.registry = []
 
     def register_model(self, cls):
-        if cls.__name__ == 'Model':
+        if cls.__name__ == 'Node':
             return
         self.registry += [cls]
 
@@ -47,11 +47,11 @@ class ModelMeta(type):
     def __new__(mcs, name, bases, attrs):
         models = {}
         base_fields = {}
-        if bases[0].__name__ == 'Base':
+        if bases[0].__name__ == 'Model':
             attrs.update(bases[0]._DEFAULT_BASE_FIELDS)
         for key in list(attrs.keys()):
             if hasattr(attrs[key], '__base__') and attrs[key].__base__.__name__\
-                    in ('ListModel', 'Model'):
+                    in ('ListNode', 'Node'):
                 models[key] = attrs.pop(key)
             elif hasattr(attrs[key], 'clean_value'):
                 attrs[key].name = key
@@ -67,42 +67,8 @@ class ModelMeta(type):
 DataSource = Enum('DataSource', 'None Cache Solr Riak')
 
 
-class Base(object):
-    _DEFAULT_BASE_FIELDS = {
-        'archived': field.Boolean(default=False, index=True, store=True),
-        'timestamp': field.Date(index=True, store=True),
-        '_deleted': field.Boolean(default=False, index=True, store=False)}
 
-    def __init__(self, context=None, **kwargs):
-        self._riak_object = None
-        self._loaded_from = DataSource.None
-        self._context = context
-        self.objects = DBObjects(model=self, )
-        self.row_level_access()
-        # self.filter_cells()
-        super(Base, self).__init__(**kwargs)
-
-
-
-    def row_level_access(self):
-        """
-        Define your query filters in here to enforce row level access control
-        self._context should contain required user attributes and permissions
-        eg:
-            self.objects = self.objects.filter(user_in=self._context.user['id'])
-        """
-        pass
-
-    def save(self):
-        # data_dict = self.clean_value()
-        self.objects.save()
-
-    def delete(self):
-        self._deleted = True
-        self.save()
-
-
-class Model(object):
+class Node(object):
     """
     We move sub-models in to _models[] attribute at ModelMeta,
     then replace to instance model at _instantiate_submodels()
@@ -126,7 +92,7 @@ class Model(object):
     }
 
     def __init__(self, **kwargs):
-        super(Model, self).__init__()
+        super(Node, self).__init__()
         self.key = None
         self.path = []
         self._field_values = {}
@@ -174,7 +140,7 @@ class Model(object):
 
     def _collect_index_fields(self):
         result = []
-        multi = isinstance(self, ListModel)
+        multi = isinstance(self, ListNode)
         for name, field_ins in self._fields.items():
             if field_ins.index or field_ins.store:
                 result.append((self._path_of(name),
@@ -200,10 +166,45 @@ class Model(object):
             dct[name] = field_ins.clean_value(self._field_values[name])
         return dct
 
+class Model(Node):
+    _DEFAULT_BASE_FIELDS = {
+        'archived': field.Boolean(default=False, index=True, store=True),
+        'timestamp': field.Date(index=True, store=True),
+        '_deleted': field.Boolean(default=False, index=True, store=False)}
 
-class ListModel(Model):
+    def __init__(self, context=None, **kwargs):
+        self._riak_object = None
+        self._loaded_from = DataSource.None
+        self._context = context
+        self.objects = DBObjects(model=self, )
+        self.row_level_access()
+        # self.filter_cells()
+        super(Model, self).__init__(**kwargs)
+
+
+
+    def row_level_access(self):
+        """
+        Define your query filters in here to enforce row level access control
+        self._context should contain required user attributes and permissions
+        eg:
+            self.objects = self.objects.filter(user_in=self._context.user['id'])
+        """
+        pass
+
+    def save(self):
+        # data_dict = self.clean_value()
+        self.objects.save()
+
+    def delete(self):
+        self._deleted = True
+        self.save()
+
+
+
+class ListNode(Node):
     def __init__(self, **kwargs):
-        super(ListModel, self).__init__(**kwargs)
+        super(ListNode, self).__init__(**kwargs)
         self.values = []
         self.models = []
 
@@ -213,7 +214,7 @@ class ListModel(Model):
         """
         :return: [{},]
         """
-        return [super(ListModel, mdl).clean_value() for mdl in self.models]
+        return [super(ListNode, mdl).clean_value() for mdl in self.models]
 
     # ######## Python Magic  #########
 

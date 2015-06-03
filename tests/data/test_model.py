@@ -8,11 +8,11 @@ data models for tests
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 from pyoko.db.schema_update import SchemaUpdater
-from pyoko.model import Model, ListModel, Base
+from pyoko.model import Model,  Node, ListNode
 from pyoko import field
 
 
-class Student(Base, Model):
+class Student(Model):
     def __init__(self, **kwargs):
         # We define model relations in __init__ method, because Python parser raises a NameError
         # if we refer to a not yet defined class in body of another class.
@@ -42,7 +42,7 @@ class Student(Base, Model):
     join_date = field.Date(index=True)
     bio = field.Text(index=True)
 
-    class AuthInfo(Model):
+    class AuthInfo(Node):
         username = field.String(index=True)
         email = field.String(index=True)
         password = field.String()
@@ -50,15 +50,15 @@ class Student(Base, Model):
         class Meta(object):
             required = False
 
-    class Lectures(ListModel):
+    class Lectures(ListNode):
         name = field.String(index_as='text_tr')
         code = field.String(required=False, index=True)
         credit = field.Integer(default=0, index=True)
 
-        class ModelInListModel(Model):
+        class NodeInListNode(Node):
             foo = field.String()
 
-        class Exams(ListModel):
+        class Exams(ListNode):
             type = field.String()
             date = field.Date()
             point = field.Integer(store=False)
@@ -66,14 +66,14 @@ class Student(Base, Model):
             class Meta(object):
                 required = False
 
-        class Attendance(ListModel):
+        class Attendance(ListNode):
             date = field.Date()
             hour = field.Integer()
             attended = field.Boolean(default=False)
 
 
-class ContactInfo(Model):
-    class Addresses(ListModel):
+class ContactInfo(Node):
+    class Addresses(ListNode):
         class Meta(object):
             required = False
 
@@ -83,7 +83,7 @@ class ContactInfo(Model):
         city = field.String(index=True)
         postal_code = field.Integer(index=True)
 
-    class Phones(ListModel):
+    class Phones(ListNode):
         gsm = field.String()
         land_line = field.String()
 

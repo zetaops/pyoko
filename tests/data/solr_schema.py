@@ -21,7 +21,7 @@ test_data_solr_fields = [('bio', 'Text', None, True, True, False), ('archived', 
                          ('attendance.hour', 'Integer', None, False, True, True),
                          ('exams.date', 'Date', None, False, True, True),
                          ('exams.type', 'String', None, False, True, True),
-                         ('modelinlistmodel.foo', 'String', None, False, True, False),
+                         ('nodeinlistnode.foo', 'String', None, False, True, False),
                          ('authinfo.username', 'String', None, True, True, False),
                          ('authinfo.password', 'String', None, False, True, False),
                          ('authinfo.email', 'String', None, True, True, False)]
@@ -43,7 +43,7 @@ test_data_solr_schema = ['<field type="text" name="bio"  indexed="true" stored="
                          '<field type="integer" name="attendance.hour"  indexed="false" stored="true" multivalued="true" />',
                          '<field type="date" name="exams.date"  indexed="false" stored="true" multivalued="true" />',
                          '<field type="string" name="exams.type"  indexed="false" stored="true" multivalued="true" />',
-                         '<field type="string" name="modelinlistmodel.foo"  indexed="false" stored="true" multivalued="false" />',
+                         '<field type="string" name="nodeinlistnode.foo"  indexed="false" stored="true" multivalued="false" />',
                          '<field type="string" name="authinfo.username"  indexed="true" stored="true" multivalued="false" />',
                          '<field type="string" name="authinfo.password"  indexed="false" stored="true" multivalued="false" />',
                          '<field type="string" name="authinfo.email"  indexed="true" stored="true" multivalued="false" />']
