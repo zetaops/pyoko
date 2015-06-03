@@ -9,17 +9,10 @@
 
 from enum import Enum
 from pyoko import field
-from pyoko.exceptions import NotCompatible
 from pyoko.db.base import DBObjects
 
-# TODONE: refactor model and data fields in a manner that not need __getattribute__, __setattr__
-# TODONE: complete save method
-# TODONE: update solr schema creation routine for new "store" option
-# TODONE: add tests for class schema to json conversion
-# TODONE: add tests for solr schema creation
-# NOT-TODONE: prepare temporary riak env [ "test server" support removed from riak 2.0 ]
-# TODONE: IMPORTANT::: schema updates should not cause API changes!!!
 # TODO: add tests for save, filter
+# TODO: unify sub/model context with request context
 # TODO: implement Model population from db results
 # TODO: implement ListModel population from db results
 # TODO: implement versioned data update mechanism (based on Redis?)
@@ -30,6 +23,7 @@ from pyoko.db.base import DBObjects
 # TODO: Check for missing magic methods and add if needed.
 # TODO: Add Migration support with automatic 'schema_version' field.
 # TODO: Add backwards migrations
+
 
 class Registry(object):
     def __init__(self):
@@ -56,7 +50,8 @@ class ModelMeta(type):
         if bases[0].__name__ == 'Base':
             attrs.update(bases[0]._DEFAULT_BASE_FIELDS)
         for key in list(attrs.keys()):
-            if hasattr(attrs[key], '__base__') and attrs[key].__base__.__name__ in ('ListModel', 'Model'):
+            if hasattr(attrs[key], '__base__') and attrs[key].__base__.__name__\
+                    in ('ListModel', 'Model'):
                 models[key] = attrs.pop(key)
             elif hasattr(attrs[key], 'clean_value'):
                 attrs[key].name = key
@@ -78,14 +73,28 @@ class Base(object):
         'timestamp': field.Date(index=True, store=True),
         '_deleted': field.Boolean(default=False, index=True, store=False)}
 
-    def __init__(self, **kwargs):
+    def __init__(self, context=None, **kwargs):
         self._riak_object = None
         self._loaded_from = DataSource.None
-        self.objects = DBObjects(model=self)
+        self._context = context
+        self.objects = DBObjects(model=self, )
+        self.row_level_access()
+        # self.filter_cells()
         super(Base, self).__init__(**kwargs)
 
+
+
+    def row_level_access(self):
+        """
+        Define your query filters in here to enforce row level access control
+        self._context should contain required user attributes and permissions
+        eg:
+            self.objects = self.objects.filter(user_in=self._context.user['id'])
+        """
+        pass
+
     def save(self):
-        data_dict = self.clean_value()
+        # data_dict = self.clean_value()
         self.objects.save()
 
     def delete(self):
@@ -95,13 +104,16 @@ class Base(object):
 
 class Model(object):
     """
-    Sub-models are moved to _models[] attribute in ModelMeta,
-    then replaced to instance model at _instantiate_submodels()
+    We move sub-models in to _models[] attribute at ModelMeta,
+    then replace to instance model at _instantiate_submodels()
 
-    Since fields are defined as descriptors, they can access to instance they called from but
+    Since fields are defined as descriptors,
+    they can access to instance they called from but
     we can't access their methods and attributes from model instance.
-    I've solved this issue by copying fields in to _fields[] attribute of model instance in ModelMeta
-    so we access field values from _field_values[] attribute, fields themselves from _fields[]
+    I've solved this issue by copying fields in to _fields[] attribute of
+    model instance in ModelMeta.
+    So, we access field values from _field_values[] attribute
+    and fields themselves from _fields[]
 
     """
     __metaclass__ = ModelMeta
@@ -124,7 +136,6 @@ class Model(object):
         self._instantiate_submodels()
         self._set_fields_values(kwargs)
 
-
     def _parse_meta_attributes(self):
         if hasattr(self, 'Meta'):
             self._context.update({k: v for k, v in self.Meta.__dict__.items()
@@ -137,7 +148,8 @@ class Model(object):
         """
         returns the dotted path of the given model attribute
         """
-        return '.'.join(list(self.path + [self.__class__.__name__.lower(), prop])[1:])
+        return '.'.join(list(self.path +
+                             [self.__class__.__name__.lower(), prop])[1:])
 
     # _GLOBAL_CONF = []
     def _instantiate_submodels(self):
@@ -145,7 +157,8 @@ class Model(object):
         instantiate all submodels, pass path data and flag them as child
         """
         # child nodes should inherit GLOBAL_CONFigurations
-        # conf = {(k, v) for k, v in self._context.items() if k in self._GLOBAL_CONF}
+        # conf = {(k, v) for k, v in self._context.items()
+        # if k in self._GLOBAL_CONF}
         for name, klass in self._models.items():
             ins = klass(_context=self._context)
             ins.path = self.path + [self.__class__.__name__.lower()]
@@ -202,7 +215,6 @@ class ListModel(Model):
         """
         return [super(ListModel, mdl).clean_value() for mdl in self.models]
 
-
     # ######## Python Magic  #########
 
     def __call__(self, **kwargs):
@@ -212,9 +224,11 @@ class ListModel(Model):
 
     def __len__(self):
         return len(self.models)
+
     #
     # def __getitem__(self, key):
-    #     # if key is of invalid type or value, the list values will raise the error
+    #     # if key is of invalid type or value,
+    # the list values will raise the error
     #     return self.values[key]
     #
     # def __setitem__(self, key, value):

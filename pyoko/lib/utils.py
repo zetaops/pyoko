@@ -13,24 +13,6 @@ import datetime
 from time import mktime
 
 
-class DotDict(dict):
-    def __getattr__(self, attr):
-        if attr.startswith('__'):
-            raise AttributeError(attr)
-        return self[attr]
-
-    def __deepcopy__(self, memo):
-        return DotDict(copy.deepcopy(dict(self)))
-
-    def __key(self):
-        return tuple((k, self[k]) for k in sorted(self))
-
-    def __hash__(self):
-        return hash(self.__key())
-
-    __setattr__ = dict.__setitem__
-    __delattr__ = dict.__delitem__
-
 
 
 UN_CAMEL_RE = re.compile('((?<=[a-z0-9])[A-Z]|(?!^)[A-Z](?=[a-z]))')

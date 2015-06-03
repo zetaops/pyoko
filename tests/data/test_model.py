@@ -20,9 +20,20 @@ class Student(Base, Model):
         super(Student, self).__init__(**kwargs)
     # contact_info = ContactInfo()
 
+    # def row_level_access(self):
+    #     self.objects = self.objects.filter(user_in=self._context.user['id'],)
+
+
+
     class Meta(object):
         bucket = 'student'
         store = True
+        cell_filters = {
+            # fields will be filtered out if self._context.perms does not
+            # contain the given permission.
+            # permission            : ['field','list']
+            'can_view_student_phone': ['phone']
+        }
 
     number = field.String(index=True)
     pno = field.String(index=True)

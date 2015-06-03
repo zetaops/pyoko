@@ -14,7 +14,7 @@ from pyoko.db.connection import http_client, riak
 
 from pyoko.exceptions import MultipleObjectsReturned
 from pyoko.lib.py2map import Dictomap
-from pyoko.lib.utils import DotDict, grayed
+from pyoko.lib.utils import  grayed
 
 
 
@@ -242,8 +242,13 @@ class DBObjects(object):
         assert not self._solr_locked, "Query already executed, no changes can be made."
         self._solr_params.update(params)
 
-
-    def fields(self, *args):  # riak client needs _yz_rk to distinguish between old and new search API.
+    def fields(self, *args):
+        """
+        Riak's  official Python client (2.1) depends on existence of **"_yz_rk"** key for distinguishing between old and new search API.
+        If we left it out from results, then it assumes the old API and looks for non existent 'id' key, then raises a key error.
+        :param args:
+        :return:
+        """
         self._solr_params.update({'fl': ' '.join(set(args + ('_yz_rk',)))})
         return self
 
