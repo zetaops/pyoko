@@ -9,7 +9,10 @@
 
 
 from tests.data.test_data import data
-from tests.data.test_model import Student
+from tests.models import Student
+
+
+
 
 
 # def model_to_json_compact():

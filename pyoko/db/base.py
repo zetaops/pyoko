@@ -11,8 +11,8 @@ import copy
 
 # noinspection PyCompatibility
 from enum import Enum
-from pyoko.db.connection import http_client, riak
-
+from pyoko.db.connection import http_client
+import riak
 from pyoko.exceptions import MultipleObjectsReturned
 from pyoko.lib.py2map import Dictomap
 from pyoko.lib.utils import  grayed
@@ -31,6 +31,7 @@ from six import moves
 ReturnType = Enum('ReturnType', 'Solr Object Data Model')
 
 
+# noinspection PyTypeChecker
 class DBObjects(object):
     """
     This class implements Django-esque query APIs with the aim of fusing Solr and Riak in a more pythonic way
@@ -103,12 +104,9 @@ class DBObjects(object):
 
 
     def __len__(self):
-        # self._exec_query()
-        # print "THIS IS LEN"
         return self.count()
 
     def __getitem__(self, index):
-        # print "THIS IS GETITEM"
         if isinstance(index, int):
             self._params(rows=1, start=index)
             return self._get()

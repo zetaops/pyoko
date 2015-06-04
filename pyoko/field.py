@@ -14,14 +14,14 @@ from pyoko.exceptions import ValidationError
 #     def __init__(self, model,  reverse=False):
 #         self.reverse = reverse
 #         self.model =
-from pyoko.settings import SOLR_STORE_ALL
+from pyoko.conf import settings
 
 
 class BaseField(object):
     link_type = False
     default_value = None
 
-    def __init__(self, default=None, required=False, index=False,  index_as=None, store=SOLR_STORE_ALL):
+    def __init__(self, default=None, required=False, index=False,  index_as=None, store=settings.SOLR_STORE_ALL):
         self.required = required
         self.index_as = index_as
         self.index = index or bool(index_as)
@@ -65,6 +65,8 @@ class BaseField(object):
 
 
 class String(BaseField):
+    # def __init__(self, *args, **kwargs):
+    #     super(String, self).__init__(*args, **kwargs)
     pass
 
 class Text(BaseField):

@@ -10,12 +10,12 @@ riak client configuration
 
 import riak
 # from riak.security import SecurityCreds
-from local_settings import SERVER_IP
+from pyoko.conf import settings
 
 
 # creds = SecurityCreds(username='esat', password='qwe-asd', cacert_file='riak.crt')
 # client = riak.RiakClient(protocol='pbc', host=SERVER_IP, pb_port='8087', credentials=creds)
 
-pbc_client = riak.RiakClient(protocol='pbc', host=SERVER_IP, pb_port='8087')
-http_client = riak.RiakClient(protocol='http', host=SERVER_IP, http_port='8098')
+pbc_client = riak.RiakClient(protocol='pbc', host=settings.RIAK_IP, pb_port='8087')
+http_client = riak.RiakClient(protocol='http', host=settings.RIAK_IP, http_port='8098')
 

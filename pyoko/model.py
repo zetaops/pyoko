@@ -8,9 +8,10 @@
 # (GPLv3).  See LICENSE.txt for details.
 
 from enum import Enum
+from six import with_metaclass, add_metaclass
 from pyoko import field
 from pyoko.db.base import DBObjects
-from six import with_metaclass
+
 
 # TODO: add tests for save, filter
 # TODO: unify sub/model context with request context
@@ -35,6 +36,9 @@ class Registry(object):
             return
         self.registry += [cls]
 
+    def get_base_models(self):
+        return [mdl for mdl in self.registry if mdl._MODEL]
+
         # def class_by_bucket_name(self, bucket_name):
         #     for model in self.registry:
         #         if model.bucket_name == bucket_name:
@@ -50,6 +54,9 @@ class ModelMeta(type):
         base_fields = {}
         if bases[0].__name__ == 'Model':
             attrs.update(bases[0]._DEFAULT_BASE_FIELDS)
+            attrs['_MODEL'] = True
+        else:
+            attrs['_MODEL'] = False
         for key in list(attrs.keys()):
             if hasattr(attrs[key], '__base__') and attrs[key].__base__.__name__\
                     in ('ListNode', 'Node'):
@@ -60,6 +67,7 @@ class ModelMeta(type):
         attrs['_models'] = models
         attrs['_fields'] = base_fields
         new_class = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
+        # print(new_class, new_class._MODEL)
         # new_class._models = models
         # new_class._fields = base_fields
         _registry.register_model(new_class)
@@ -69,8 +77,8 @@ class ModelMeta(type):
 DataSource = Enum('DataSource', 'Null Cache Solr Riak')
 
 
-
-class Node(with_metaclass(ModelMeta, object)):
+@add_metaclass(ModelMeta)
+class Node(object):
     """
     We move sub-models in to _models[] attribute at ModelMeta,
     then replace to instance model at _instantiate_submodels()
@@ -78,13 +86,14 @@ class Node(with_metaclass(ModelMeta, object)):
     Since fields are defined as descriptors,
     they can access to instance they called from but
     we can't access their methods and attributes from model instance.
-    I've solved this issue by copying fields in to _fields[] attribute of
-    model instance in ModelMeta.
+    I've kinda solved it by copying fields in to _fields[] attribute of
+    model instance at ModelMeta.
+
     So, we access field values from _field_values[] attribute
     and fields themselves from _fields[]
 
     """
-    __metaclass__ = ModelMeta
+    # _MODEL = False
 
     __defaults = {
         'cache': None,
@@ -110,7 +119,7 @@ class Node(with_metaclass(ModelMeta, object)):
                                   if not k.startswith('__')})
 
     def _get_bucket_name(self):
-        self._context.get('bucket_name', self.__class__.__name__.lower())
+        return self._context.get('bucket', self.__class__.__name__.lower())
 
     def _path_of(self, prop):
         """
@@ -145,8 +154,15 @@ class Node(with_metaclass(ModelMeta, object)):
         multi = isinstance(self, ListNode)
         for name, field_ins in self._fields.items():
             if field_ins.index or field_ins.store:
+                if field_ins.__class__.__name__ == 'Text':
+                    field_type = 'text_general'
+                elif field_ins.__class__.__name__ == 'Integer':
+                    field_type = 'int'
+                else:
+                    field_type = field_ins.__class__.__name__
+
                 result.append((self._path_of(name),
-                               field_ins.__class__.__name__,
+                               field_type,
                                field_ins.index_as,
                                field_ins.index,
                                field_ins.store,
@@ -173,6 +189,8 @@ class Model(Node):
         'archived': field.Boolean(default=False, index=True, store=True),
         'timestamp': field.Date(index=True, store=True),
         '_deleted': field.Boolean(default=False, index=True, store=False)}
+
+    # _MODEL = True
 
     def __init__(self, context=None, **kwargs):
         self._riak_object = None
@@ -204,7 +222,7 @@ class Model(Node):
 
 
 
-class ListNode(Model):
+class ListNode(Node):
     def __init__(self, **kwargs):
         super(ListNode, self).__init__(**kwargs)
         self.values = []

@@ -8,16 +8,16 @@ data models for tests
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 from pyoko.db.schema_update import SchemaUpdater
-from pyoko.model import Model,  Node, ListNode
+from pyoko.model import Model, Node, ListNode
 from pyoko import field
 
 
 class Student(Model):
-    def __init__(self, **kwargs):
+    # def __init__(self, **kwargs):
         # We define model relations in __init__ method, because Python parser raises a NameError
         # if we refer to a not yet defined class in body of another class.
-        self.contact_info = ContactInfo()
-        super(Student, self).__init__(**kwargs)
+        # self.contact_info = ContactInfo()
+        # super(Student, self).__init__(**kwargs)
     # contact_info = ContactInfo()
 
     # def row_level_access(self):
@@ -26,7 +26,7 @@ class Student(Model):
 
 
     class Meta(object):
-        bucket = 'student'
+        # bucket = 'student'
         store = True
         cell_filters = {
             # fields will be filtered out if self._context.perms does not
