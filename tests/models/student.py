@@ -72,18 +72,4 @@ class Student(Model):
             attended = field.Boolean(default=False)
 
 
-class ContactInfo(Node):
-    class Addresses(ListNode):
-        class Meta(object):
-            required = False
-
-        name = field.String()
-        street = field.String()
-        town = field.String()
-        city = field.String(index=True)
-        postal_code = field.Integer(index=True)
-
-    class Phones(ListNode):
-        gsm = field.String()
-        land_line = field.String()
 

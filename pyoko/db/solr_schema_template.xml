@@ -83,7 +83,7 @@
     <!-- A text field with defaults appropriate for English: it
          tokenizes with StandardTokenizer, removes English stop words
          (lang/stopwords_en.txt), down cases, protects words from protwords.txt, and
-         finally applies Porter's stemming.  The query time analyzer
+         finally applies Porter s stemming.  The query time analyzer
          also applies synonyms from synonyms.txt. -->
     <fieldType name="text_en" class="solr.TextField" positionIncrementGap="100">
       <analyzer type="index">
@@ -297,7 +297,7 @@
         <!-- for any non-arabic -->
         <filter class="solr.LowerCaseFilterFactory"/>
         <filter class="solr.StopFilterFactory" ignoreCase="true" words="lang/stopwords_ar.txt"/>
-        <!-- normalizes ﻯ to ﻱ, etc -->
+        <!-- normalizes  to  etc -->
         <filter class="solr.ArabicNormalizationFilterFactory"/>
         <filter class="solr.ArabicStemFilterFactory"/>
       </analyzer>
@@ -317,7 +317,7 @@
     <fieldType name="text_ca" class="solr.TextField" positionIncrementGap="100">
       <analyzer>
         <tokenizer class="solr.StandardTokenizerFactory"/>
-        <!-- removes l', etc -->
+        <!-- removes l, etc -->
         <filter class="solr.ElisionFilterFactory" ignoreCase="true" articles="lang/contractions_ca.txt"/>
         <filter class="solr.LowerCaseFilterFactory"/>
         <filter class="solr.StopFilterFactory" ignoreCase="true" words="lang/stopwords_ca.txt" />
@@ -442,7 +442,7 @@
     <fieldType name="text_fr" class="solr.TextField" positionIncrementGap="100">
       <analyzer>
         <tokenizer class="solr.StandardTokenizerFactory"/>
-        <!-- removes l', etc -->
+        <!-- removes l, etc -->
         <filter class="solr.ElisionFilterFactory" ignoreCase="true" articles="lang/contractions_fr.txt"/>
         <filter class="solr.LowerCaseFilterFactory"/>
         <filter class="solr.StopFilterFactory" ignoreCase="true" words="lang/stopwords_fr.txt" format="snowball" />
@@ -456,7 +456,7 @@
     <fieldType name="text_ga" class="solr.TextField" positionIncrementGap="100">
       <analyzer>
         <tokenizer class="solr.StandardTokenizerFactory"/>
-        <!-- removes d', etc -->
+        <!-- removes d, etc -->
         <filter class="solr.ElisionFilterFactory" ignoreCase="true" articles="lang/contractions_ga.txt"/>
         <!-- removes n-, etc. position increments is intentionally false! -->
         <filter class="solr.StopFilterFactory" ignoreCase="true" words="lang/hyphenations_ga.txt" />
@@ -527,7 +527,7 @@
     <fieldType name="text_it" class="solr.TextField" positionIncrementGap="100">
       <analyzer>
         <tokenizer class="solr.StandardTokenizerFactory"/>
-        <!-- removes l', etc -->
+        <!-- removes l, etc -->
         <filter class="solr.ElisionFilterFactory" ignoreCase="true" articles="lang/contractions_it.txt"/>
         <filter class="solr.LowerCaseFilterFactory"/>
         <filter class="solr.StopFilterFactory" ignoreCase="true" words="lang/stopwords_it.txt" format="snowball" />
@@ -572,7 +572,7 @@
         -->
         <tokenizer class="solr.JapaneseTokenizerFactory" mode="search"/>
         <!--<tokenizer class="solr.JapaneseTokenizerFactory" mode="search" userDictionary="lang/userdict_ja.txt"/>-->
-        <!-- Reduces inflected verbs and adjectives to their base/dictionary forms (辞書形) -->
+        <!-- Reduces inflected verbs and adjectives to their base/dictionary forms () -->
         <filter class="solr.JapaneseBaseFormFilterFactory"/>
         <!-- Removes tokens with certain part-of-speech tags -->
         <filter class="solr.JapanesePartOfSpeechStopFilterFactory" tags="lang/stoptags_ja.txt" />

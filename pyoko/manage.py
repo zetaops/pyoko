@@ -1,6 +1,6 @@
 # -*-  coding: utf-8 -*-
 """
-protoype of
+protoype of command line management interface
 """
 
 # Copyright (C) 2015 ZetaOps Inc.
@@ -11,30 +11,37 @@ protoype of
 
 import argparse
 from importlib import import_module
-import sys
+
 
 
 
 class ManagementCommands(object):
 
-    def __init__(self):
+    def __init__(self, args=None):
+        self.report = ""
+        self.robot = None
+        if args:
+            self.parse_args(args)
+            getattr(self, self.args.command)()
+        print(self.report)
+
+    def parse_args(self, args):
         parser = argparse.ArgumentParser()
         parser.add_argument("command", help="possible commands: schema_update")
-        self.args = parser.parse_args()
-        getattr(self, self.args.command)()
+        self.args = parser.parse_args(args)
 
-    def get_models(self):
-        import_module('models')
+    def _get_models(self):
+        import_module('tests.models')
         self.registry = import_module('pyoko.model')._registry
 
-
     def schema_update(self):
-        self.get_models()
+        self._get_models()
         from pyoko.db.schema_update import SchemaUpdater
-        su = SchemaUpdater(self.registry)
-        su.run()
+        self.robot = SchemaUpdater(self.registry)
+        self.robot.run()
+        self.report = self.robot.create_report()
 
 if __name__ == '__main__':
-
-    ManagementCommands()
+    import sys
+    ManagementCommands(sys.argv[1:])
 
