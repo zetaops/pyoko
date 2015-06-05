@@ -125,17 +125,13 @@ class Node(object):
         """
         returns the dotted path of the given model attribute
         """
-        return '.'.join(list(self.path +
-                             [self.__class__.__name__.lower(), prop])[1:])
+        return '.'.join(list(self.path + [self.__class__.__name__.lower(),
+                                          prop]))
 
-    # _GLOBAL_CONF = []
     def _instantiate_submodels(self):
         """
         instantiate all submodels, pass path data and flag them as child
         """
-        # child nodes should inherit GLOBAL_CONFigurations
-        # conf = {(k, v) for k, v in self._context.items()
-        # if k in self._GLOBAL_CONF}
         for name, klass in self._models.items():
             ins = klass(_context=self._context)
             ins.path = self.path + [self.__class__.__name__.lower()]
@@ -149,7 +145,9 @@ class Node(object):
         for k in self._fields:
             self._field_values[k] = kwargs.get(k)
 
-    def _collect_index_fields(self):
+    def _collect_index_fields(self, base_name=None):
+        if not base_name:
+            base_name = self._get_bucket_name()
         result = []
         multi = isinstance(self, ListNode)
         for name, field_ins in self._fields.items():
@@ -161,14 +159,14 @@ class Node(object):
                 else:
                     field_type = field_ins.__class__.__name__
 
-                result.append((self._path_of(name),
+                result.append((self._path_of(name).replace(base_name + '.', ''),
                                field_type,
                                field_ins.index_as,
                                field_ins.index,
                                field_ins.store,
                                multi))
         for mdl_ins in self._models:
-            result.extend(getattr(self, mdl_ins)._collect_index_fields())
+            result.extend(getattr(self, mdl_ins)._collect_index_fields(base_name))
         return result
 
     def _load_data(self, name):

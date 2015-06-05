@@ -27,7 +27,7 @@ class Student(Model):
 
     class Meta(object):
         # bucket = 'student'
-        store = True
+        # store = True
         cell_filters = {
             # fields will be filtered out if self._context.perms does not
             # contain the given permission.
