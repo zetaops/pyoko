@@ -67,9 +67,6 @@ class ModelMeta(type):
         attrs['_models'] = models
         attrs['_fields'] = base_fields
         new_class = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
-        # print(new_class, new_class._MODEL)
-        # new_class._models = models
-        # new_class._fields = base_fields
         _registry.register_model(new_class)
         return new_class
 
@@ -81,7 +78,7 @@ DataSource = Enum('DataSource', 'Null Cache Solr Riak')
 class Node(object):
     """
     We move sub-models in to _models[] attribute at ModelMeta,
-    then replace to instance model at _instantiate_submodels()
+    then replace to instance model at _instantiate_nodes()
 
     Since fields are defined as descriptors,
     they can access to instance they called from but
@@ -93,7 +90,6 @@ class Node(object):
     and fields themselves from _fields[]
 
     """
-    # _MODEL = False
 
     __defaults = {
         'cache': None,
@@ -109,17 +105,13 @@ class Node(object):
         self._field_values = {}
         self._context = self.__defaults.copy()
         self._context.update(kwargs.pop('_context', {}))
-        self._parse_meta_attributes()
-        self._instantiate_submodels()
+        self._instantiate_nodes()
         self._set_fields_values(kwargs)
 
-    def _parse_meta_attributes(self):
-        if hasattr(self, 'Meta'):
-            self._context.update({k: v for k, v in self.Meta.__dict__.items()
-                                  if not k.startswith('__')})
+
 
     def _get_bucket_name(self):
-        return self._context.get('bucket', self.__class__.__name__.lower())
+        return getattr(self.Meta, 'bucket_name', self.__class__.__name__.lower())
 
     def _path_of(self, prop):
         """
@@ -128,9 +120,9 @@ class Node(object):
         return '.'.join(list(self.path + [self.__class__.__name__.lower(),
                                           prop]))
 
-    def _instantiate_submodels(self):
+    def _instantiate_nodes(self):
         """
-        instantiate all submodels, pass path data and flag them as child
+        instantiate all nodes, pass path data
         """
         for name, klass in self._models.items():
             ins = klass(_context=self._context)
@@ -152,13 +144,8 @@ class Node(object):
         multi = isinstance(self, ListNode)
         for name, field_ins in self._fields.items():
             if field_ins.index or field_ins.store:
-                if field_ins.__class__.__name__ == 'Text':
-                    field_type = 'text_general'
-                elif field_ins.__class__.__name__ == 'Integer':
-                    field_type = 'int'
-                else:
-                    field_type = field_ins.__class__.__name__
-
+                type_conversation = {'Text':'text_general', 'Integer':'int'}
+                field_type = type_conversation.get(field_ins.__class__.__name__, field_ins.__class__.__name__)
                 result.append((self._path_of(name).replace(base_name + '.', ''),
                                field_type,
                                field_ins.index_as,
@@ -169,8 +156,11 @@ class Node(object):
             result.extend(getattr(self, mdl_ins)._collect_index_fields(base_name))
         return result
 
-    def _load_data(self, name):
-        pass
+    def _load_data(self, data):
+        for name in self._models:
+            getattr(self, name)._load_data(data[name])
+        for name, field_ins in self._fields.items():
+            self._field_values[name] = data[name]
 
     # ######## Public Methods  #########
 
@@ -189,12 +179,14 @@ class Model(Node):
         '_deleted': field.Boolean(default=False, index=True, store=False)}
 
     # _MODEL = True
+    class Meta(object):
+        bucket_type = 'models'
 
     def __init__(self, context=None, **kwargs):
         self._riak_object = None
         self._loaded_from = DataSource.Null
-        self._context = context
-        self.objects = DBObjects(model=self, )
+        self._context = context or {}
+        self.objects = DBObjects(model=self)
         self.row_level_access()
         # self.filter_cells()
         super(Model, self).__init__(**kwargs)
@@ -211,8 +203,8 @@ class Model(Node):
         pass
 
     def save(self):
-        # data_dict = self.clean_value()
-        self.objects.save()
+        data_dict = self.clean_value()
+        self.objects.save(data_dict)
 
     def delete(self):
         self._deleted = True
@@ -221,12 +213,22 @@ class Model(Node):
 
 
 class ListNode(Node):
-    def __init__(self, **kwargs):
+    def __init__(self, link=None, **kwargs):
         super(ListNode, self).__init__(**kwargs)
         self.values = []
         self.models = []
 
     # ######## Public Methods  #########
+
+    def _load_data(self, data):
+        """
+
+        """
+        for node_data in data:
+            clone = self.__class__(**node_data)
+            for name in self._models:
+                getattr(clone, name)._load_data(node_data[name])
+            self.models.append(clone)
 
     def clean_value(self):
         """

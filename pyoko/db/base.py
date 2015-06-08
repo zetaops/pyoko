@@ -42,8 +42,12 @@ class DBObjects(object):
         self.bucket = riak.RiakBucket
         self._cfg = conf
         self._cfg['row_size'] = 1000
-        if 'model' in self._cfg:
+        self.model = None
+        if 'model' in conf:
             self._cfg['rtype'] = ReturnType.Model
+            self.model = conf['model']
+            self._cfg['bucket_name'] = self.model._get_bucket_name()
+            self._cfg['bucket_type'] = self.model.Meta.bucket_type
         else:
             self._cfg['rtype'] = ReturnType.Object
         self.__client = self._cfg.pop('client', http_client)
@@ -146,7 +150,7 @@ class DBObjects(object):
         self.bucket = self.__client.bucket_type(self._cfg['bucket_type']).bucket(self._cfg['bucket_name'])
         if 'index' not in self._cfg:
             self._cfg.index = self._cfg['bucket_name']
-        self._data_type = self.bucket.get_properties().get('datatype', None)
+        # self._data_type = self.bucket.get_properties().get('datatype', None)
         return self
 
     def count_bucket(self):

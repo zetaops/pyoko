@@ -25,7 +25,7 @@ class Student(Model):
 
 
 
-    class Meta(object):
+    class Meta(Model.Meta):
         # bucket = 'student'
         # store = True
         cell_filters = {

@@ -1,0 +1,64 @@
+±@startuml
+
+skinparam classAttributeFontName Monospaced
+skinparam classBackgroundColor #EFF2FB
+skinparam noteBackgroundColor #cccccc
+skinparam noteBorderColor #D8D8D8
+skinparam classBorderColor #D8D8D8
+skinparam packageBorderColor #BDBDBD
+skinparam classArrowColor #0B615E
+skinparam shadowing false
+
+
+class Student {
+role                Link(**Role**, map={'User':1, })
+lectures            ListNode(**Lecture**, max_steps, reverse_name)
+timetable           ListNode()
+|_ Link(TimeTable, <b>max_steps=3</b>, reverse_name="<b>students</b>")
+**Exam(ListModel)**
+|_ type              String
+|_ date              Date
+|_ point             Int
+**Attendance(ListModel)**
+|_ attended          Boolean
+|_ date              Date
+|_ hour              Int
+--
+}
+note bottom: Link's in a ListNode used for ManyToMany relations
+
+class TimeTable{
+
+<i><b>students</b>      ListNode(Student)</i>
+
+--
+
+}
+note left: Reverse links represented as auto-created linked ListNodes
+
+class Lecturer<<(M,orchid)>>{
+employe         Link(**Employee**)
+name            String
+type            [String]
+--
+}
+
+class Lecture<<(M,orchid)>>{
+lecturer    Link(**Lecturer**)
+base        Link(**BaseLecture**)
+--
+}
+class BaseLecture<<(M,orchid)>>{
+name     String
+code     String
+credit   String
+--
+}
+
+
+
+Student --o TimeTable
+
+
+
+@enduml
