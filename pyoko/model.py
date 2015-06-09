@@ -158,9 +158,11 @@ class Node(object):
 
     def _load_data(self, data):
         for name in self._models:
-            getattr(self, name)._load_data(data[name])
-        for name, field_ins in self._fields.items():
-            self._field_values[name] = data[name]
+            if name in data:
+                getattr(self, name)._load_data(data[name])
+        self._set_fields_values(data)
+        # for name, field_ins in self._fields.items():
+        #     self._field_values[name] = data[name]
 
     # ######## Public Methods  #########
 
@@ -227,7 +229,8 @@ class ListNode(Node):
         for node_data in data:
             clone = self.__class__(**node_data)
             for name in self._models:
-                getattr(clone, name)._load_data(node_data[name])
+                if name in node_data: # check for partial data
+                    getattr(clone, name)._load_data(node_data[name])
             self.models.append(clone)
 
     def clean_value(self):

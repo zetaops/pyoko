@@ -215,7 +215,6 @@ class DBObjects(object):
             return self._solr_cache['docs'][0]
 
     # ######## Solr/Query Related Methods  #########
-
     def filter(self, **filters):
         # print "FILTER", self, filters
         clone = copy.deepcopy(self)
