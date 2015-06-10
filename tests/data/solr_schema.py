@@ -12,7 +12,7 @@ test_data_solr_fields = [
     ('archived', 'Boolean', None, True, True, False),
     ('surname', 'String', 'text_tr', True, True, False),
     ('name', 'String', 'text_tr', True, True, False),
-    ('timestamp', 'Date', None, True, True, False),
+    ('timestamp', 'date', None, True, True, False),
     ('number', 'String', None, True, True, False),
     ('_deleted', 'Boolean', None, True, False, False),
     ('join_date', 'Date', None, True, True, False),

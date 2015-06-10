@@ -67,6 +67,11 @@ class ModelMeta(type):
         attrs['_models'] = models
         attrs['_fields'] = base_fields
         new_class = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
+        print(bases)
+        if bases[0].__name__ == 'Model':
+            new_class.objects = DBObjects(model_class=new_class)
+            # print("\n")
+            # print(id(new_class))
         _registry.register_model(new_class)
         return new_class
 
@@ -109,9 +114,9 @@ class Node(object):
         self._set_fields_values(kwargs)
 
 
-
-    def _get_bucket_name(self):
-        return getattr(self.Meta, 'bucket_name', self.__class__.__name__.lower())
+    @classmethod
+    def _get_bucket_name(cls):
+        return getattr(cls.Meta, 'bucket_name', cls.__name__.lower())
 
     def _path_of(self, prop):
         """
@@ -134,8 +139,9 @@ class Node(object):
         return self
 
     def _set_fields_values(self, kwargs):
-        for k in self._fields:
-            self._field_values[k] = kwargs.get(k)
+        for name in self._fields:
+            setattr(self, name, kwargs.get(name))
+            # self._field_values[k] = kwargs.get(k)
 
     def _collect_index_fields(self, base_name=None):
         if not base_name:
@@ -144,7 +150,8 @@ class Node(object):
         multi = isinstance(self, ListNode)
         for name, field_ins in self._fields.items():
             if field_ins.index or field_ins.store:
-                type_conversation = {'Text':'text_general', 'Integer':'int'}
+                type_conversation = {'Text':'text_general',
+                                     'Integer':'int', 'DateTime':'date'}
                 field_type = type_conversation.get(field_ins.__class__.__name__, field_ins.__class__.__name__)
                 result.append((self._path_of(name).replace(base_name + '.', ''),
                                field_type,
@@ -177,7 +184,7 @@ class Node(object):
 class Model(Node):
     _DEFAULT_BASE_FIELDS = {
         'archived': field.Boolean(default=False, index=True, store=True),
-        'timestamp': field.Date(index=True, store=True),
+        'timestamp': field.DateTime(index=True, store=True),
         '_deleted': field.Boolean(default=False, index=True, store=False)}
 
     # _MODEL = True
@@ -188,10 +195,14 @@ class Model(Node):
         self._riak_object = None
         self._loaded_from = DataSource.Null
         self._context = context or {}
-        self.objects = DBObjects(model=self)
         self.row_level_access()
         # self.filter_cells()
         super(Model, self).__init__(**kwargs)
+        # print("\n init \n ")
+        # print(id(self.__class__))
+
+        self.objects.model = self
+        self.objects.model_class = self.__class__
 
 
 
@@ -205,8 +216,7 @@ class Model(Node):
         pass
 
     def save(self):
-        data_dict = self.clean_value()
-        self.objects.save(data_dict)
+        self.objects.save_model()
 
     def delete(self):
         self._deleted = True

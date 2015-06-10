@@ -36,30 +36,28 @@ class DBObjects(object):
     """
     This class implements Django-esque query APIs with the aim of fusing Solr and Riak in a more pythonic way
     """
-
+    DATE_TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+    DATE_FORMAT = "%Y-%m-%dT00:00:00Z"
     def __init__(self, **conf):
 
         self.bucket = riak.RiakBucket
         self._cfg = conf
         self._cfg['row_size'] = 1000
         self.model = None
+        self._client = self._cfg.pop('client', http_client)
         if 'model' in conf:
-            self._cfg['rtype'] = ReturnType.Model
             self.model = conf['model']
-            self._cfg['bucket_name'] = self.model._get_bucket_name()
-            self._cfg['bucket_type'] = self.model.Meta.bucket_type
-        else:
-            self._cfg['rtype'] = ReturnType.Object
-        self.__client = self._cfg.pop('client', http_client)
+            self.model_class = self.model.__class__
+        elif 'model_class' in conf:
+            self.model_class = conf['model_class']
+        self._cfg['rtype'] = ReturnType.Model
+        self.set_bucket(self.model_class.Meta.bucket_type, self.model_class._get_bucket_name())
         self._data_type = None  # we convert new object data according to bucket datatype, eg: Dictomaping for 'map' type
-
-
         self._solr_query = {}  # query parts, will be compiled before execution
         self._solr_params = {}  # search parameters. eg: rows, fl, start, sort etc.
         self._solr_locked = False
         self._solr_cache = {}
         self._riak_cache = []  # caching riak result, for repeating iterations on same query
-
         self._new_record_value = None
 
 
@@ -135,7 +133,7 @@ class DBObjects(object):
                 obj.__dict__[k] = []
             if k == '_solr_cache':
                 obj.__dict__[k] = {}
-            elif k.endswith(('bucket', '__client')):
+            elif k.endswith(('bucket', '_client')):
                 obj.__dict__[k] = v
             else:
                 obj.__dict__[k] = copy.deepcopy(v, memo)
@@ -147,9 +145,9 @@ class DBObjects(object):
     def set_bucket(self, type, name):
         self._cfg['bucket_type'] = type
         self._cfg['bucket_name'] = name
-        self.bucket = self.__client.bucket_type(self._cfg['bucket_type']).bucket(self._cfg['bucket_name'])
+        self.bucket = self._client.bucket_type(self._cfg['bucket_type']).bucket(self._cfg['bucket_name'])
         if 'index' not in self._cfg:
-            self._cfg.index = self._cfg['bucket_name']
+            self._cfg['index'] = name
         # self._data_type = self.bucket.get_properties().get('datatype', None)
         return self
 
@@ -171,11 +169,10 @@ class DBObjects(object):
         else:
             return self.bucket.new(data=value, key=key).store()
 
-    def _save_model(self):
-        model = self._cfg['model']
-        riak_object = self.save(model.clean_value(), model.key)
-        if not model.key:
-            model.key = riak_object.key
+    def save_model(self):
+        riak_object = self.save(self.model.clean_value(), self.model.key)
+        if not self.model.key:
+            self.model.key = riak_object.key
 
     def _get_from_db(self):
         """
@@ -206,8 +203,14 @@ class DBObjects(object):
         self._exec_query()
         if not self._riak_cache and self._cfg['rtype'] in (ReturnType.Object, ReturnType.Data):
             self._riak_cache = [self.bucket.get(self._solr_cache['docs'][0]['_yz_rk'])]
+        return self._get_one()
 
-        if self._cfg['rtype'] == ReturnType.Object:
+    def _get_one(self):
+        if self._cfg['rtype'] == ReturnType.Model:
+            model = self.model_class()
+            model._load_data(self._riak_cache[0].data)
+            return model
+        elif self._cfg['rtype'] == ReturnType.Object:
             return self._riak_cache[0]
         elif self._cfg['rtype'] == ReturnType.Data:
             return self._riak_cache[0].data
@@ -227,7 +230,8 @@ class DBObjects(object):
 
     def get(self, key=None):
         if key:
-            return self.bucket.get(key)
+            self._riak_cache= [self.bucket.get(key)]
+            return self._get_one()
         else:
             self._exec_query()
             if self.count() > 1:

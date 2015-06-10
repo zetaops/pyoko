@@ -6,7 +6,9 @@
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
+import datetime
 import time
+import six
 from pyoko.exceptions import ValidationError
 
 
@@ -75,11 +77,36 @@ class Text(BaseField):
 class Boolean(BaseField):
     pass
 
-class Date(BaseField):
+class DateTime(BaseField):
+    FORMAT_STRING = '%Y-%m-%dT%H:%M:%SZ'
     def __init__(self, *args, **kwargs):
-        super(Date, self).__init__(*args, **kwargs)
-        self.default = lambda: time.strftime('%Y-%M-%dT%H:%m:%SZ')
+        super(DateTime, self).__init__(*args, **kwargs)
+        self.default = lambda: time.strftime(self.FORMAT_STRING)
 
+    def clean_value(self, val):
+        if val is None:
+            return self.default() if callable(self.default) else self.default
+        else:
+            return val.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def __set__(self, instance, value):
+        if isinstance(value, six.string_types):
+            value = datetime.datetime.strptime(value, self.FORMAT_STRING)
+        instance._field_values[self.name] = value
+
+
+class Date(DateTime):
+    FORMAT_STRING = '%Y-%m-%dT00:00:00Z'
+
+    # def __init__(self, *args, **kwargs):
+    #     super(Date, self).__init__(*args, **kwargs)
+    #     self.default = lambda: time.strftime('%Y-%m-%dT00:00:00Z')
+    #
+    # def clean_value(self, val):
+    #     if val is None:
+    #         return self.default() if callable(self.default) else self.default
+    #     else:
+    #         return val.strftime("%Y-%m-%dT00:00:00Z")
 
 
 class Integer(BaseField):

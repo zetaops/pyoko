@@ -8,7 +8,7 @@
 # (GPLv3).  See LICENSE.txt for details.
 
 
-from tests.data.test_data import data
+from tests.data.test_data import data, clean_data
 from tests.models import Student
 
 
@@ -29,8 +29,8 @@ def test_model_to_json_compact():
             lecture.Exams(**exam)
     # print st.clean_value()
     clean_value  = st.clean_value()
-    data['timestamp'] = clean_value['timestamp']
-    assert data == clean_value
+    clean_data['timestamp'] = clean_value['timestamp']
+    assert clean_data == clean_value
 
 # def test_mode8l_to_json_compact(benchmark):
 #     benchmark(model_to_json_compact )
@@ -43,7 +43,7 @@ def test_model_to_json_expanded():
     s.number = d['number']
     s._deleted = d['_deleted']
     s.archived = d['archived']
-    s.timestamp = d['timestamp']
+    # s.timestamp = d['timestamp']
     s.bio = d['bio']
     s.name = d['name']
     s.surname = d['surname']
@@ -72,4 +72,4 @@ def test_model_to_json_expanded():
             exm.point = exam['point']
             exm.type = exam['type']
     clean_data = s.clean_value()
-    assert data == clean_data
+    assert clean_data == clean_data
