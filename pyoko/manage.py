@@ -1,6 +1,6 @@
 # -*-  coding: utf-8 -*-
 """
-protoype of command line management interface
+command line management interface
 """
 
 # Copyright (C) 2015 ZetaOps Inc.
@@ -13,10 +13,7 @@ import argparse
 from importlib import import_module
 
 
-
-
 class ManagementCommands(object):
-
     def __init__(self, args=None):
         self.report = ""
         self.robot = None
@@ -27,7 +24,19 @@ class ManagementCommands(object):
 
     def parse_args(self, args):
         parser = argparse.ArgumentParser()
-        parser.add_argument("command", help="possible commands: schema_update")
+        subparsers = parser.add_subparsers(
+            title='subcommands', description='valid subcommands',
+            help='additional help')
+        parser_create = subparsers.add_parser('update_schema')
+        parser_create.set_defaults(command='schema_update')
+        parser_create.add_argument(
+            '--bucket', required=True, help='Bucket name(s) to be updated')
+
+        parser_create = subparsers.add_parser('index_bucket')
+        parser_create.set_defaults(command='index_bucket')
+        parser_create.add_argument(
+            '--bucket', required=True,
+            help='Bucket name(s) to be indexed. (Comma separated)')
         self.args = parser.parse_args(args)
 
     def _get_models(self):
@@ -37,11 +46,13 @@ class ManagementCommands(object):
     def schema_update(self):
         self._get_models()
         from pyoko.db.schema_update import SchemaUpdater
-        self.robot = SchemaUpdater(self.registry)
+
+        self.robot = SchemaUpdater(self.registry, self.args.bucket)
         self.robot.run()
         self.report = self.robot.create_report()
 
+
 if __name__ == '__main__':
     import sys
-    ManagementCommands(sys.argv[1:])
 
+    ManagementCommands(sys.argv[1:])

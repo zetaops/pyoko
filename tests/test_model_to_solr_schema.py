@@ -19,13 +19,11 @@ import sys
 def test_collect_index_fields():
     st = Student()
     result = st._collect_index_fields()
-    # pprint(result)
-    # pprint(sorted(result, key=lambda x: x[0]))
-    # print(sorted(result, key=lambda x: x[0]) == sorted(test_data_solr_fields,
-    #                                                     key=lambda x: x[0]))
-    # pprint(sorted(test_data_solr_fields, key=lambda x: x[0]))
-    assert sorted(result, key=lambda x: x[0]) == sorted(test_data_solr_fields,
-                                                        key=lambda x: x[0])
+    sorted_result =sorted(result, key=lambda x: x[0])
+    sorted_data = sorted(test_data_solr_fields, key=lambda x: x[0])
+    # pprint(sorted_data)
+    # pprint(sorted_result)
+    assert sorted_result == sorted_data
 
 
 def test_create_solr_schema():
@@ -37,6 +35,6 @@ def test_create_solr_schema():
 def test_apply_solr_schema():
     # import_module('models')
     mc = ManagementCommands()
-    mc.parse_args(['schema_update'])
+    mc.parse_args(['update_schema', '--bucket', 'student'])
     mc.schema_update()
     assert all(list(zip(*mc.robot.report))[1])
