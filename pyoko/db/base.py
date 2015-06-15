@@ -81,14 +81,14 @@ class DBObjects(object):
         """
         for development purposes, normally we should never delete anything, let alone the whole bucket!
         """
-        if not 'yes' == moves.input("Say yes if you really want to delete all records in this bucket % s:" % self.bucket):
-            return
+        # if not 'yes' == moves.input("Say yes if you really want to delete all records in this bucket % s:" % self.bucket):
+        #     return
         i = 0
         for pck in self.bucket.stream_keys():
             for k in pck:
                 i += 1
                 self.bucket.get(k).delete()
-        return "%s record deleted" % i
+        # return "%s record deleted" % i
 
     # ######## Python Magic  #########
 
@@ -124,14 +124,13 @@ class DBObjects(object):
         """
         A deep copy method that doesn't populate caches and shares same Riak client
         """
-        obj = self.__class__()
+        obj = self.__class__(**self._cfg)
         # print "COPY", obj, memo
         # print self.__dict__
         for k, v in self.__dict__.items():
-            # print "copy", k, v
-            if k == 'riak_cache':
+            if k == '_riak_cache':
                 obj.__dict__[k] = []
-            if k == '_solr_cache':
+            elif k == '_solr_cache':
                 obj.__dict__[k] = {}
             elif k.endswith(('bucket', '_client')):
                 obj.__dict__[k] = v
@@ -208,7 +207,11 @@ class DBObjects(object):
     def _get_one(self):
         if self._cfg['rtype'] == ReturnType.Model:
             model = self.model_class()
-            model._load_data(self._riak_cache[0].data)
+            if self._solr_cache:
+                data = self._solr_cache[0]
+            else:
+                data = self._riak_cache[0].data
+            model._load_data(data)
             return model
         elif self._cfg['rtype'] == ReturnType.Object:
             return self._riak_cache[0]
@@ -221,7 +224,7 @@ class DBObjects(object):
     def filter(self, **filters):
         # print "FILTER", self, filters
         clone = copy.deepcopy(self)
-        clone.solr_query.update(filters.copy())
+        clone._solr_query.update(filters.copy())
         return clone
 
     # def all(self):
@@ -297,6 +300,7 @@ class DBObjects(object):
         # self.solr_query_updated = True
         anded = ' AND '.join(query)
         joined_query = anded
+        print(joined_query)
         return joined_query
 
     def _process_params(self):
@@ -307,6 +311,7 @@ class DBObjects(object):
     def _exec_query(self):
         if not self._solr_locked:
             self._solr_cache = self.bucket.search(self._compile_query(), self._cfg['index'], **self._process_params())
+            print(self.bucket.get_properties())
             self._solr_locked = True
         return self
 

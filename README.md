@@ -34,6 +34,10 @@
 
 Tests needs a locally running Riak instance at port 8098.
 
+You need to define the following environmental variable to run tests. 
+
+PYOKO_SETTINGS='tests.settings'
+
 **py.test** command runs all the tests from tests directory.
 
 #### License ####
