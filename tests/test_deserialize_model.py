@@ -23,15 +23,15 @@ def test_json_to_model_to_json_partial():
     st = Student()
     partial_data = deepcopy(data)
     partial_data_clean = deepcopy(clean_data)
-    partial_data_clean['AuthInfo']['password'] = None
+    partial_data_clean['auth_info']['password'] = None
     partial_data_clean['bio'] = None
-    partial_data_clean['Lectures'][0]['Exams'] = []
-    partial_data_clean['Lectures'][1]['Exams'] = []
+    partial_data_clean['lectures'][0]['exams'] = []
+    partial_data_clean['lectures'][1]['exams'] = []
 
-    partial_data['AuthInfo']['password'] = None
+    partial_data['auth_info']['password'] = None
     partial_data['bio'] = None
-    partial_data['Lectures'][0]['Exams'] = []
-    partial_data['Lectures'][1]['Exams'] = []
+    partial_data['lectures'][0]['exams'] = []
+    partial_data['lectures'][1]['exams'] = []
 
     st._load_data(partial_data)
     clean_value = st.clean_value()

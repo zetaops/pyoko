@@ -24,11 +24,12 @@ test_data_solr_fields = [
     ('lectures.attendance.attended', 'Boolean', None, False, True, True),
     ('lectures.attendance.hour', 'int', None, False, True, True),
     ('lectures.exams.date', 'Date', None, False, True, True),
+    ('lectures.exams.point', 'int', None, False, False, True),
     ('lectures.exams.type', 'String', None, False, True, True),
-    ('lectures.nodeinlistnode.foo', 'String', None, False, True, False),
-    ('authinfo.username', 'String', None, True, True, False),
-    ('authinfo.password', 'String', None, False, True, False),
-    ('authinfo.email', 'String', None, True, True, False)
+    ('lectures.node_in_list_node.foo', 'String', None, False, True, True),
+    ('auth_info.username', 'String', None, True, True, False),
+    ('auth_info.password', 'String', None, False, True, False),
+    ('auth_info.email', 'String', None, True, True, False)
     ]
 
 test_data_solr_schema = [
@@ -42,6 +43,7 @@ test_data_solr_schema = [
     '<field type="date" name="join_date"  indexed="true" stored="true" multiValued="false" />',
     '<field type="string" name="pno"  indexed="true" stored="true" multiValued="false" />',
     '<field type="int" name="lectures.credit"  indexed="true" stored="true" multiValued="true" />',
+    '<field type="int" name="lectures.exams.point"  indexed="false" stored="false" multiValued="true" />',
     '<field type="string" name="lectures.code"  indexed="true" stored="true" multiValued="true" />',
     '<field type="text_tr" name="lectures.name"  indexed="true" stored="true" multiValued="true" />',
     '<field type="date" name="lectures.attendance.date"  indexed="false" stored="true" multiValued="true" />',
@@ -49,7 +51,7 @@ test_data_solr_schema = [
     '<field type="int" name="lectures.attendance.hour"  indexed="false" stored="true" multiValued="true" />',
     '<field type="date" name="lectures.exams.date"  indexed="false" stored="true" multiValued="true" />',
     '<field type="string" name="lectures.exams.type"  indexed="false" stored="true" multiValued="true" />',
-    '<field type="string" name="lectures.nodeinlistnode.foo"  indexed="false" stored="true" multiValued="false" />',
-    '<field type="string" name="authinfo.username"  indexed="true" stored="true" multiValued="false" />',
-    '<field type="string" name="authinfo.password"  indexed="false" stored="true" multiValued="false" />',
-    '<field type="string" name="authinfo.email"  indexed="true" stored="true" multiValued="false" />']
+    '<field type="string" name="lectures.node_in_list_node.foo"  indexed="false" stored="true" multiValued="true" />',
+    '<field type="string" name="auth_info.username"  indexed="true" stored="true" multiValued="false" />',
+    '<field type="string" name="auth_info.password"  indexed="false" stored="true" multiValued="false" />',
+    '<field type="string" name="auth_info.email"  indexed="true" stored="true" multiValued="false" />']

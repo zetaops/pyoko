@@ -8,7 +8,7 @@
 # (GPLv3).  See LICENSE.txt for details.
 
 from enum import Enum
-from six import with_metaclass, add_metaclass
+from six import add_metaclass
 from pyoko import field
 from pyoko.db.base import DBObjects
 
@@ -25,6 +25,9 @@ from pyoko.db.base import DBObjects
 # TODO: Check for missing magic methods and add if needed.
 # TODO: Add Migration support with automatic 'schema_version' field.
 # TODO: Add backwards migrations
+
+# region ModelMeta and Registry
+from pyoko.lib.utils import un_camel
 
 
 class Registry(object):
@@ -43,6 +46,7 @@ class Registry(object):
         #     for model in self.registry:
         #         if model.bucket_name == bucket_name:
         #             return model
+
 
 
 _registry = Registry()
@@ -74,6 +78,7 @@ class ModelMeta(type):
             # print(id(new_class))
         _registry.register_model(new_class)
         return new_class
+# endregion
 
 
 DataSource = Enum('DataSource', 'Null Cache Solr Riak')
@@ -95,7 +100,7 @@ class Node(object):
     and fields themselves from _fields[]
 
     """
-
+    objects = DBObjects
     __defaults = {
         'cache': None,
         'index': None,
@@ -110,8 +115,12 @@ class Node(object):
         self._field_values = {}
         self._context = self.__defaults.copy()
         self._context.update(kwargs.pop('_context', {}))
+        self.objects = self._context.get('objects', self.objects)
         self._instantiate_nodes()
         self._set_fields_values(kwargs)
+        self.objects.model = self
+        self.objects.model_class = self.__class__
+
 
 
     @classmethod
@@ -122,7 +131,7 @@ class Node(object):
         """
         returns the dotted path of the given model attribute
         """
-        return '.'.join(list(self.path + [self.__class__.__name__.lower(),
+        return '.'.join(list(self.path + [un_camel(self.__class__.__name__),
                                           prop]))
 
     def _instantiate_nodes(self):
@@ -143,30 +152,31 @@ class Node(object):
             setattr(self, name, kwargs.get(name))
             # self._field_values[k] = kwargs.get(k)
 
-    def _collect_index_fields(self, base_name=None):
+    def _collect_index_fields(self, base_name=None, in_multi=False):
         if not base_name:
             base_name = self._get_bucket_name()
         result = []
-        multi = isinstance(self, ListNode)
+        multi = in_multi or isinstance(self, ListNode)
         for name, field_ins in self._fields.items():
-            if field_ins.index or field_ins.store:
-                type_conversation = {'Text':'text_general',
-                                     'Integer':'int', 'DateTime':'date'}
-                field_type = type_conversation.get(field_ins.__class__.__name__, field_ins.__class__.__name__)
-                result.append((self._path_of(name).replace(base_name + '.', ''),
-                               field_type,
-                               field_ins.index_as,
-                               field_ins.index,
-                               field_ins.store,
-                               multi))
+            type_conversation = {'Text':'text_general',
+                                 'Integer':'int', 'DateTime':'date'}
+            field_type = type_conversation.get(field_ins.__class__.__name__, field_ins.__class__.__name__)
+            field_name = self._path_of(name).replace(base_name + '.', '')
+            result.append((field_name,
+                           field_type,
+                           field_ins.index_as,
+                           field_ins.index,
+                           field_ins.store,
+                           multi))
         for mdl_ins in self._models:
-            result.extend(getattr(self, mdl_ins)._collect_index_fields(base_name))
+            result.extend(getattr(self, mdl_ins)._collect_index_fields(base_name, multi))
         return result
 
     def _load_data(self, data):
         for name in self._models:
-            if name in data:
-                getattr(self, name)._load_data(data[name])
+            _name = un_camel(name)
+            if _name in data:
+                getattr(self, name)._load_data(data[_name])
         self._set_fields_values(data)
         # for name, field_ins in self._fields.items():
         #     self._field_values[name] = data[name]
@@ -176,9 +186,9 @@ class Node(object):
     def clean_value(self):
         dct = {}
         for name in self._models:
-            dct[name] = getattr(self, name).clean_value()
+            dct[un_camel(name)] = getattr(self, name).clean_value()
         for name, field_ins in self._fields.items():
-            dct[name] = field_ins.clean_value(self._field_values[name])
+            dct[un_camel(name)] = field_ins.clean_value(self._field_values[name])
         return dct
 
 class Model(Node):
@@ -201,8 +211,7 @@ class Model(Node):
         # print("\n init \n ")
         # print(id(self.__class__))
 
-        self.objects.model = self
-        self.objects.model_class = self.__class__
+
 
 
 
@@ -239,8 +248,9 @@ class ListNode(Node):
         for node_data in data:
             clone = self.__class__(**node_data)
             for name in self._models:
-                if name in node_data: # check for partial data
-                    getattr(clone, name)._load_data(node_data[name])
+                _name = un_camel(name)
+                if _name in node_data: # check for partial data
+                    getattr(clone, name)._load_data(node_data[_name])
             self.models.append(clone)
 
     def clean_value(self):
