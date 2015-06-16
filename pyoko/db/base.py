@@ -16,10 +16,10 @@ import riak
 from pyoko.exceptions import MultipleObjectsReturned
 from pyoko.lib.py2map import Dictomap
 from pyoko.lib.utils import  grayed
-
+from threading import local
 from six import moves
 
-
+index_names = local()
 
 
 # TODO: Add tests
@@ -200,17 +200,14 @@ class DBObjects(object):
 
     def _get(self):
         self._exec_query()
-        if not self._riak_cache and self._cfg['rtype'] in (ReturnType.Object, ReturnType.Data):
+        if not self._riak_cache and self._cfg['rtype'] != ReturnType.Solr:
             self._riak_cache = [self.bucket.get(self._solr_cache['docs'][0]['_yz_rk'])]
         return self._get_one()
 
     def _get_one(self):
         if self._cfg['rtype'] == ReturnType.Model:
             model = self.model_class()
-            if self._solr_cache:
-                data = self._solr_cache[0]
-            else:
-                data = self._riak_cache[0].data
+            data = self._riak_cache[0].data
             model._load_data(data)
             return model
         elif self._cfg['rtype'] == ReturnType.Object:
@@ -311,7 +308,6 @@ class DBObjects(object):
     def _exec_query(self):
         if not self._solr_locked:
             self._solr_cache = self.bucket.search(self._compile_query(), self._cfg['index'], **self._process_params())
-            print(self.bucket.get_properties())
             self._solr_locked = True
         return self
 

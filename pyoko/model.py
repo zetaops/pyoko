@@ -71,11 +71,8 @@ class ModelMeta(type):
         attrs['_models'] = models
         attrs['_fields'] = base_fields
         new_class = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
-        print(bases)
         if bases[0].__name__ == 'Model':
             new_class.objects = DBObjects(model_class=new_class)
-            # print("\n")
-            # print(id(new_class))
         _registry.register_model(new_class)
         return new_class
 # endregion
