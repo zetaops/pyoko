@@ -89,39 +89,28 @@ class SchemaUpdater(object):
 
     def apply_schema(self, new_schema, bucket_name):
         """
-        creates an index, schema and a bucket for the given data
+        riak doesn't support schema/index updates ( http://git.io/vLOTS )
+
+        as a workaround, we create a temporary index,
+        attach it to the bucket, delete the old index/schema,
+        re-create the index with new schema, assign it to bucket,
+        then delete the temporary index.
+
         :param byte new_schema: compiled schema
         :param str bucket_name: name of schema, index and bucket.
         :return: True or False
         :rtype: bool
         """
-        schema_name = "%s_%s" % (bucket_name, time.time())
-        self.client.create_search_schema(schema_name, new_schema)
-        self.client.create_search_index(schema_name, schema_name)
-        # self.client.
-        # with self.client._transport() as t:
-        #     t._request('PUT', t.search_index_path('student'),
-        # {'content-type': 'text/plain'}, 'RELOAD')
-        b = self.client.bucket_type('models').bucket(bucket_name)
-        b.set_property('search_index', schema_name)
-
-        schema_from_riak = self.client.get_search_schema(
-            schema_name)['content']
-        return b.get_property('search_index') == schema_name and \
+        bucket = self.client.bucket_type('models').bucket(bucket_name)
+        tmp_index_name = "%s_%s" % (bucket_name, time.time())
+        self.client.create_search_index(tmp_index_name)
+        bucket.set_property('search_index', tmp_index_name)
+        self.client.delete_search_index(bucket_name)
+        self.client.create_search_schema(bucket_name, new_schema)
+        self.client.create_search_index(bucket_name, bucket_name)
+        bucket.set_property('search_index', bucket_name)
+        self.client.delete_search_index(tmp_index_name)
+        schema_from_riak = self.client.get_search_schema(bucket_name)['content']
+        return bucket.get_property('search_index') == bucket_name and \
                schema_from_riak == new_schema.decode("utf-8")
 
-    def re_index(self):
-        """
-        re-stores all records for re-indexing
-        :return: re-indexed record count
-        :rtype: int
-        """
-        i = 0
-        for bucket_name in self.bucket_names:
-            b = self.client.bucket_type('models').bucket(bucket_name)
-            for keys in b.stream_keys():
-                for key in keys:
-                    i += 1
-                    obj = b.get(key)
-                    obj.store()
-        return i
