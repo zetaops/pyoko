@@ -6,6 +6,7 @@
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
+from copy import deepcopy
 
 from enum import Enum
 from six import add_metaclass
@@ -175,6 +176,7 @@ class Node(object):
             if _name in data:
                 getattr(self, name)._load_data(data[_name])
         self._set_fields_values(data)
+        return self
         # for name, field_ins in self._fields.items():
         #     self._field_values[name] = data[name]
 
