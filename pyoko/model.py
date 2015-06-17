@@ -194,7 +194,7 @@ class Model(Node):
     _DEFAULT_BASE_FIELDS = {
         'archived': field.Boolean(default=False, index=True, store=True),
         'timestamp': field.DateTime(index=True, store=True),
-        '_deleted': field.Boolean(default=False, index=True, store=False)}
+        'deleted': field.Boolean(default=False, index=True, store=False)}
 
     # _MODEL = True
     class Meta(object):
@@ -227,7 +227,7 @@ class Model(Node):
         self.objects.save_model()
 
     def delete(self):
-        self._deleted = True
+        self.deleted = True
         self.save()
 
 

@@ -7,6 +7,7 @@
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 from time import sleep
+from pyoko.manage import ManagementCommands
 from tests.data.test_data import data, clean_data, solr_doc
 from tests.models import Student
 
@@ -34,9 +35,21 @@ class TestDBRelations:
             sleep(1)  # wait for Riak -> Solr sync
         return cls.new_obj
 
+    @classmethod
+    def create_index(cls):
+        if Student.objects.bucket.get_properties().get('search_index') is None:
+            mc = ManagementCommands()
+            mc.parse_args(['update_schema', '--bucket', 'student'])
+            mc.schema_update()
+
+    @classmethod
+    def prepare_testbed(cls):
+        cls.clear_bucket()
+        cls.create_index()
+        return cls.get_or_create_new_obj()
+
     def test_save_load_model(self):
-        self.clear_bucket()
-        st = self.get_or_create_new_obj()
+        st = self.prepare_testbed()
         key = st.key
         st2 = Student.objects.get(key=key)
         clean_value = st2.clean_value()
@@ -44,8 +57,7 @@ class TestDBRelations:
         assert clean_data == clean_value
 
     def test_save_query_get_first(self):
-        self.clear_bucket()
-        self.get_or_create_new_obj()
+        self.prepare_testbed()
         st2 = Student.objects.filter(
             auth_info__email=data['auth_info']['email'])[0]
         clean_value = st2.clean_value()
@@ -53,8 +65,7 @@ class TestDBRelations:
         assert clean_data == clean_value
 
     def test_save_query_list_models(self):
-        self.clear_bucket()
-        self.get_or_create_new_obj()
+        self.prepare_testbed()
         students = list(Student.objects.filter(
             auth_info__email=data['auth_info']['email']))
         st2 = students[0]
@@ -63,8 +74,7 @@ class TestDBRelations:
         assert clean_data == clean_value
 
     def test_save_query_list_riak_objects(self):
-        self.clear_bucket()
-        self.get_or_create_new_obj()
+        self.prepare_testbed()
         students = list(Student.objects.data().filter(
             auth_info__email=data['auth_info']['email']))
         st2_data = students[0].data
@@ -72,8 +82,8 @@ class TestDBRelations:
         assert clean_data == st2_data
 
     def test_save_query_list_solr_docs(self):
-        self.clear_bucket()
-        st = self.get_or_create_new_obj()
+        # FIXME: order of multivalued field values varies between solr versions
+        st = self.prepare_testbed()
         st2_doc = list(Student.objects.solr().filter(
             auth_info__email=data['auth_info']['email']))[0]
         solr_doc['timestamp'] = st2_doc['timestamp']
