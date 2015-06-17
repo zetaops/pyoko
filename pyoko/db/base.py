@@ -45,12 +45,14 @@ class DBObjects(object):
         self._cfg['rtype'] = ReturnType.Model
         self.set_bucket(self.model_class.Meta.bucket_type,
                         self.model_class._get_bucket_name())
-        self._data_type = None  # we convert new object data according to bucket datatype, eg: Dictomaping for 'map' type
+        self._data_type = None  # we convert new object data according to
+        # bucket datatype, eg: Dictomaping for 'map' type
         self._solr_query = {}  # query parts, will be compiled before execution
         self._solr_params = {}  # search parameters. eg: rows, fl, start, sort etc.
         self._solr_locked = False
         self._solr_cache = {}
-        self._riak_cache = []  # caching riak result, for repeating iterations on same query
+        self._riak_cache = []  # caching riak result,
+        # for repeating iterations on same query
 
     # ######## Development Methods  #########
 
@@ -96,12 +98,12 @@ class DBObjects(object):
     def __iter__(self):
         self._exec_query()
         for doc in self._solr_cache['docs']:
-            yield self._make_model(self.bucket.get(doc['_yz_rk']).data)
-
-    def __iter_for_objects(self):
-        self._exec_query()
-        for doc in self._solr_cache['docs']:
-            yield self.bucket.get(doc['_yz_rk'])
+            if self._cfg['rtype'] == ReturnType.Solr:
+                yield doc
+            else:
+                riak_obj = self.bucket.get(doc['_yz_rk'])
+                yield (self._make_model(riak_obj.data)
+                       if self._cfg['rtype'] == ReturnType.Model else riak_obj)
 
 
     def __getitem__(self, index):
@@ -252,13 +254,18 @@ class DBObjects(object):
         self._solr_params.update({'fl': ' '.join(set(args + ('_yz_rk',)))})
         return self
 
+
+    def _set_return_type(self, type):
+        self._cfg['rtype'] = type
+
     def solr(self):
         """
         returns raw solr result
         """
         clone = copy.deepcopy(self)
-        clone._cfg['rtype'] = ReturnType.Solr
-        clone.__iter__ = iter(self._solr_cache)
+        clone._set_return_type(ReturnType.Solr)
+        # clone._cfg['rtype'] = ReturnType.Solr
+        # setattr(clone, '__iter__', iter(clone._solr_cache))
         return clone
 
     def data(self):
@@ -266,8 +273,11 @@ class DBObjects(object):
         return riak objects instead of pyoko models
         """
         clone = copy.deepcopy(self)
-        clone._cfg['rtype'] = ReturnType.Object
-        clone.__iter__ = self.__iter_for_objects
+        clone._set_return_type(ReturnType.Object)
+        # clone._cfg['rtype'] = ReturnType.Object
+
+        # clone.__iter__ = clone.__iter_for_objects
+        # setattr(clone, '__iter__', clone.__iter_for_objects)
         return clone
 
     def _compile_query(self):
