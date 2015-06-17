@@ -30,6 +30,7 @@ class DBObjects(object):
     """
     Data access layer for Solr/Riak
     """
+
     def __init__(self, **conf):
 
         self.bucket = riak.RiakBucket
@@ -79,10 +80,9 @@ class DBObjects(object):
         only for development purposes
         """
         i = 0
-        for pck in self.bucket.stream_keys():
-            for k in pck:
-                i += 1
-                self.bucket.get(k).delete()
+        for k in self.bucket.get_keys():
+            i += 1
+            self.bucket.get(k).delete()
         return i
 
     def _count_bucket(self):
@@ -104,7 +104,6 @@ class DBObjects(object):
                 riak_obj = self.bucket.get(doc['_yz_rk'])
                 yield (self._make_model(riak_obj.data)
                        if self._cfg['rtype'] == ReturnType.Model else riak_obj)
-
 
     def __getitem__(self, index):
         if isinstance(index, int):
@@ -254,30 +253,23 @@ class DBObjects(object):
         self._solr_params.update({'fl': ' '.join(set(args + ('_yz_rk',)))})
         return self
 
-
     def _set_return_type(self, type):
         self._cfg['rtype'] = type
 
     def solr(self):
         """
-        returns raw solr result
+        set return type for raw solr docs
         """
         clone = copy.deepcopy(self)
         clone._set_return_type(ReturnType.Solr)
-        # clone._cfg['rtype'] = ReturnType.Solr
-        # setattr(clone, '__iter__', iter(clone._solr_cache))
         return clone
 
     def data(self):
         """
-        return riak objects instead of pyoko models
+        set return type as riak objects instead of pyoko models
         """
         clone = copy.deepcopy(self)
         clone._set_return_type(ReturnType.Object)
-        # clone._cfg['rtype'] = ReturnType.Object
-
-        # clone.__iter__ = clone.__iter_for_objects
-        # setattr(clone, '__iter__', clone.__iter_for_objects)
         return clone
 
     def _compile_query(self):
@@ -300,7 +292,6 @@ class DBObjects(object):
         # self.solr_query_updated = True
         anded = ' AND '.join(query)
         joined_query = anded
-        print(joined_query)
         return joined_query
 
     def _process_params(self):

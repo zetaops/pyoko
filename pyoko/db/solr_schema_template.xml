@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <schema name="schedule" version="1.5">
  <fields>
-    <field name="_root_" type="int" indexed="true" stored="true" multiValued="false" required="false"/>
      {0}
 
    <!-- All of these fields are required by Riak Search -->

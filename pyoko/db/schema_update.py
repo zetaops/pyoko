@@ -8,6 +8,8 @@
 # (GPLv3).  See LICENSE.txt for details.
 import codecs
 from pprint import pprint
+from random import randint
+from riak import RiakError
 import six
 import time
 from pyoko.db.connection import http_client as client
@@ -22,7 +24,8 @@ class SchemaUpdater(object):
     then creates a solr schema for these fields.
     """
 
-    FIELD_TEMPLATE = '<field type="{type}" name="{name}"  indexed="{index}" stored="{store}" multiValued="{multi}" />'
+    FIELD_TEMPLATE = '<field type="{type}" name="{name}"  indexed="{index}" ' \
+                     'stored="{store}" multiValued="{multi}" />'
 
     def __init__(self, registry, bucket_names):
         self.report = []
@@ -101,15 +104,32 @@ class SchemaUpdater(object):
         :return: True or False
         :rtype: bool
         """
-        bucket = self.client.bucket_type('models').bucket(bucket_name)
-        tmp_index_name = "%s_%s" % (bucket_name, time.time())
-        self.client.create_search_index(tmp_index_name)
-        bucket.set_property('search_index', tmp_index_name)
-        self.client.delete_search_index(bucket_name)
+        bucket_type = self.client.bucket_type('models')
+        bucket = bucket_type.bucket(bucket_name)
+
+        # delete stale indexes
+        inuse_indexes = [b.get_properties().get('search_index') for b in
+                         bucket_type.get_buckets()]
+        stale_indexes = [si['name'] for si in self.client.list_search_indexes()
+                            if si['name'] not in inuse_indexes]
+        for stale_index in stale_indexes:
+            self.client.delete_search_index(stale_index)
+
+        # delete index of the bucket (if exist)
+        existing_index = bucket.get_properties().get('search_index', None)
+        if existing_index:
+            tmp_index_name = "%s_%s" % (bucket_name, randint(1000, 9999))
+            self.client.create_search_index(tmp_index_name)
+            bucket.set_property('search_index', tmp_index_name)
+            self.client.delete_search_index(existing_index)
+
         self.client.create_search_schema(bucket_name, new_schema)
         self.client.create_search_index(bucket_name, bucket_name)
         bucket.set_property('search_index', bucket_name)
-        self.client.delete_search_index(tmp_index_name)
+
+        if existing_index:
+            self.client.delete_search_index(tmp_index_name)
+
         schema_from_riak = self.client.get_search_schema(bucket_name)['content']
         return bucket.get_property('search_index') == bucket_name and \
                schema_from_riak == new_schema.decode("utf-8")
