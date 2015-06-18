@@ -1,142 +1,23 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<!--
- Licensed to the Apache Software Foundation (ASF) under one or more
- contributor license agreements.  See the NOTICE file distributed with
- this work for additional information regarding copyright ownership.
- The ASF licenses this file to You under the Apache License, Version 2.0
- (the "License"); you may not use this file except in compliance with
- the License.  You may obtain a copy of the License at
-
-     http://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
--->
-
-<schema name="default" version="1.5">
+<schema name="schedule" version="1.5">
  <fields>
+     {0}
 
-   <!-- TODO: is this needed? -->
-   <field name="_version_" type="long" indexed="true" stored="true"/>
-
-   <field name="text" type="text_general" indexed="true" stored="false" multiValued="true"/>
-
-   <dynamicField name="*_i"  type="int"    indexed="true"  stored="true"  multiValued="false"/>
-   <dynamicField name="*_is" type="int"    indexed="true"  stored="true"  multiValued="true"/>
-   <dynamicField name="*_l"  type="long"   indexed="true"  stored="true"  multiValued="false"/>
-   <dynamicField name="*_ls" type="long"   indexed="true"  stored="true"  multiValued="true"/>
-   <dynamicField name="*_d"  type="double" indexed="true"  stored="true"  multiValued="false"/>
-   <dynamicField name="*_ds" type="double" indexed="true"  stored="true"  multiValued="true"/>
-   <dynamicField name="*_f"  type="float"  indexed="true"  stored="true"  multiValued="false"/>
-   <dynamicField name="*_fs" type="float"  indexed="true"  stored="true"  multiValued="true"/>
-
-   <dynamicField name="*_s"  type="string"  indexed="true"  stored="true" multiValued="false"/>
-   <dynamicField name="*_ss" type="string"  indexed="true"  stored="true" multiValued="true"/>
-
-   <dynamicField name="*_t"  type="text_general" indexed="true"  stored="false" multiValued="false"/>
-   <dynamicField name="*_ts" type="text_general" indexed="true"  stored="false" multiValued="true"/>
-
-   <dynamicField name="*_tsd" type="text_general" indexed="true" stored="true" multiValued="false"/>
-   <dynamicField name="*_tssd" type="text_general" indexed="true" stored="true" multiValued="true"/>
-
-   <!-- languages -->
-   <dynamicField name="*_en" type="text_en" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_ar" type="text_ar" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_bg" type="text_bg" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_ca" type="text_ca" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_cjk" type="text_cjk" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_ckb" type="text_ckb" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_cz" type="text_cz" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_da" type="text_da" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_de" type="text_de" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_el" type="text_el" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_es" type="text_es" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_eu" type="text_eu" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_fa" type="text_fa" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_fi" type="text_fi" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_fr" type="text_fr" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_ga" type="text_ga" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_gl" type="text_gl" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_hi" type="text_hi" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_hu" type="text_hu" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_hy" type="text_hy" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_id" type="text_id" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_it" type="text_it" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_ja" type="text_ja" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_lv" type="text_lv" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_nl" type="text_nl" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_no" type="text_no" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_pt" type="text_pt" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_ro" type="text_ro" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_ru" type="text_ru" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_sv" type="text_sv" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_th" type="text_th" indexed="true" stored="true" multiValued="true"/>
-   <dynamicField name="*_tr" type="text_tr" indexed="true" stored="true" multiValued="true"/>
-
-   <dynamicField name="*_b"  type="boolean" indexed="true" stored="true" multiValued="false"/>
-   <dynamicField name="*_bs" type="boolean" indexed="true" stored="true"  multiValued="true"/>
-   <dynamicField name="*_dt"  type="date"    indexed="true"  stored="true" multiValued="false"/>
-   <dynamicField name="*_dts" type="date"    indexed="true"  stored="true" multiValued="true"/>
-   <dynamicField name="*_coordinate"  type="tdouble" indexed="true"  stored="false" multiValued="false"/>
-   <dynamicField name="*_p" type="location" indexed="true" stored="true" multiValued="false"/>
-
-   <!-- some trie-coded dynamic fields for faster range queries -->
-   <dynamicField name="*_ti" type="tint"    indexed="true"  stored="true" multiValued="false"/>
-   <dynamicField name="*_tl" type="tlong"   indexed="true"  stored="true" multiValued="false"/>
-   <dynamicField name="*_tf" type="tfloat"  indexed="true"  stored="true" multiValued="false"/>
-   <dynamicField name="*_td" type="tdouble" indexed="true"  stored="true" multiValued="false"/>
-   <dynamicField name="*_tdt" type="tdate"  indexed="true"  stored="true" multiValued="false"/>
-
-   <dynamicField name="*_ig" type="ignored" multiValued="true"/>
-   <dynamicField name="random_*" type="random" />
-
-   <!-- Riak datatypes default fields-->
-   <field name="counter" type="int"    indexed="true" stored="true" multiValued="false" />
-   <field name="set"     type="string" indexed="true" stored="false" multiValued="true" />
-
-   <!-- Riak datatypes embedded fields -->
-   <dynamicField name="*_flag"     type="boolean" indexed="true" stored="true" multiValued="false" />
-   <dynamicField name="*_counter"  type="int"     indexed="true" stored="true" multiValued="false" />
-   <dynamicField name="*_register" type="string"  indexed="true" stored="true" multiValued="false" />
-   <dynamicField name="*_set"      type="string"  indexed="true" stored="false" multiValued="true" />
-
-   <!-- catch-all field -->
-   <dynamicField name="*" type="ignored" />
-
-   <field name="_yz_id" type="_yz_str" indexed="true" stored="true" multiValued="false" required="true"/>
-
-   <!-- Entropy Data: Data related to anti-entropy -->
-   <field name="_yz_ed" type="_yz_str" indexed="true" stored="false" multiValued="false"/>
-
-   <!-- Partition Number: Used as a filter query param -->
-   <field name="_yz_pn" type="_yz_str" indexed="true" stored="false" multiValued="false"/>
-
-   <!-- First Partition Number: The first partition in this doc's
-        preflist, used for further filtering on overlapping partitions. -->
-   <field name="_yz_fpn" type="_yz_str" indexed="true" stored="false" multiValued="false"/>
-
-   <!-- If there is a sibling, use vtag to differentiate them -->
+   <!-- All of these fields are required by Riak Search -->
+   <field name="_yz_id"   type="_yz_str" indexed="true" stored="true"  multiValued="false" required="true"/>
+   <field name="_yz_ed"   type="_yz_str" indexed="true" stored="false" multiValued="false"/>
+   <field name="_yz_pn"   type="_yz_str" indexed="true" stored="false" multiValued="false"/>
+   <field name="_yz_fpn"  type="_yz_str" indexed="true" stored="false" multiValued="false"/>
    <field name="_yz_vtag" type="_yz_str" indexed="true" stored="false" multiValued="false"/>
-
-   <!-- Riak Key: The key of the Riak object this doc corresponds to. -->
-   <field name="_yz_rk" type="_yz_str" indexed="true" stored="true" multiValued="false"/>
-
-   <!-- Riak Bucket Type: The bucket type of the Riak object this doc corresponds to. -->
-   <field name="_yz_rt" type="_yz_str" indexed="true" stored="true" multiValued="false"/>
-
-   <!-- Riak Bucket: The bucket of the Riak object this doc corresponds to. -->
-   <field name="_yz_rb" type="_yz_str" indexed="true" stored="true" multiValued="false"/>
-
-   <!-- Flag indicating if this doc is the product of a failed object extraction -->
-   <field name="_yz_err" type="_yz_str" indexed="true" stored="false" multiValued="false"/>
+   <field name="_yz_rk"   type="_yz_str" indexed="true" stored="true"  multiValued="false"/>
+   <field name="_yz_rt"   type="_yz_str" indexed="true" stored="true"  multiValued="false"/>
+   <field name="_yz_rb"   type="_yz_str" indexed="true" stored="true"  multiValued="false"/>
+   <field name="_yz_err"  type="_yz_str" indexed="true" stored="false" multiValued="false"/>
  </fields>
 
  <uniqueKey>_yz_id</uniqueKey>
-
-  <types>
+<dynamicField name="*" type="ignored"  />
+ <types>
     <!-- YZ String: Used for non-analyzed fields -->
     <fieldType name="_yz_str" class="solr.StrField" sortMissingLast="true" />
 
@@ -201,7 +82,7 @@
     <!-- A text field with defaults appropriate for English: it
          tokenizes with StandardTokenizer, removes English stop words
          (lang/stopwords_en.txt), down cases, protects words from protwords.txt, and
-         finally applies Porter's stemming.  The query time analyzer
+         finally applies Porter s stemming.  The query time analyzer
          also applies synonyms from synonyms.txt. -->
     <fieldType name="text_en" class="solr.TextField" positionIncrementGap="100">
       <analyzer type="index">
@@ -415,7 +296,7 @@
         <!-- for any non-arabic -->
         <filter class="solr.LowerCaseFilterFactory"/>
         <filter class="solr.StopFilterFactory" ignoreCase="true" words="lang/stopwords_ar.txt"/>
-        <!-- normalizes ﻯ to ﻱ, etc -->
+        <!-- normalizes  to  etc -->
         <filter class="solr.ArabicNormalizationFilterFactory"/>
         <filter class="solr.ArabicStemFilterFactory"/>
       </analyzer>
@@ -435,7 +316,7 @@
     <fieldType name="text_ca" class="solr.TextField" positionIncrementGap="100">
       <analyzer>
         <tokenizer class="solr.StandardTokenizerFactory"/>
-        <!-- removes l', etc -->
+        <!-- removes l, etc -->
         <filter class="solr.ElisionFilterFactory" ignoreCase="true" articles="lang/contractions_ca.txt"/>
         <filter class="solr.LowerCaseFilterFactory"/>
         <filter class="solr.StopFilterFactory" ignoreCase="true" words="lang/stopwords_ca.txt" />
@@ -560,7 +441,7 @@
     <fieldType name="text_fr" class="solr.TextField" positionIncrementGap="100">
       <analyzer>
         <tokenizer class="solr.StandardTokenizerFactory"/>
-        <!-- removes l', etc -->
+        <!-- removes l, etc -->
         <filter class="solr.ElisionFilterFactory" ignoreCase="true" articles="lang/contractions_fr.txt"/>
         <filter class="solr.LowerCaseFilterFactory"/>
         <filter class="solr.StopFilterFactory" ignoreCase="true" words="lang/stopwords_fr.txt" format="snowball" />
@@ -574,7 +455,7 @@
     <fieldType name="text_ga" class="solr.TextField" positionIncrementGap="100">
       <analyzer>
         <tokenizer class="solr.StandardTokenizerFactory"/>
-        <!-- removes d', etc -->
+        <!-- removes d, etc -->
         <filter class="solr.ElisionFilterFactory" ignoreCase="true" articles="lang/contractions_ga.txt"/>
         <!-- removes n-, etc. position increments is intentionally false! -->
         <filter class="solr.StopFilterFactory" ignoreCase="true" words="lang/hyphenations_ga.txt" />
@@ -645,7 +526,7 @@
     <fieldType name="text_it" class="solr.TextField" positionIncrementGap="100">
       <analyzer>
         <tokenizer class="solr.StandardTokenizerFactory"/>
-        <!-- removes l', etc -->
+        <!-- removes l, etc -->
         <filter class="solr.ElisionFilterFactory" ignoreCase="true" articles="lang/contractions_it.txt"/>
         <filter class="solr.LowerCaseFilterFactory"/>
         <filter class="solr.StopFilterFactory" ignoreCase="true" words="lang/stopwords_it.txt" format="snowball" />
@@ -690,7 +571,7 @@
         -->
         <tokenizer class="solr.JapaneseTokenizerFactory" mode="search"/>
         <!--<tokenizer class="solr.JapaneseTokenizerFactory" mode="search" userDictionary="lang/userdict_ja.txt"/>-->
-        <!-- Reduces inflected verbs and adjectives to their base/dictionary forms (辞書形) -->
+        <!-- Reduces inflected verbs and adjectives to their base/dictionary forms () -->
         <filter class="solr.JapaneseBaseFormFilterFactory"/>
         <!-- Removes tokens with certain part-of-speech tags -->
         <filter class="solr.JapanesePartOfSpeechStopFilterFactory" tags="lang/stoptags_ja.txt" />
@@ -803,5 +684,6 @@
       </analyzer>
     </fieldType>
  </types>
+
 
 </schema>

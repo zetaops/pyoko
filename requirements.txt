@@ -1,6 +1,9 @@
 fake-factory
 -e git://github.com/basho/riak-python-client.git#egg=riak
 fabric
-gevent
+#gevent
 # use following gevent for PyPy
 #-e git://github.com/surfly/gevent.git#egg=gevent
+enum34
+pytest
+six
