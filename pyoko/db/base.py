@@ -292,6 +292,8 @@ class DBObjects(object):
         # self.solr_query_updated = True
         anded = ' AND '.join(query)
         joined_query = anded
+        if joined_query == '':
+            joined_query = '*:*'
         return joined_query
 
     def _process_params(self):
