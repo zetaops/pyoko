@@ -12,7 +12,7 @@ import six
 from pyoko.exceptions import ValidationError
 from pyoko.conf import settings
 
-DATE_TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+DATE_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 DATE_FORMAT = "%Y-%m-%dT00:00:00Z"
 
 
@@ -27,7 +27,8 @@ class BaseField(object):
                  index_as=None,
                  store=settings.SOLR_STORE_ALL,):
         self.required = required
-        self.index_as = index_as
+        if index_as:
+            self.solr_type = index_as
         self.index = index or bool(index_as)
         self.store = store
         self.default = default
@@ -54,22 +55,31 @@ class BaseField(object):
 
 
 class String(BaseField):
+    solr_type = 'string'
     pass
 
 
 class Text(BaseField):
+    solr_type = 'text_general'
+    pass
+
+
+class Float(BaseField):
+    solr_type = 'float'
     pass
 
 
 class Boolean(BaseField):
+    solr_type = 'boolean'
     pass
 
 
 class DateTime(BaseField):
+    solr_type = 'date'
     def __init__(self, format=DATE_TIME_FORMAT, *args, **kwargs):
         super(DateTime, self).__init__(*args, **kwargs)
         self.format = format
-        self.default = lambda: time.strftime(self.format)
+        self.default = lambda: datetime.datetime.now().strftime(self.format)
 
     def clean_value(self, val):
         if val is None:
@@ -84,16 +94,33 @@ class DateTime(BaseField):
 
 
 class Date(DateTime):
+    solr_type = 'date'
     def __init__(self, format=DATE_FORMAT, *args, **kwargs):
         super(Date, self).__init__(format=format, *args, **kwargs)
 
 
 class Integer(BaseField):
+    solr_type = 'int'
     default_value = 0
 
     def clean_value(self, val):
-        val = val or self.default_value
-        try:
-            return int(val)
-        except ValueError:
-            raise ValidationError("%r could not be cast to integer" % val)
+        if val is not None:
+            try:
+                return int(val)
+            except ValueError:
+                raise ValidationError("%r could not be cast to integer" % val)
+        elif val is None and self.default is not None:
+            return int(self.default() if callable(self.default) else self.default)
+        else:
+            return self.default_value
+
+class TimeStamp(BaseField):
+    solr_type = 'long'
+    def __init__(self, *args, **kwargs):
+        super(TimeStamp, self).__init__(*args, **kwargs)
+        self.index = True
+        self.store = True
+
+    def clean_value(self, val):
+        return int(repr(time.time()).replace('.', ''))
+

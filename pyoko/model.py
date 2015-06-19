@@ -7,6 +7,7 @@
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 from copy import deepcopy
+import time
 
 from enum import Enum
 from six import add_metaclass
@@ -156,13 +157,9 @@ class Node(object):
         result = []
         multi = in_multi or isinstance(self, ListNode)
         for name, field_ins in self._fields.items():
-            type_conversation = {'Text':'text_general',
-                                 'Integer':'int', 'DateTime':'date'}
-            field_type = type_conversation.get(field_ins.__class__.__name__, field_ins.__class__.__name__)
             field_name = self._path_of(name).replace(base_name + '.', '')
             result.append((field_name,
-                           field_type,
-                           field_ins.index_as,
+                           field_ins.solr_type,
                            field_ins.index,
                            field_ins.store,
                            multi))
@@ -193,7 +190,7 @@ class Node(object):
 class Model(Node):
     _DEFAULT_BASE_FIELDS = {
         'archived': field.Boolean(default=False, index=True, store=True),
-        'timestamp': field.DateTime(index=True, store=True),
+        'timestamp': field.TimeStamp(),
         'deleted': field.Boolean(default=False, index=True, store=False)}
 
     # _MODEL = True

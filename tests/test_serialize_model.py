@@ -72,4 +72,5 @@ def test_model_to_json_expanded():
             exm.point = exam['point']
             exm.type = exam['type']
     clean_value = s.clean_value()
+    clean_data['timestamp'] = clean_value['timestamp']
     assert clean_data == clean_value
