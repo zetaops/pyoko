@@ -24,15 +24,23 @@
 - Picklable models
 ---
 
+#### Configuration ####
+
+See Tests section.
+
 #### Developer Notes ####
 
 - Do not use Protocol Buffers in development, it doesn't give proper descriptions for server side errors.
 
 
-
 #### Tests ####
 
 Tests needs a locally running Riak instance at port 8098.
+
+Create a bucket type named models and activate it with following commands:
+
+./riak-admin bucket-type create models
+./riak-admin bucket-type activate models
 
 You need to define the following environmental variable to run tests. 
 
