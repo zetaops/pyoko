@@ -7,6 +7,9 @@
 
 from tests.models import Student
 
+# this file contains whole levels of queries to pyoko.
+# todo: add more complex queries
+
 def test_filter():
     student = Student()
     # filter by name, if name not equals filtered names then append to list
