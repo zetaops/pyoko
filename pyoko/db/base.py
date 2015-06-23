@@ -209,6 +209,16 @@ class DBObjects(object):
         clone._solr_query.update(filters.copy())
         return clone
 
+    def exclude(self, **filters):
+        """
+        applies query filters to exclude from queryset.
+        reusing filter method
+        :param dict filters: query  filter parameters filter(email='a@a.co',...)
+        :return: self.filter() with '-' with keys of filters
+        """
+        exclude = {'-%s' % key: value for key, value in filters.iteritems()}
+        return self.filter(**exclude)
+
     def get(self, key=None):
         """
         if key param exists, retrieves object from riak,
