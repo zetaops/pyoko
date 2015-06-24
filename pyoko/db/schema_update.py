@@ -31,7 +31,7 @@ class SchemaUpdater(object):
         self.report = []
         self.registry = registry
         self.client = client
-        self.bucket_names = [b.lower() for  b in bucket_names.split(',')]
+        self.bucket_names = [b.lower() for b in bucket_names.split(',')]
 
 
     def run(self):
@@ -107,12 +107,12 @@ class SchemaUpdater(object):
         bucket = bucket_type.bucket(bucket_name)
 
         # delete stale indexes
-        inuse_indexes = [b.get_properties().get('search_index') for b in
-                         bucket_type.get_buckets()]
-        stale_indexes = [si['name'] for si in self.client.list_search_indexes()
-                            if si['name'] not in inuse_indexes]
-        for stale_index in stale_indexes:
-            self.client.delete_search_index(stale_index)
+        # inuse_indexes = [b.get_properties().get('search_index') for b in
+        #                  bucket_type.get_buckets()]
+        # stale_indexes = [si['name'] for si in self.client.list_search_indexes()
+        #                     if si['name'] not in inuse_indexes]
+        # for stale_index in stale_indexes:
+        #     self.client.delete_search_index(stale_index)
 
         # delete index of the bucket (if exist)
         existing_index = bucket.get_properties().get('search_index', None)
