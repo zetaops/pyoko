@@ -216,7 +216,7 @@ class DBObjects(object):
         :param dict filters: query  filter parameters filter(email='a@a.co',...)
         :return: self.filter() with '-' with keys of filters
         """
-        exclude = {'-%s' % key: value for key, value in filters.iteritems()}
+        exclude = {'-%s' % key: value for key, value in filters.items()}
         return self.filter(**exclude)
 
     def get(self, key=None):

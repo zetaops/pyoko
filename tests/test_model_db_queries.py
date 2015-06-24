@@ -56,6 +56,22 @@ class TestDBRelations:
         clean_data['timestamp'] = clean_value['timestamp']
         assert clean_data == clean_value
 
+    def test_filter(self):
+        # filter by name, if name not equals filtered names then append to list
+        self.prepare_testbed()
+        filter_result = [s.name for s in Student.objects.filter(name='Jack') if
+                         s.name != 'Jack']
+
+        assert len(filter_result) == 0
+
+    def test_exclude(self):
+        # exclude by name, if name equals filtered names then append to list
+        self.prepare_testbed()
+        exclude_result = [s.name for s in Student.objects.exclude(name='Jack')
+                          if s.name == 'Jack']
+
+        assert len(exclude_result) == 0
+
     def test_save_query_get_first(self):
         self.prepare_testbed()
         st2 = Student.objects.filter(
