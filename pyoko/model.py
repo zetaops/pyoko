@@ -84,7 +84,8 @@ class ModelMeta(type):
         new_class = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
         if new_class._TYPE == 'Model':
             new_class.objects = DBObjects(model_class=new_class)
-        _registry.register_model(new_class)
+        if new_class.__base__.__name__ == 'Model':
+            _registry.register_model(new_class)
         return new_class
 # endregion
 
