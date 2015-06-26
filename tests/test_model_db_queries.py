@@ -25,6 +25,8 @@ class TestDBRelations:
         if not cls.cleaned_up:
             Student.objects._clear_bucket()
             cls.cleaned_up = True
+            sleep(2)
+
 
     @classmethod
     def get_or_create_new_obj(cls):
@@ -67,6 +69,7 @@ class TestDBRelations:
     def test_exclude(self):
         # exclude by name, if name equals filtered names then append to list
         self.prepare_testbed()
+        print(Student.objects.count())
         exclude_result = [s.name for s in Student.objects.exclude(name='Jack')
                           if s.name == 'Jack']
 
