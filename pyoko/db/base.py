@@ -241,10 +241,13 @@ class DBObjects(object):
         :return:  number of objects matches to the query
         :rtype: int
         """
-        if not self._solr_cache:
-            self._params(rows=0)
-            self._exec_query()
-        return self._solr_cache.get('num_found', -1)
+        if self._solr_cache:
+            obj = self
+        else:
+            obj = copy.deepcopy(self)
+            obj._params(rows=0)
+            obj._exec_query()
+        return obj._solr_cache.get('num_found', -1)
 
     def _params(self, **params):
         """
