@@ -39,9 +39,9 @@ class TestModelRelations:
         position = 'Coder'
         user = User(name=name)
         user.save()
-        employee = Employee(role=position, user=user)
+        employee = Employee(role=position, usr=user)
         employee.save()
         sleep(1)
         db_employee = Employee.objects.filter(role=position).get()
-        assert db_employee.user.name == name
+        assert db_employee.usr.name == name
 

@@ -102,7 +102,7 @@ class DBObjects(object):
                 yield doc
             else:
                 riak_obj = self.bucket.get(doc['_yz_rk'])
-                yield (self._make_model(riak_obj.data)
+                yield (self._make_model(riak_obj.data, riak_obj)
                        if self._cfg['rtype'] == ReturnType.Model else riak_obj)
 
     def __getitem__(self, index):
@@ -185,19 +185,21 @@ class DBObjects(object):
                 self._solr_cache['docs'][0]['_yz_rk'])]
 
         if self._cfg['rtype'] == ReturnType.Model:
-            return self._make_model(self._riak_cache[0].data)
+            return self._make_model(self._riak_cache[0].data, self._riak_cache[0])
         elif self._cfg['rtype'] == ReturnType.Object:
             return self._riak_cache[0]
         else:
             return self._solr_cache['docs'][0]
 
-    def _make_model(self, data):
+    def _make_model(self, data, riak_obj=None):
         """
         creates a model instance with the given data
         :param dict data: model data returned from db (riak or redis)
         :return: pyoko.Model
         """
-        return self.model_class()._load_data(data)
+        model = self.model_class()
+        model.key = riak_obj.key if riak_obj else data.get('key')
+        return model._load_data(data)
 
     def filter(self, **filters):
         """

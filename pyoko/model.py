@@ -24,7 +24,7 @@ from pyoko.db.base import DBObjects
 # TODO: Add backwards migrations
 
 # region ModelMeta and Registry
-from pyoko.lib.utils import un_camel
+from pyoko.lib.utils import un_camel, un_camel_id
 
 
 class Registry(object):
@@ -32,12 +32,12 @@ class Registry(object):
         self.registry = []
         self.link_registry = defaultdict(list)
 
-    def register_model(self, cls):
-        if cls._TYPE == 'Model' and cls not in self.registry:
-            self.registry += [cls]
-            for name, link_model in cls._linked_models.items():
-                self.link_registry[link_model].append(cls)
-                setattr(link_model, '%ss' % cls.__name__, cls)
+    def register_model(self, kls):
+        if kls not in self.registry:
+            self.registry += [kls]
+            for name, link_model in kls._linked_models.items():
+                self.link_registry[link_model].append((name, kls))
+                setattr(link_model, '%s_set' % un_camel(kls.__name__), kls)
 
     def get_base_models(self):
         return self.registry
@@ -64,20 +64,19 @@ class ModelMeta(type):
         if class_type == 'Model':
             attrs.update(bases[0]._DEFAULT_BASE_FIELDS)
 
-        for key in list(attrs.keys()):
-            if hasattr(attrs[key], '__base__'):
-                attr_type = getattr(attrs[key].__base__, '_TYPE', '')
+        for key, attr in list(attrs.items()):
+            if hasattr(attr, '__base__'):
+                attr_type = getattr(attr.__base__, '_TYPE', '')
                 if attr_type == 'Node':
                     nodes[key] = attrs.pop(key)
             else:
-                attr_type = getattr(attrs[key], '_TYPE', '')
+                attr_type = getattr(attr, '_TYPE', '')
                 if attr_type == 'Model':
-                    linked_model_base_instance = attrs[key]
-                    attrs[key] = deepcopy(linked_model_base_instance)
-                    linked_models[key] = linked_model_base_instance.__class__
+                    attrs[key] = deepcopy(attr)
+                    linked_models[key] = attr.__class__
                 elif attr_type == 'Field':
-                    attrs[key].name = key
-                    base_fields[key] = attrs[key]
+                    attr.name = key
+                    base_fields[key] = attr
         attrs['_nodes'] = nodes
         attrs['_fields'] = base_fields
         attrs['_linked_models'] = linked_models
@@ -169,9 +168,12 @@ class Node(object):
             # self._field_values[k] = kwargs.get(k)
 
     def _collect_index_fields(self, base_name=None, in_multi=False):
+        result = []
         if not base_name:
             base_name = self._get_bucket_name()
-        result = []
+            for name in self._linked_models:
+                obj = getattr(self, name)
+                result.append((un_camel_id(name), 'string', True, True, obj.has_many_values()))
         multi = in_multi or isinstance(self, ListNode)
         for name, field_ins in self._fields.items():
             field_name = self._path_of(name).replace(base_name + '.', '')
@@ -204,6 +206,7 @@ class Node(object):
             dct['_cache'] = {}
             for name in self._linked_models:
                 obj = getattr(self, name)
+                dct[un_camel_id(name)] = obj.key or ''
                 if obj.key:
                     dct['_cache'][un_camel(name)] = obj.clean_value()
                     dct['_cache'][un_camel(name)]['key'] = obj.key
@@ -227,6 +230,8 @@ class Model(Node):
         self._context = context or {}
         self.row_level_access()
         self._prepare_linked_models()
+        self._link_has_many = False
+        self._link_exclusive = False
 
         # self.filter_cells()
         super(Model, self).__init__(**kwargs)
@@ -234,13 +239,28 @@ class Model(Node):
         # print(id(self.__class__))
 
     def _load_data(self, data):
+        """
+        first calls supers load_data
+        then fills linked models
+        :param data:
+        :return:
+        """
         super(Model, self)._load_data(data)
         cache = data.get('_cache', {})
         for name in self._linked_models:
             _name = un_camel(name)
             if _name in cache:
-                getattr(self, name)._load_data(cache[_name])
+                mdl = getattr(self, name)
+                mdl.key = cache[_name]['key']
+                mdl._load_data(cache[_name])
         return self
+
+    def has_many_values(self):
+        """
+        is this model represents multiple instances of itself eg: ManyToMany, ManyToOne
+        :return:
+        """
+        return False
 
     def _prepare_linked_models(self):
         """
@@ -250,6 +270,11 @@ class Model(Node):
             model._parent = self
 
     def _load_from_parent(self):
+        """
+        this method will be invoked by a field instance of an empty linked model
+
+        :return:
+        """
         pass
 
     def row_level_access(self):
@@ -261,8 +286,15 @@ class Model(Node):
         """
         pass
 
+    def _get_reverse_links(self):
+        return _registry.link_registry[self.__class__]
+
     def save(self):
         self.objects.save_model()
+        for name, mdl in self._get_reverse_links():
+            for obj in mdl.objects.filter(**{un_camel_id(name):self.key}):
+                setattr(obj, name, self)
+                obj.save()
 
     def delete(self):
         self.deleted = True

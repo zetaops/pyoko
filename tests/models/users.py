@@ -28,7 +28,7 @@ class User(Model):
 class Employee(Model):
     # unit = field.Link(Unit)
     # user = field.LinkToOne(User, index=True)
-    user = User(index=True, cache_level=1)
+    usr = User(index=True, cache_level=1)
     role = field.String(index=True)
 
 
