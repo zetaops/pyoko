@@ -46,6 +46,10 @@ You need to define the following environmental variable to run tests.
 
 PYOKO_SETTINGS='tests.settings'
 
+to create schemas run command:
+
+python manage.py update_schema --bucket <model_name>,<model_name>,...
+
 **py.test** command runs all the tests from tests directory.
 
 #### License ####
