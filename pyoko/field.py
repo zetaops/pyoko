@@ -17,7 +17,7 @@ DATE_FORMAT = "%Y-%m-%dT00:00:00Z"
 
 
 class BaseField(object):
-    link_type = False
+    _TYPE = 'Field'
     default_value = None
 
     def __init__(self,
@@ -37,7 +37,13 @@ class BaseField(object):
     def __get__(self, instance, cls=None):
         if cls is None:
             return self
-        return instance._field_values.get(self.name, None)
+        val = instance._field_values.get(self.name, None)
+        if val or not instance._parent:
+            return val
+        else:
+            instance._load_from_parent()
+            return instance._field_values.get(self.name, None)
+
 
     def __set__(self, instance, value):
         instance._field_values[self.name] = value
@@ -124,3 +130,28 @@ class TimeStamp(BaseField):
     def clean_value(self, val):
         return int(repr(time.time()).replace('.', ''))
 
+
+# class Link(object):
+#     """
+#     Model Relations
+#     """
+#     def __init__(self, model, *args, **kwargs):
+#         self.model = model
+#
+# class LinkToOne(Link):
+#     """
+#     OneToOne Relations
+#     """
+#
+#     def __init__(self, model, *args, **kwargs):
+#         super(LinkToOne, self).__init__(model, *args, **kwargs)
+#         self.model = model
+
+# class LinkToMany(Link):
+#     """
+#     OneToOne Relations
+#     """
+#
+#     def __init__(self, model, *args, **kwargs):
+#         super(LinkToMany, self).__init__(model, *args, **kwargs)
+#         self.model = model

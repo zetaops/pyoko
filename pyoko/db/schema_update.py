@@ -36,8 +36,7 @@ class SchemaUpdater(object):
 
     def run(self):
         for klass in self.registry.get_base_models():
-            if self.bucket_names[
-                0] == 'all' or klass.__name__.lower() in self.bucket_names:
+            if self.bucket_names[0] == 'all' or klass.__name__.lower() in self.bucket_names:
                 ins = klass()
                 fields = self.get_schema_fields(ins._collect_index_fields())
                 new_schema = self.compile_schema(fields)

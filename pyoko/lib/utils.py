@@ -22,6 +22,14 @@ UN_CAMEL_RE = re.compile('((?<=[a-z0-9])[A-Z]|(?!^)[A-Z](?=[a-z]))')
 def un_camel(input):
     return UN_CAMEL_RE.sub(r'_\1', input).lower()
 
+def un_camel_id(input):
+    """
+    uncamel for id fields
+    :param input:
+    :return:
+    """
+    return un_camel(input) + '_id'
+
 def to_camel(s):
     return re.sub(r'(?!^)_([a-zA-Z])', lambda m: m.group(1).upper(), s)
 

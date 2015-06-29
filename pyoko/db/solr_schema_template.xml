@@ -13,10 +13,11 @@
    <field name="_yz_rt"   type="_yz_str" indexed="true" stored="true"  multiValued="false"/>
    <field name="_yz_rb"   type="_yz_str" indexed="true" stored="true"  multiValued="false"/>
    <field name="_yz_err"  type="_yz_str" indexed="true" stored="false" multiValued="false"/>
+<dynamicField name="*" type="ignored"  />
  </fields>
 
  <uniqueKey>_yz_id</uniqueKey>
-<dynamicField name="*" type="ignored"  />
+
  <types>
     <!-- YZ String: Used for non-analyzed fields -->
     <fieldType name="_yz_str" class="solr.StrField" sortMissingLast="true" />
