@@ -32,6 +32,8 @@ class TestModelRelations:
     def prepare_testbed(cls):
         cls.preprocess()
 
+    # def test_one_to_one_simple_benchmarked(self, benchmark):
+    #     benchmark(self.test_one_to_one_simple)
 
     def test_one_to_one_simple(self):
         self.prepare_testbed()
@@ -42,6 +44,12 @@ class TestModelRelations:
         employee = Employee(role=position, usr=user)
         employee.save()
         sleep(1)
-        db_employee = Employee.objects.filter(role=position).get()
-        assert db_employee.usr.name == name
+        employee_from_db = Employee.objects.filter(role=position).get()
+        assert employee_from_db.usr.name == name
+        user_from_db = User.objects.filter(name=name).get()
+        user_from_db.name = 'Joen'
+        user_from_db.save()
+        sleep(1)
+        employee_from_db = Employee.objects.filter(role=position).get()
+        assert employee_from_db.usr.name == 'Joen'
 
