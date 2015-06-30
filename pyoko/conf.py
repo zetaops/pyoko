@@ -7,17 +7,13 @@
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 
-#### Storage Strategy for Solr. ####
-# By default, if it's not explicitly excluded,
-# we're storing all (except Text) fields in Solr,
-# no matter if they are indexed or not.
 import importlib
 import os
 
 
 
 class Settings(object):
-    SOLR_STORE_ALL = True
+    SOLR_STORE_ALL = False
     RIAK_IP = 'localhost'
     REDIS_IP = 'localhost'
 

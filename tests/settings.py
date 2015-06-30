@@ -14,4 +14,4 @@ RIAK_IP = 'localhost'
 REDIS_IP = 'localhost'
 
 
-SOLR_STORE_ALL = True
+SOLR_STORE_ALL = False

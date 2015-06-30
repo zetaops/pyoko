@@ -48,7 +48,6 @@ class Registry(object):
         #             return model
 
 
-
 _registry = Registry()
 
 
@@ -86,6 +85,8 @@ class ModelMeta(type):
         if new_class.__base__.__name__ == 'Model':
             _registry.register_model(new_class)
         return new_class
+
+
 # endregion
 
 
@@ -131,8 +132,6 @@ class Node(object):
         self.objects.model = self
         self.objects.model_class = self.__class__
 
-
-
     @classmethod
     def _get_bucket_name(cls):
         return getattr(cls.Meta, 'bucket_name', cls.__name__.lower())
@@ -165,7 +164,7 @@ class Node(object):
             assignment = kwargs.get(name)
             if assignment:
                 setattr(self, name, assignment)
-            # self._field_values[k] = kwargs.get(k)
+                # self._field_values[k] = kwargs.get(k)
 
     def _collect_index_fields(self, base_name=None, in_multi=False):
         result = []
@@ -214,6 +213,7 @@ class Node(object):
             # if field_ins
             dct[un_camel(name)] = field_ins.clean_value(self._field_values[name])
         return dct
+
 
 class Model(Node):
     _TYPE = 'Model'
@@ -292,14 +292,13 @@ class Model(Node):
     def save(self):
         self.objects.save_model()
         for name, mdl in self._get_reverse_links():
-            for obj in mdl.objects.filter(**{un_camel_id(name):self.key}):
+            for obj in mdl.objects.filter(**{un_camel_id(name): self.key}):
                 setattr(obj, name, self)
                 obj.save()
 
     def delete(self):
         self.deleted = True
         self.save()
-
 
 
 class ListNode(Node):
@@ -318,7 +317,7 @@ class ListNode(Node):
             clone = self.__class__(**node_data)
             for name in self._nodes:
                 _name = un_camel(name)
-                if _name in node_data: # check for partial data
+                if _name in node_data:  # check for partial data
                     getattr(clone, name)._load_data(node_data[_name])
             self.node_stack.append(clone)
 
