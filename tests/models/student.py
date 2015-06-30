@@ -25,15 +25,15 @@ class Student(Model):
 
 
 
-    class Meta(Model.Meta):
-        # bucket = 'student'
-        # store = True
-        cell_filters = {
+    META = {
+        'store' : True,
+        'cell_filters': {
             # fields will be filtered out if self._context.perms does not
             # contain the given permission.
             # permission            : ['field','list']
             'can_view_student_phone': ['phone']
-        }
+        },
+    }
 
     number = field.String(index=True)
     pno = field.String(index=True)

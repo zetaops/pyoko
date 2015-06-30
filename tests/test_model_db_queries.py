@@ -8,7 +8,7 @@
 # (GPLv3).  See LICENSE.txt for details.
 from time import sleep
 from pyoko.manage import ManagementCommands
-from tests.data.test_data import data, clean_data, solr_doc
+from tests.data.test_data import data, clean_data
 from tests.models import Student
 
 
@@ -26,7 +26,6 @@ class TestDBRelations:
             Student.objects._clear_bucket()
             cls.cleaned_up = True
             sleep(2)
-
 
     @classmethod
     def get_or_create_new_obj(cls):
@@ -105,8 +104,9 @@ class TestDBRelations:
         st = self.prepare_testbed()
         st2_doc = list(Student.objects.solr().filter(
             auth_info__email=data['auth_info']['email']))[0]
-        solr_doc['timestamp'] = st2_doc['timestamp']
-        solr_doc['_yz_id'] = st2_doc['_yz_id']
-        solr_doc['score'] = st2_doc['score']
-        solr_doc['_yz_rk'] = st.key
+        solr_doc = {'_yz_rb': 'student',
+                    '_yz_rt': 'models',
+                    '_yz_id': st2_doc['_yz_id'],
+                    'score': st2_doc['score'],
+                    '_yz_rk': st.key}
         assert solr_doc == st2_doc

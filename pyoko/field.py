@@ -10,7 +10,6 @@ import datetime
 import time
 import six
 from pyoko.exceptions import ValidationError
-from pyoko.conf import settings
 
 DATE_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 DATE_FORMAT = "%Y-%m-%dT00:00:00Z"
@@ -25,7 +24,7 @@ class BaseField(object):
                  required=False,
                  index=False,
                  index_as=None,
-                 store=settings.SOLR_STORE_ALL,):
+                 store=False):
         self.required = required
         if index_as:
             self.solr_type = index_as
@@ -125,7 +124,7 @@ class TimeStamp(BaseField):
     def __init__(self, *args, **kwargs):
         super(TimeStamp, self).__init__(*args, **kwargs)
         self.index = True
-        self.store = True
+
 
     def clean_value(self, val):
         return int(repr(time.time()).replace('.', ''))

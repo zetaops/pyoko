@@ -8,9 +8,6 @@
 # (GPLv3).  See LICENSE.txt for details.
 from collections import defaultdict
 from copy import deepcopy
-import time
-
-from enum import Enum
 from six import add_metaclass
 from pyoko import field
 from pyoko.db.base import DBObjects
@@ -42,26 +39,22 @@ class Registry(object):
     def get_base_models(self):
         return self.registry
 
-        # def class_by_bucket_name(self, bucket_name):
-        #     for model in self.registry:
-        #         if model.bucket_name == bucket_name:
-        #             return model
-
-
 _registry = Registry()
 
 
 class ModelMeta(type):
     def __new__(mcs, name, bases, attrs):
-
         nodes = {}
         linked_models = {}
         base_fields = {}
-        # print(getattr(bases[0], '_TYPE', bases[0]))
-        class_type = getattr(bases[0], '_TYPE', None)
-
+        base_model_class = bases[0]
+        class_type = getattr(base_model_class, '_TYPE', None)
         if class_type == 'Model':
-            attrs.update(bases[0]._DEFAULT_BASE_FIELDS)
+            attrs.update(base_model_class._DEFAULT_BASE_FIELDS)
+            meta = attrs.get('META', {})
+            copy_of_base_meta = base_model_class._META.copy()
+            copy_of_base_meta.update(meta)
+            attrs['META'] = copy_of_base_meta
 
         for key, attr in list(attrs.items()):
             if hasattr(attr, '__base__'):
@@ -85,8 +78,6 @@ class ModelMeta(type):
         if new_class.__base__.__name__ == 'Model':
             _registry.register_model(new_class)
         return new_class
-
-
 # endregion
 
 
@@ -96,8 +87,10 @@ class ModelMeta(type):
 @add_metaclass(ModelMeta)
 class Node(object):
     """
-    We move sub-models in to _nodes[] attribute at ModelMeta,
-    then replace to instance model at _instantiate_nodes()
+    We store node classes in _nodes[] attribute at ModelMeta,
+    then replace them with their instances at _instantiate_nodes()
+
+    Likewise we store linked models in _linked_models[]
 
     Since fields are defined as descriptors,
     they can access to instance they called from but
@@ -110,13 +103,7 @@ class Node(object):
 
     """
     _TYPE = 'Node'
-    objects = DBObjects
-    __defaults = {
-        'cache': None,
-        'index': None,
-        'store': None,
-        'required': True,
-    }
+
 
     def __init__(self, **kwargs):
         super(Node, self).__init__()
@@ -124,17 +111,13 @@ class Node(object):
         self.path = []
         self._parent = None
         self._field_values = {}
-        self._context = self.__defaults.copy()
-        self._context.update(kwargs.pop('_context', {}))
-        self.objects = self._context.get('objects', self.objects)
         self._instantiate_nodes()
         self._set_fields_values(kwargs)
-        self.objects.model = self
-        self.objects.model_class = self.__class__
+
 
     @classmethod
     def _get_bucket_name(cls):
-        return getattr(cls.Meta, 'bucket_name', cls.__name__.lower())
+        return cls._META.get('bucket_name', cls.__name__.lower())
 
     def _path_of(self, prop):
         """
@@ -148,7 +131,7 @@ class Node(object):
         instantiate all nodes, pass path data
         """
         for name, klass in self._nodes.items():
-            ins = klass(_context=self._context)
+            ins = klass()
             ins.path = self.path + [self.__class__.__name__.lower()]
             setattr(self, name, ins)
 
@@ -161,31 +144,44 @@ class Node(object):
             setattr(self, name, kwargs.get(name))
             # self._field_values[k] = kwargs.get(k)
         for name in self._linked_models:
-            assignment = kwargs.get(name)
-            if assignment:
-                setattr(self, name, assignment)
+            linked_model = kwargs.get(name)
+            if linked_model:
+                setattr(self, name, linked_model)
                 # self._field_values[k] = kwargs.get(k)
 
-    def _collect_index_fields(self, base_name=None, in_multi=False):
+    def _collect_index_fields(self, model_name=None, in_multi=False):
+        """
+        collects fields which will be indexed
+        :param str model_name: base Model's name
+        :param bool in_multi: if we are in a ListNode or not
+        :return: [(field_name, solr_type, is_indexed, is_stored, is_multi]
+        """
         result = []
-        if not base_name:
-            base_name = self._get_bucket_name()
+        if not model_name:
+
+            model_name = self._get_bucket_name()
             for name in self._linked_models:
                 obj = getattr(self, name)
                 result.append((un_camel_id(name), 'string', True, True, obj.has_many_values()))
         multi = in_multi or isinstance(self, ListNode)
         for name, field_ins in self._fields.items():
-            field_name = self._path_of(name).replace(base_name + '.', '')
+            field_name = self._path_of(name).replace(model_name + '.', '')
             result.append((field_name,
                            field_ins.solr_type,
                            field_ins.index,
                            field_ins.store,
                            multi))
         for mdl_ins in self._nodes:
-            result.extend(getattr(self, mdl_ins)._collect_index_fields(base_name, multi))
+            result.extend(getattr(self, mdl_ins)._collect_index_fields(model_name, multi))
         return result
 
     def _load_data(self, data):
+        """
+        fills model instance (and sub-nodes and linked model instances)
+         with the data returned from riak
+        :param dict data:
+        :return: self
+        """
         for name in self._nodes:
             _name = un_camel(name)
             if _name in data:
@@ -198,6 +194,11 @@ class Node(object):
     # ######## Public Methods  #########
 
     def clean_value(self):
+        """
+        generates a json serializable representation of the model data
+        :rtype: dict
+        :return: riak ready python dict
+        """
         dct = {}
         for name in self._nodes:
             dct[un_camel(name)] = getattr(self, name).clean_value()
@@ -210,33 +211,34 @@ class Node(object):
                     dct['_cache'][un_camel(name)] = obj.clean_value()
                     dct['_cache'][un_camel(name)]['key'] = obj.key
         for name, field_ins in self._fields.items():
-            # if field_ins
             dct[un_camel(name)] = field_ins.clean_value(self._field_values[name])
         return dct
 
 
 class Model(Node):
     _TYPE = 'Model'
+    _META = {
+        'bucket_type' : 'models'
+    }
     _DEFAULT_BASE_FIELDS = {
-        'archived': field.Boolean(default=False, index=True, store=True),
+        'archived': field.Boolean(default=False, index=True),
         'timestamp': field.TimeStamp(),
-        'deleted': field.Boolean(default=False, index=True, store=False)}
-
-    class Meta(object):
-        bucket_type = 'models'
+        'deleted': field.Boolean(default=False, index=True)}
 
     def __init__(self, context=None, **kwargs):
         self._riak_object = None
-        self._context = context or {}
+        self.context = context or {}
         self.row_level_access()
         self._prepare_linked_models()
         self._link_has_many = False
         self._link_exclusive = False
-
         # self.filter_cells()
+
+
+
         super(Model, self).__init__(**kwargs)
-        # print("\n init \n ")
-        # print(id(self.__class__))
+        self.objects.model = self
+        self.objects.model_class = self.__class__
 
     def _load_data(self, data):
         """
@@ -280,17 +282,24 @@ class Model(Node):
     def row_level_access(self):
         """
         Define your query filters in here to enforce row level access control
-        self._context should contain required user attributes and permissions
+        self._config should contain required user attributes and permissions
         eg:
-            self.objects = self.objects.filter(user_in=self._context.user['id'])
+            self.objects = self.objects.filter(user_in=self._config.user['id'])
         """
         pass
 
     def _get_reverse_links(self):
+        """
+        get reverse linked models from model registry
+        :return: [Model]
+        """
         return _registry.link_registry[self.__class__]
 
     def save(self):
         self.objects.save_model()
+        self._save_backlinked_models()
+
+    def _save_backlinked_models(self):
         for name, mdl in self._get_reverse_links():
             for obj in mdl.objects.filter(**{un_camel_id(name): self.key}):
                 setattr(obj, name, self)

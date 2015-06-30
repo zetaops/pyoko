@@ -7,8 +7,6 @@
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 from time import sleep
-from pyoko.manage import ManagementCommands
-from tests.data.test_data import data, clean_data, solr_doc
 from tests.models import *
 
 
