@@ -11,6 +11,7 @@ command line management interface
 
 import argparse
 from importlib import import_module
+from pyoko.conf import settings
 
 
 class ManagementCommands(object):
@@ -40,7 +41,7 @@ class ManagementCommands(object):
         self.args = parser.parse_args(args)
 
     def _get_models(self):
-        import_module('tests.models')
+        import_module(settings.MODELS_MODULE)
         self.registry = import_module('pyoko.model')._registry
 
     def schema_update(self):
