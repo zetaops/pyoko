@@ -26,7 +26,7 @@
 
 #### Setup / Configuration ####
 
-Your project should within Python path, so you could be able to import it.
+Your project should be placed within Python path, so you could be able to import it.
 
 Base file structure of a Pyoko based project;
 

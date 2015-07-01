@@ -24,7 +24,7 @@ class User(Model):
 
 
 class Employee(Model):
-    usr = User()
+    usr = User(one_to_one=True)
     role = field.String(index=True)
 
 class TimeTable(Model):

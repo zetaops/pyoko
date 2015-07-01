@@ -34,10 +34,20 @@ class Registry(object):
             self.registry += [kls]
             for name, link_model in kls._linked_models.items():
                 self.link_registry[link_model].append((name, kls))
-                setattr(link_model, '%s_set' % un_camel(kls.__name__), kls)
-
-                # type('obj', (kls, ListNode), {'propertyName': 'propertyValue'})
-
+                instance = getattr(kls, name)
+                if instance._is_one_to_one:
+                    kl = kls(one_to_one=True)
+                    kl._is_auto_created_reverse_link = True
+                    setattr(link_model, un_camel(kls.__name__), kl)
+                    link_model._linked_models[un_camel(kls.__name__)] = kls.__class__
+                else:
+                    reverse_model_set_name = '%s_set' % un_camel(kls.__name__)
+                    kl = kls()
+                    kl._is_auto_created_reverse_link = True
+                    listnode = type(reverse_model_set_name, (ListNode,),
+                                    {un_camel(kls.__name__): kl})
+                    listnode._linked_models[un_camel(kls.__name__)] = kls.__class__
+                    setattr(link_model, reverse_model_set_name, listnode)
     def get_base_models(self):
         return self.registry
 
@@ -48,10 +58,12 @@ class ModelMeta(type):
     def __new__(mcs, name, bases, attrs):
         nodes = {}
         linked_models = {}
+        # reverse_linked_models = {}
         base_fields = {}
         base_model_class = bases[0]
         class_type = getattr(base_model_class, '_TYPE', None)
         if class_type == 'Model':
+            # attach default fields and meta options to models
             attrs.update(base_model_class._DEFAULT_BASE_FIELDS)
             meta = attrs.get('META', {})
             copy_of_base_meta = base_model_class._META.copy()
@@ -66,7 +78,9 @@ class ModelMeta(type):
             else:
                 attr_type = getattr(attr, '_TYPE', '')
                 if attr_type == 'Model':
-                    attrs[key] = deepcopy(attr)
+                    # attrs[key] = deepcopy(attr)
+                    # if attr._is_one_to_one:
+                        # reverse_linked_models[key] = attr
                     linked_models[key] = attr.__class__
                 elif attr_type == 'Field':
                     attr.name = key
@@ -74,10 +88,10 @@ class ModelMeta(type):
         attrs['_nodes'] = nodes
         attrs['_fields'] = base_fields
         attrs['_linked_models'] = linked_models
+        # attrs['_reverse_linked_models'] = linked_models
         new_class = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
-        if new_class._TYPE == 'Model':
-            new_class.objects = DBObjects(model_class=new_class)
         if new_class.__base__.__name__ == 'Model':
+            new_class.objects = DBObjects(model_class=new_class)
             _registry.register_model(new_class)
         return new_class
 # endregion
@@ -218,10 +232,12 @@ class Node(object):
 
 
 class Model(Node):
+    objects = DBObjects
     _TYPE = 'Model'
     _META = {
         'bucket_type' : 'models'
     }
+    _is_auto_created_reverse_link = False
     _DEFAULT_BASE_FIELDS = {
         'archived': field.Boolean(default=False, index=True),
         'timestamp': field.TimeStamp(),
@@ -232,8 +248,7 @@ class Model(Node):
         self.context = context or {}
         self.row_level_access()
         self._prepare_linked_models()
-        self._link_has_many = False
-        self._link_exclusive = False
+        self._is_one_to_one = kwargs.pop('one_to_one', False)
         # self.filter_cells()
 
 
@@ -251,12 +266,13 @@ class Model(Node):
         """
         super(Model, self)._load_data(data)
         cache = data.get('_cache', {})
-        for name in self._linked_models:
-            _name = un_camel(name)
-            if _name in cache:
-                mdl = getattr(self, name)
-                mdl.key = cache[_name]['key']
-                mdl._load_data(cache[_name])
+        if cache:
+            for name in self._linked_models:
+                _name = un_camel(name)
+                if _name in cache:
+                    mdl = getattr(self, name)
+                    mdl.key = cache[_name]['key']
+                    mdl._load_data(cache[_name])
         return self
 
     def has_many_values(self):
@@ -297,9 +313,10 @@ class Model(Node):
         """
         return _registry.link_registry[self.__class__]
 
-    def save(self):
+    def save(self, dont_save_backlinks=False):
         self.objects.save_model()
-        self._save_backlinked_models()
+        if not dont_save_backlinks: # to avoid a reciprocal save loop
+            self._save_backlinked_models()
         return self
 
     def _save_backlinked_models(self):
@@ -307,7 +324,7 @@ class Model(Node):
         for name, mdl in self._get_reverse_links():
             for obj in mdl.objects.filter(**{un_camel_id(name): self.key}):
                 setattr(obj, name, self)
-                obj.save()
+                obj.save(dont_save_backlinks=mdl._is_auto_created_reverse_link)
 
     def delete(self):
         self.deleted = True
@@ -334,6 +351,14 @@ class ListNode(Node):
                 _name = un_camel(name)
                 if _name in node_data:  # check for partial data
                     getattr(clone, name)._load_data(node_data[_name])
+            cache = node_data.get('_cache', {})
+            for name, model in self._linked_models.items():
+                _name = un_camel(name)
+                if _name in cache:
+                    ins = model(cache[_name])
+                    ins.key = cache[_name]['key']
+                    ins._load_data(cache[_name])
+                    setattr(clone, name, ins)
             self.node_stack.append(clone)
 
     def clean_value(self):
@@ -353,11 +378,14 @@ class ListNode(Node):
     def __len__(self):
         return len(self.node_stack)
 
-    #
-    # def __getitem__(self, key):
-    #     # if key is of invalid type or value,
-    # the list values will raise the error
-    #     return self.values[key]
+    def __getitem__(self, index):
+        if isinstance(index, int):
+            return self.node_stack[index]
+        elif isinstance(index, slice):
+            return self.node_stack.__getitem__(slice)
+        else:
+            raise TypeError("index must be int or slice")
+
     #
     # def __setitem__(self, key, value):
     #     self.values[key] = value
