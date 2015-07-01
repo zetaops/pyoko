@@ -9,9 +9,6 @@ command line management interface
 # (GPLv3).  See LICENSE.txt for details.
 
 
-import argparse
-from importlib import import_module
-from pyoko.conf import settings
 from os import environ
 from sys import argv
 
@@ -25,6 +22,7 @@ class ManagementCommands(object):
         print(self.report)
 
     def parse_args(self, args):
+        import argparse
         parser = argparse.ArgumentParser()
         subparsers = parser.add_subparsers(
             title='subcommands', description='valid subcommands',
@@ -42,6 +40,8 @@ class ManagementCommands(object):
         self.args = parser.parse_args(args)
 
     def _get_models(self):
+        from pyoko.conf import settings
+        from importlib import import_module
         import_module(settings.MODELS_MODULE)
         self.registry = import_module('pyoko.model')._registry
 
@@ -53,8 +53,3 @@ class ManagementCommands(object):
         self.robot.run()
         self.report = self.robot.create_report()
 
-
-if __name__ == '__main__':
-    import sys
-
-    ManagementCommands(sys.argv[1:])

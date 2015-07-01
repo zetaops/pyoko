@@ -8,7 +8,7 @@ data models for tests
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 
-from pyoko import Model, ListNode, field
+from pyoko.model import Model, ListNode, field
 
 class User(Model):
     name = field.String(index=True)

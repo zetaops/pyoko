@@ -28,25 +28,27 @@ class Registry(object):
     def __init__(self):
         self.registry = []
         self.link_registry = defaultdict(list)
+        self.back_link_registry = defaultdict(list)
 
     def register_model(self, kls):
         if kls not in self.registry:
             self.registry += [kls]
             for name, link_model in kls._linked_models.items():
                 self.link_registry[link_model].append((name, kls))
+                self.back_link_registry[kls].append((name, un_camel(kls.__name__), link_model))
                 instance = getattr(kls, name)
                 if instance._is_one_to_one:
                     kl = kls(one_to_one=True)
                     kl._is_auto_created_reverse_link = True
                     setattr(link_model, un_camel(kls.__name__), kl)
-                    link_model._linked_models[un_camel(kls.__name__)] = kls.__class__
+                    link_model._linked_models[un_camel(kls.__name__)] = kls
                 else:
                     reverse_model_set_name = '%s_set' % un_camel(kls.__name__)
                     kl = kls()
                     kl._is_auto_created_reverse_link = True
                     listnode = type(reverse_model_set_name, (ListNode,),
                                     {un_camel(kls.__name__): kl})
-                    listnode._linked_models[un_camel(kls.__name__)] = kls.__class__
+                    listnode._linked_models[un_camel(kls.__name__)] = kls
                     setattr(link_model, reverse_model_set_name, listnode)
     def get_base_models(self):
         return self.registry
@@ -198,6 +200,7 @@ class Node(object):
         :param dict data:
         :return: self
         """
+        self._data = data
         for name in self._nodes:
             _name = un_camel(name)
             if _name in data:
@@ -223,7 +226,7 @@ class Node(object):
             for name in self._linked_models:
                 obj = getattr(self, name)
                 dct[un_camel_id(name)] = obj.key or ''
-                if obj.key:
+                if not obj._is_auto_created_reverse_link and obj.key:
                     dct['_cache'][un_camel(name)] = obj.clean_value()
                     dct['_cache'][un_camel(name)]['key'] = obj.key
         for name, field_ins in self._fields.items():
@@ -313,6 +316,13 @@ class Model(Node):
         """
         return _registry.link_registry[self.__class__]
 
+    def _get_forward_links(self):
+        """
+        get reverse linked models from model registry
+        :return: [Model]
+        """
+        return _registry.back_link_registry[self.__class__]
+
     def save(self, dont_save_backlinks=False):
         self.objects.save_model()
         if not dont_save_backlinks: # to avoid a reciprocal save loop
@@ -324,7 +334,14 @@ class Model(Node):
         for name, mdl in self._get_reverse_links():
             for obj in mdl.objects.filter(**{un_camel_id(name): self.key}):
                 setattr(obj, name, self)
+                # obj.save()
                 obj.save(dont_save_backlinks=mdl._is_auto_created_reverse_link)
+        for pointer, name, mdl in self._get_forward_links():
+            obj = mdl.objects.get(getattr(self, pointer).key)
+            is_auto_created = getattr(obj, name)._is_auto_created_reverse_link
+            setattr(obj, name, self)
+            # obj.save()
+            obj.save(dont_save_backlinks=is_auto_created)
 
     def delete(self):
         self.deleted = True
@@ -332,7 +349,7 @@ class Model(Node):
 
 
 class ListNode(Node):
-    # TODO: _load_data should be run lazily at __iter__
+    # TODO: _load_data should run lazily at __iter__
     def __init__(self, **kwargs):
         super(ListNode, self).__init__(**kwargs)
         self.values = []
@@ -345,6 +362,7 @@ class ListNode(Node):
         creates clones of it self with input data and store them in node_stack
         TODO: it would be more efficient if this run only when we need it at __iter__
         """
+        self._data = data
         for node_data in data:
             clone = self.__class__(**node_data)
             for name in self._nodes:

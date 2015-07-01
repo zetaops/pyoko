@@ -13,10 +13,6 @@ import os
 
 
 class Settings(object):
-    SOLR_STORE_ALL = False
-    RIAK_IP = 'localhost'
-    REDIS_IP = 'localhost'
-
     def __init__(self):
         self.SETTINGS_MODULE = os.environ.get('PYOKO_SETTINGS')
         self.MODELS_MODULE = '.'.join(self.SETTINGS_MODULE.split('.')[:1]) + '.models'

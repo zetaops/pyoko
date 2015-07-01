@@ -7,7 +7,7 @@ data models for tests
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
-from pyoko import Model, Node, ListNode, field
+from pyoko.model import Model, ListNode, field, Node
 
 class Student(Model):
     # def __init__(self, **kwargs):
