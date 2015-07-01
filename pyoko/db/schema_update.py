@@ -122,7 +122,7 @@ class SchemaUpdater(object):
             self.client.create_search_index(tmp_index_name)
             bucket.set_property('search_index', tmp_index_name)
             self.client.delete_search_index(existing_index)
-            time.sleep(10)
+            time.sleep(10) # we need to wait, otherwise following commands will fail
 
         self.client.create_search_schema(bucket_name, new_schema)
         self.client.create_search_index(bucket_name, bucket_name)
