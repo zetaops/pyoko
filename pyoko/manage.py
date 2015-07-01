@@ -34,11 +34,11 @@ class ManagementCommands(object):
         parser_create.add_argument(
             '--bucket', required=True, help='Bucket name(s) to be updated')
 
-        parser_create = subparsers.add_parser('index_bucket')
-        parser_create.set_defaults(command='index_bucket')
-        parser_create.add_argument(
-            '--bucket', required=True,
-            help='Bucket name(s) to be indexed. (Comma separated)')
+        # parser_create = subparsers.add_parser('index_bucket')
+        # parser_create.set_defaults(command='index_bucket')
+        # parser_create.add_argument(
+        #     '--bucket', required=True,
+        #     help='Bucket name(s) to be indexed. (Comma separated)')
         self.args = parser.parse_args(args)
 
     def _get_models(self):

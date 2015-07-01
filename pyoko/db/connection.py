@@ -18,6 +18,5 @@ from pyoko.conf import settings
 
 
 client = riak.RiakClient(protocol=settings.RIAK_PROTOCOL,
-                              host=settings.RIAK_SERVER,
-                              http_port=settings.RIAK_PORT)
-
+                         host=settings.RIAK_SERVER,
+                         http_port=settings.RIAK_PORT)
