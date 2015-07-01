@@ -6,6 +6,7 @@
 ### Features ###
 
 #### Supported ####
+- Supports Riak 2.1.1
 - Nested class based data models (schemas).
 - Query chaining and caching.
 - Automatic Solr schema creation / update (one way migration).
@@ -17,7 +18,9 @@
 #### Planned ####
 - Row level access control, permission based cell filtering. 
 - Custom and backwards migrations.
-- Picklable models
+- Picklable models.
+- Automatic versioning on write-once buckets.
+- CRDT based models.
 
 ---
 
@@ -50,6 +53,34 @@ Base file structure of a Pyoko based project;
 
 ```
 
+Your project should within Python path, so you could be able to import it.
+
+Base file structure of a Pyoko based project;
+
+- manage.py:
+
+```python
+
+    from pyoko.manage import *
+    environ.setdefault('PYOKO_SETTINGS', '<PYTHON.PATH.TO.PROJECT>.settings')
+    ManagementCommands(argv[1:])
+
+```
+
+- settings.py
+
+```python
+
+    RIAK_SERVER = 'localhost'
+    RIAK_PROTOCOL = 'http'
+    RIAK_PORT = '8098'
+    
+    # if not defined, will be searched within same directory as settings.py
+    # MODELS_MODULE = '<PYTHON.PATH.OF.MODELS.MODULE>'
+
+```
+
+
 - models.py (or models module)
 
 ```python
@@ -58,6 +89,7 @@ Base file structure of a Pyoko based project;
 
     class User(Model):
         name = field.String(index=True)
+
         
         class AuthInfo(Node):
             username = field.String(index=True)
