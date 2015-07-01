@@ -26,7 +26,47 @@
 
 #### Configuration ####
 
-See Tests section.
+Your project should within Python path, so you could be able to import it.
+
+Base file structure of a Pyoko based project;
+
+- manage.py:
+
+```python
+
+    from pyoko.manage import *
+    environ.setdefault('PYOKO_SETTINGS', '<PYTHON.PATH.TO.PROJECT>.settings')
+    ManagementCommands(argv[1:])
+
+```
+
+- settings.py
+
+```python
+
+    RIAK_SERVER = 'localhost'
+    RIAK_PROTOCOL = 'http'
+    RIAK_PORT = '8098'
+    
+    # if not defined, will be searched within same directory as settings.py
+    # MODELS_MODULE = '<PYTHON.PATH.OF.MODELS.MODULE>'
+
+```
+
+- models.py (or models module)
+
+```python
+
+    from pyoko import Model, Node, ListNode, field
+
+    class User(Model):
+        name = field.String(index=True)
+
+    class Employee(Model):
+        usr = User()
+        role = field.String(index=True)
+
+```
 
 #### Developer Notes ####
 

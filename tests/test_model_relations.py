@@ -51,3 +51,12 @@ class TestModelRelations:
         employee_from_db = Employee.objects.filter(role=position).get()
         assert employee_from_db.usr.name == 'Joen'
 
+
+    def test_many_to_one_simple(self):
+        self.prepare_testbed()
+        user = Scholar(name='Munu')
+        tt1 = TimeTable(lecture='rock101', week_day=2, hours=2).save()
+        tt2 = TimeTable(lecture='math101', week_day=4, hours=4).save()
+        user.TimeTables(timetable=tt1, confirmed=True)
+        user.TimeTables(timetable=tt2, confirmed=False)
+        user.save()

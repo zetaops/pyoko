@@ -36,6 +36,8 @@ class Registry(object):
                 self.link_registry[link_model].append((name, kls))
                 setattr(link_model, '%s_set' % un_camel(kls.__name__), kls)
 
+                # type('obj', (kls, ListNode), {'propertyName': 'propertyValue'})
+
     def get_base_models(self):
         return self.registry
 
@@ -298,8 +300,10 @@ class Model(Node):
     def save(self):
         self.objects.save_model()
         self._save_backlinked_models()
+        return self
 
     def _save_backlinked_models(self):
+        # TODO: when called from a deleted object, instead of updating we should remove it from target
         for name, mdl in self._get_reverse_links():
             for obj in mdl.objects.filter(**{un_camel_id(name): self.key}):
                 setattr(obj, name, self)
@@ -311,6 +315,7 @@ class Model(Node):
 
 
 class ListNode(Node):
+    # TODO: _load_data should be run lazily at __iter__
     def __init__(self, **kwargs):
         super(ListNode, self).__init__(**kwargs)
         self.values = []
@@ -320,7 +325,8 @@ class ListNode(Node):
 
     def _load_data(self, data):
         """
-
+        creates clones of it self with input data and store them in node_stack
+        TODO: it would be more efficient if this run only when we need it at __iter__
         """
         for node_data in data:
             clone = self.__class__(**node_data)
@@ -332,6 +338,7 @@ class ListNode(Node):
 
     def clean_value(self):
         """
+        populates json serialization ready data for storing on riak
         :return: [{},]
         """
         return [super(ListNode, mdl).clean_value() for mdl in self.node_stack]
