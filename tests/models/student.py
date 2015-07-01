@@ -7,10 +7,8 @@ data models for tests
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
-from pyoko.db.schema_update import SchemaUpdater
-from pyoko.model import Model, Node, ListNode
-from pyoko import field
-
+from pyoko import Model, Node, ListNode, field
+# from pyoko import field
 
 class Student(Model):
     # def __init__(self, **kwargs):
@@ -22,8 +20,6 @@ class Student(Model):
 
     # def row_level_access(self):
     #     self.objects = self.objects.filter(user_in=self._context.user['id'],)
-
-
 
     META = {
         'store' : True,
@@ -70,6 +66,7 @@ class Student(Model):
             date = field.Date()
             hour = field.Integer()
             attended = field.Boolean(default=False)
+
 
 
 

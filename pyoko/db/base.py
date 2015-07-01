@@ -11,7 +11,7 @@ import copy
 
 # noinspection PyCompatibility
 from enum import Enum
-from pyoko.db.connection import http_client
+from pyoko.db.connection import client
 import riak
 from pyoko.exceptions import MultipleObjectsReturned
 from pyoko.lib.py2map import Dictomap
@@ -37,7 +37,7 @@ class DBObjects(object):
         self._cfg = conf
         self._cfg['row_size'] = 100
         self.model = None
-        self._client = self._cfg.pop('client', http_client)
+        self._client = self._cfg.pop('client', client)
         if 'model' in conf:
             self.model = conf['model']
             self.model_class = self.model.__class__

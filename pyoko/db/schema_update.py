@@ -12,7 +12,7 @@ from random import randint
 from riak import RiakError
 import six
 import time
-from pyoko.db.connection import http_client as client
+from pyoko.db.connection import client
 # from pyoko.db.solr_schema_fields import SOLR_FIELDS
 import os, inspect
 from pyoko.lib.utils import un_camel, random_word
@@ -49,6 +49,8 @@ class SchemaUpdater(object):
         creates a text report for the human user
         :return: str
         """
+        if not self.report:
+            return "noop"
         buckets, results = zip(*self.report)
         report = ''
         if all(results):

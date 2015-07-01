@@ -19,7 +19,7 @@ class Settings(object):
 
     def __init__(self):
         self.SETTINGS_MODULE = os.environ.get('PYOKO_SETTINGS')
-        self.MODELS_MODULE = '.'.join(self.SETTINGS_MODULE.split('.')[:1])
+        self.MODELS_MODULE = '.'.join(self.SETTINGS_MODULE.split('.')[:1]) + '.models'
 
         try:
             mod = importlib.import_module(self.SETTINGS_MODULE)

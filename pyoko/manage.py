@@ -12,7 +12,8 @@ command line management interface
 import argparse
 from importlib import import_module
 from pyoko.conf import settings
-
+from os import environ
+from sys import argv
 
 class ManagementCommands(object):
     def __init__(self, args=None):
