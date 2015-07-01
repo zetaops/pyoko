@@ -5,26 +5,23 @@
 
 ### Features ###
 
-#### Implemented ####
+#### Supported ####
 - Nested class based data models (schemas).
 - Query chaining and caching.
-- Automatic Solr schema creation / update.
+- Automatic Solr schema creation / update (one way migration).
+- ManyToMany and ManyToOne relations with auto denormalization
 
 #### Work in progress ####
 - Pythonic APIs for Solr's extensive query features. 
-- Row level access control, permission based cell filtering. 
 
 #### Planned ####
-- Advanced ManyToMany and ManyToOne relations with auto denormalization 
-- Schema migrations, with custom and backwards migration support.
-- Three tiered data storage: Redis > Solr > Riak (configurable)
-    - Redis based caching of GET requests.
-    - Partially or fully store and get data from Solr
-    - Hit the Riak only when needed. (Lazy loaded models)
+- Row level access control, permission based cell filtering. 
+- Custom and backwards migrations.
 - Picklable models
+
 ---
 
-#### Configuration ####
+#### Setup / Configuration ####
 
 Your project should within Python path, so you could be able to import it.
 
@@ -61,10 +58,30 @@ Base file structure of a Pyoko based project;
 
     class User(Model):
         name = field.String(index=True)
+        
+        class AuthInfo(Node):
+            username = field.String(index=True)
+            email = field.String(index=True)
+            password = field.String()
 
     class Employee(Model):
         usr = User()
         role = field.String(index=True)
+
+```
+
+#### Usage ####
+
+
+```python
+
+        from my_project.models import User, Employee
+        
+        user = User(name='John').save()
+        employee = Employee(role='Coder', usr=user).save()
+        emp_from_db = Employee.objects.get(employee.key)
+        for emp in Employee.objects.filter(role='Coder'):
+            print(emp.usr.name)
 
 ```
 

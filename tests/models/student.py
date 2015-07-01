@@ -42,9 +42,6 @@ class Student(Model):
         email = field.String(index=True)
         password = field.String()
 
-        class Meta(object):
-            required = False
-
     class Lectures(ListNode):
         name = field.String(index_as='text_tr')
         code = field.String(required=False, index=True)
@@ -57,9 +54,6 @@ class Student(Model):
             type = field.String()
             date = field.Date()
             point = field.Integer(store=False)
-
-            class Meta(object):
-                required = False
 
         class Attendance(ListNode):
             date = field.Date()
