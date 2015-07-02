@@ -43,6 +43,8 @@ class Registry(object):
                     setattr(link_model, un_camel(kls.__name__), kl)
                     link_model._linked_models[un_camel(kls.__name__)] = kls
                 else:
+                    # other side of one-to-many should be a ListNode named with a "_set" suffix and
+                    # our linked_model as a sole element of the listnode
                     reverse_model_set_name = '%s_set' % un_camel(kls.__name__)
                     kl = kls()
                     kl._is_auto_created_reverse_link = True
@@ -58,44 +60,65 @@ _registry = Registry()
 
 class ModelMeta(type):
     def __new__(mcs, name, bases, attrs):
-        nodes = {}
-        linked_models = {}
-        # reverse_linked_models = {}
-        base_fields = {}
         base_model_class = bases[0]
         class_type = getattr(base_model_class, '_TYPE', None)
         if class_type == 'Model':
-            # attach default fields and meta options to models
-            attrs.update(base_model_class._DEFAULT_BASE_FIELDS)
-            meta = attrs.get('META', {})
-            copy_of_base_meta = base_model_class._META.copy()
-            copy_of_base_meta.update(meta)
-            attrs['META'] = copy_of_base_meta
-
-        for key, attr in list(attrs.items()):
-            if hasattr(attr, '__base__'):
-                attr_type = getattr(attr.__base__, '_TYPE', '')
-                if attr_type == 'Node':
-                    nodes[key] = attrs.pop(key)
-            else:
-                attr_type = getattr(attr, '_TYPE', '')
-                if attr_type == 'Model':
-                    # attrs[key] = deepcopy(attr)
-                    # if attr._is_one_to_one:
-                        # reverse_linked_models[key] = attr
-                    linked_models[key] = attr.__class__
-                elif attr_type == 'Field':
-                    attr.name = key
-                    base_fields[key] = attr
-        attrs['_nodes'] = nodes
-        attrs['_fields'] = base_fields
-        attrs['_linked_models'] = linked_models
-        # attrs['_reverse_linked_models'] = linked_models
+            mcs.process_models(attrs, base_model_class)
+        # if class_type == 'Node':
+        #     mcs.process_nodes(attrs, base_model_class)
+        mcs.process_attributes(attrs, class_type)
         new_class = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
         if new_class.__base__.__name__ == 'Model':
             new_class.objects = DBObjects(model_class=new_class)
             _registry.register_model(new_class)
         return new_class
+
+    def process_attributes(attrs, class_type):
+        """
+        we're iterating over attributes of the soon to be created class object.
+        :param str class_type: type of the current class
+        :param dict attrs: attribute dict
+        """
+        attrs['_nodes'] = {}
+        attrs['_linked_models'] = {}
+        attrs['_fields'] = {}
+
+        for key, attr in list(attrs.items()):
+            # if it's a class (not instance) and it's type is Node
+            if hasattr(attr, '__base__') and getattr(attr.__base__, '_TYPE', '')== 'Node':
+                attrs['_nodes'][key] = attrs.pop(key)
+            # it's a field or linked model instance
+            else:
+                attr_type = getattr(attr, '_TYPE', '')
+                if attr_type == 'Model':
+                    attrs['_linked_models'][key] = attr.__class__
+                elif attr_type == 'Field':
+                    attr.name = key
+                    attrs['_fields'][key] = attr
+
+
+    def process_models(attrs, base_model_class):
+        """
+        Attach default fields and meta options to models
+        :param dict attrs: attribute dict
+        :param bases:
+        """
+        attrs.update(base_model_class._DEFAULT_BASE_FIELDS)
+        meta = attrs.get('META', {})
+        copy_of_base_meta = base_model_class._META.copy()
+        copy_of_base_meta.update(meta)
+        attrs['META'] = copy_of_base_meta
+
+    def process_nodes(attrs, base_model_class):
+        """
+        Attach default fields and meta options to models
+        :param dict attrs: attribute dict
+        :param str bases:
+        """
+        pass
+
+
+
 # endregion
 
 

@@ -1,11 +1,9 @@
 # PYOKO #
 
 
-## Pyoko is a Django-esque lightweight ORM for Riak/Solr (aka Yokozuna)  ##
+### Pyoko is a Django-esque ORM for Riak/Solr (aka Yokozuna)  ###
 
-### Features ###
-
-#### Supported ####
+#### Supported Features ####
 - Supports Riak 2.1.1
 - Nested class based data models (schemas).
 - Query chaining and caching.
@@ -26,7 +24,7 @@
 
 #### Setup / Configuration ####
 
-Your project should be placed within Python path, so you could be able to import it.
+Project directory should be placed within Python path.
 
 Base file structure of a Pyoko based project;
 
@@ -104,6 +102,7 @@ Base file structure of a Pyoko based project;
 
 #### Usage ####
 
+See tests for more usage examples.
 
 ```python
 
@@ -119,12 +118,10 @@ Base file structure of a Pyoko based project;
 
 #### Developer Notes ####
 
-- Do not use Protocol Buffers in development, it doesn't give proper descriptions for server side errors.
+\- Do not use Protocol Buffers in development, it doesn't give proper descriptions for server side errors.
 
 
 #### Tests ####
-
-Tests needs a locally running Riak instance at port 8098.
 
 Create a bucket type named models and activate it with following commands:
 
