@@ -11,7 +11,7 @@ import copy
 
 # noinspection PyCompatibility
 from enum import Enum
-from pyoko.db.connection import http_client
+from pyoko.db.connection import client
 import riak
 from pyoko.exceptions import MultipleObjectsReturned
 from pyoko.lib.py2map import Dictomap
@@ -37,14 +37,14 @@ class DBObjects(object):
         self._cfg = conf
         self._cfg['row_size'] = 100
         self.model = None
-        self._client = self._cfg.pop('client', http_client)
+        self._client = self._cfg.pop('client', client)
         if 'model' in conf:
             self.model = conf['model']
             self.model_class = self.model.__class__
         elif 'model_class' in conf:
             self.model_class = conf['model_class']
         self._cfg['rtype'] = ReturnType.Model
-        self.set_bucket(self.model_class.Meta.bucket_type,
+        self.set_bucket(self.model_class._META['bucket_type'],
                         self.model_class._get_bucket_name())
         self._data_type = None  # we convert new object data according to
         # bucket datatype, eg: Dictomaping for 'map' type

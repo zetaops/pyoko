@@ -7,10 +7,8 @@ data models for tests
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
-from pyoko.db.schema_update import SchemaUpdater
-from pyoko.model import Model, Node, ListNode
-from pyoko import field
 
+from pyoko.model import Model, ListNode, field
 
 class User(Model):
     name = field.String(index=True)
@@ -19,16 +17,25 @@ class User(Model):
 #     parent = field.Link("Unit")
 #     name = field.String()
 #     type = field.String()
-#
+
 # class Location(Model):
-#     unit = field.Link(Unit)
+#     unit = Unit()
 #     name = field.String()
 
 
 class Employee(Model):
-    # unit = field.Link(Unit)
-    # user = field.LinkToOne(User, index=True)
-    usr = User(index=True, cache_level=1)
+    usr = User(one_to_one=True)
     role = field.String(index=True)
 
+class TimeTable(Model):
+    lecture = field.String(index=True)
+    week_day = field.Integer(index=True)
+    hours = field.Integer(index=True)
 
+
+class Scholar(Model):
+    name = field.String(index=True)
+
+    class TimeTables(ListNode):
+        timetable = TimeTable()
+        confirmed = field.Boolean(index=True)

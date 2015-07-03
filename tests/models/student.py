@@ -7,10 +7,7 @@ data models for tests
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
-from pyoko.db.schema_update import SchemaUpdater
-from pyoko.model import Model, Node, ListNode
-from pyoko import field
-
+from pyoko.model import Model, ListNode, field, Node
 
 class Student(Model):
     # def __init__(self, **kwargs):
@@ -23,17 +20,15 @@ class Student(Model):
     # def row_level_access(self):
     #     self.objects = self.objects.filter(user_in=self._context.user['id'],)
 
-
-
-    class Meta(Model.Meta):
-        # bucket = 'student'
-        # store = True
-        cell_filters = {
+    META = {
+        'store' : True,
+        'cell_filters': {
             # fields will be filtered out if self._context.perms does not
             # contain the given permission.
             # permission            : ['field','list']
             'can_view_student_phone': ['phone']
-        }
+        },
+    }
 
     number = field.String(index=True)
     pno = field.String(index=True)
@@ -46,9 +41,6 @@ class Student(Model):
         username = field.String(index=True)
         email = field.String(index=True)
         password = field.String()
-
-        class Meta(object):
-            required = False
 
     class Lectures(ListNode):
         name = field.String(index_as='text_tr')
@@ -63,13 +55,11 @@ class Student(Model):
             date = field.Date()
             point = field.Integer(store=False)
 
-            class Meta(object):
-                required = False
-
         class Attendance(ListNode):
             date = field.Date()
             hour = field.Integer()
             attended = field.Boolean(default=False)
+
 
 
 

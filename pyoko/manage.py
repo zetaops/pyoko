@@ -9,9 +9,8 @@ command line management interface
 # (GPLv3).  See LICENSE.txt for details.
 
 
-import argparse
-from importlib import import_module
-
+from os import environ
+from sys import argv
 
 class ManagementCommands(object):
     def __init__(self, args=None):
@@ -23,6 +22,7 @@ class ManagementCommands(object):
         print(self.report)
 
     def parse_args(self, args):
+        import argparse
         parser = argparse.ArgumentParser()
         subparsers = parser.add_subparsers(
             title='subcommands', description='valid subcommands',
@@ -32,15 +32,17 @@ class ManagementCommands(object):
         parser_create.add_argument(
             '--bucket', required=True, help='Bucket name(s) to be updated')
 
-        parser_create = subparsers.add_parser('index_bucket')
-        parser_create.set_defaults(command='index_bucket')
-        parser_create.add_argument(
-            '--bucket', required=True,
-            help='Bucket name(s) to be indexed. (Comma separated)')
+        # parser_create = subparsers.add_parser('index_bucket')
+        # parser_create.set_defaults(command='index_bucket')
+        # parser_create.add_argument(
+        #     '--bucket', required=True,
+        #     help='Bucket name(s) to be indexed. (Comma separated)')
         self.args = parser.parse_args(args)
 
     def _get_models(self):
-        import_module('tests.models')
+        from pyoko.conf import settings
+        from importlib import import_module
+        import_module(settings.MODELS_MODULE)
         self.registry = import_module('pyoko.model')._registry
 
     def schema_update(self):
@@ -51,8 +53,3 @@ class ManagementCommands(object):
         self.robot.run()
         self.report = self.robot.create_report()
 
-
-if __name__ == '__main__':
-    import sys
-
-    ManagementCommands(sys.argv[1:])

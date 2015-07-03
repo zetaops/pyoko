@@ -9,9 +9,8 @@ project settings for a pyoko based example project
 # (GPLv3).  See LICENSE.txt for details.
 
 
-RIAK_IP = 'localhost'
+RIAK_SERVER = 'localhost'
+RIAK_PROTOCOL = 'http'
+RIAK_PORT = '8098'
 
-REDIS_IP = 'localhost'
-
-
-SOLR_STORE_ALL = True
+# MODELS_MODULE = '<PYTHON.PATH.OF.MODELS.MODULE>'
