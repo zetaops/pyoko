@@ -100,17 +100,21 @@ See tests for more usage examples.
 #### Tests ####
 
 Create a bucket type named models and activate it with following commands:
-
+```bash
 ./riak-admin bucket-type create models
 ./riak-admin bucket-type activate models
-
+```
 You need to define the following environmental variable to run tests. 
 
-PYOKO_SETTINGS='tests.settings'
+`PYOKO_SETTINGS='tests.settings'`
 
-to create schemas run command:
+to create or update schemas run the following command:
 
-python manage.py update_schema --bucket <model_name>,<model_name>,...
+` python manage.py update_schema --bucket \<model_name\>,\<model_name\> `
+
+or
+ 
+` python manage.py update_schema --bucket all `
 
 **py.test** command runs all the tests from tests directory.
 
