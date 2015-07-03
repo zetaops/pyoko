@@ -59,8 +59,6 @@ _registry = Registry()
 # noinspection PyMissingConstructor
 class ModelMeta(type):
     def __init__(mcs, name, bases, attrs):
-
-
         if mcs.__base__.__name__ == 'Model':
             # add models to _registry
             mcs.objects = DBObjects(model_class=mcs)
@@ -76,11 +74,12 @@ class ModelMeta(type):
         class_type = getattr(base_model_class, '_TYPE', None)
         if class_type == 'Model':
             mcs.process_models(attrs, base_model_class)
-        mcs.process_attributes(attrs, class_type)
+        mcs.process_attributes(mcs, attrs, class_type)
         new_class = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
         return new_class
 
-    def process_attributes(attrs, class_type):
+    @staticmethod
+    def process_attributes(mcs, attrs, class_type):
         """
         we're iterating over attributes of the soon to be created class object.
         :param str class_type: type of the current class
@@ -104,7 +103,7 @@ class ModelMeta(type):
                     attr.name = key
                     attrs['_fields'][key] = attr
 
-
+    @staticmethod
     def process_models(attrs, base_model_class):
         """
         Attach default fields and meta options to models
@@ -433,3 +432,4 @@ class ListNode(Node):
 
     def __iter__(self):
         return iter(self.node_stack)
+
