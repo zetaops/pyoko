@@ -6,50 +6,26 @@
 #### Supported Features ####
 - Supports Riak 2.1.1
 - Nested class based data models (schemas).
+- AND queries by using filter() and exclude() methods.
 - Query chaining and caching.
 - Automatic Solr schema creation / update (one way migration).
-- ManyToMany and ManyToOne relations with auto denormalization
+- One-To-One relations.
 
 #### Work in progress ####
-- Pythonic APIs for Solr's extensive query features. 
+- ManyToMany and ManyToOne relations with auto denormalization
+- Pythonic APIs for Solr's extensive query features.
 
 #### Planned ####
 - Row level access control, permission based cell filtering. 
 - Custom and backwards migrations.
-- Picklable models.
+- Auto retry of failed writes (on strongly consistent buckets).  
 - Automatic versioning on write-once buckets.
+- Picklable models.
 - CRDT based models.
 
 ---
 
 #### Setup / Configuration ####
-
-Project directory should be placed within Python path.
-
-Base file structure of a Pyoko based project;
-
-- manage.py:
-
-```python
-
-    from pyoko.manage import *
-    environ.setdefault('PYOKO_SETTINGS', '<PYTHON.PATH.TO.PROJECT>.settings')
-    ManagementCommands(argv[1:])
-
-```
-
-- settings.py
-
-```python
-
-    RIAK_SERVER = 'localhost'
-    RIAK_PROTOCOL = 'http'
-    RIAK_PORT = '8098'
-    
-    # if not defined, will be searched within same directory as settings.py
-    # MODELS_MODULE = '<PYTHON.PATH.OF.MODELS.MODULE>'
-
-```
 
 Your project should within Python path, so you could be able to import it.
 
