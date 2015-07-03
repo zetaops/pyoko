@@ -19,13 +19,14 @@ class BaseField(object):
     _TYPE = 'Field'
     default_value = None
 
-    def __init__(self,
+    def __init__(self, title='',
                  default=None,
-                 required=False,
+                 required=True,
                  index=False,
                  index_as=None,
                  store=False):
         self.required = required
+        self.title = title
         if index_as:
             self.solr_type = index_as
         self.index = index or bool(index_as)

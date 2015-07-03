@@ -36,17 +36,10 @@ class TestDBRelations:
             sleep(1)  # wait for Riak -> Solr sync
         return cls.new_obj
 
-    @classmethod
-    def create_index(cls):
-        if Student.objects.bucket.get_properties().get('search_index') is None:
-            mc = ManagementCommands()
-            mc.parse_args(['update_schema', '--bucket', 'student'])
-            mc.schema_update()
 
     @classmethod
     def prepare_testbed(cls):
         cls.clear_bucket()
-        cls.create_index()
         return cls.get_or_create_new_obj()
 
     def test_save_load_model(self):
