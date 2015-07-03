@@ -7,10 +7,10 @@
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 from collections import defaultdict
-from copy import deepcopy
 from six import add_metaclass
 from pyoko import field
 from pyoko.db.base import DBObjects
+from pyoko.lib.utils import un_camel, un_camel_id
 
 # TODO: implement versioned data update mechanism
 # TODO: implement one-to-many
@@ -21,9 +21,6 @@ from pyoko.db.base import DBObjects
 # TODO: Add backwards migrations
 
 # region ModelMeta and Registry
-from pyoko.lib.utils import un_camel, un_camel_id
-
-
 class Registry(object):
     def __init__(self):
         self.registry = []
@@ -52,25 +49,35 @@ class Registry(object):
                                     {un_camel(kls.__name__): kl})
                     listnode._linked_models[un_camel(kls.__name__)] = kls
                     setattr(link_model, reverse_model_set_name, listnode)
+
     def get_base_models(self):
         return self.registry
 
 _registry = Registry()
 
 
+# noinspection PyMissingConstructor
 class ModelMeta(type):
+    def __init__(mcs, name, bases, attrs):
+
+
+        if mcs.__base__.__name__ == 'Model':
+            # add models to _registry
+            mcs.objects = DBObjects(model_class=mcs)
+            _registry.register_model(mcs)
+
+            # setup relations for linked models which lives in a ListNode (1-n n-n)
+            for node_name, node in attrs['_nodes'].items():
+                mcs._many_to_models.update(node._linked_models)
+                # for model_name, model in node._linked_models.items():
+
     def __new__(mcs, name, bases, attrs):
         base_model_class = bases[0]
         class_type = getattr(base_model_class, '_TYPE', None)
         if class_type == 'Model':
             mcs.process_models(attrs, base_model_class)
-        # if class_type == 'Node':
-        #     mcs.process_nodes(attrs, base_model_class)
         mcs.process_attributes(attrs, class_type)
         new_class = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
-        if new_class.__base__.__name__ == 'Model':
-            new_class.objects = DBObjects(model_class=new_class)
-            _registry.register_model(new_class)
         return new_class
 
     def process_attributes(attrs, class_type):
@@ -82,6 +89,7 @@ class ModelMeta(type):
         attrs['_nodes'] = {}
         attrs['_linked_models'] = {}
         attrs['_fields'] = {}
+        attrs['_many_to_models'] = {}
 
         for key, attr in list(attrs.items()):
             # if it's a class (not instance) and it's type is Node
@@ -108,17 +116,6 @@ class ModelMeta(type):
         copy_of_base_meta = base_model_class._META.copy()
         copy_of_base_meta.update(meta)
         attrs['META'] = copy_of_base_meta
-
-    def process_nodes(attrs, base_model_class):
-        """
-        Attach default fields and meta options to models
-        :param dict attrs: attribute dict
-        :param str bases:
-        """
-        pass
-
-
-
 # endregion
 
 
