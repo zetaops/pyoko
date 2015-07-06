@@ -17,8 +17,9 @@ class ModelForm(object):
             if 'all' in kwargs:
                 kwargs['list_nodes'] = 1
         self.config = kwargs
+        self.title = kwargs.get('title', self.model.__class__.__name__)
 
-    def serialize(self):
+    def _serialize(self):
         while 1:
             if 'base_fields' in self.config:
                 for name, field in self.model._fields.items():
