@@ -12,7 +12,7 @@ from pyoko.lib.utils import un_camel, to_camel
 
 
 class ModelForm(object):
-    def __init__(self, model, **kwargs):
+    def __init__(self, model=None, **kwargs):
         """
         keyword arguments:
             base_fields = True
@@ -23,7 +23,7 @@ class ModelForm(object):
         :param pyoko.Model model: A pyoko model instance, may be empty or full.
         :param dict kwargs: configuration options
         """
-        self.model = model
+        self.model = model or self
         if not kwargs or 'all' in kwargs:
             kwargs = {'base_fields': 1, 'nodes': 1, 'linked_models': 1}
             if 'all' in kwargs:
@@ -110,7 +110,7 @@ class Form(ModelForm):
     """
     base class for a custom form with pyoko.fields
     """
-    def __init__(self, **kwargs):
+    def __init__(self, *args, **kwargs):
         self._nodes = {}
         self._fields = {}
         self._linked_models = {}
@@ -119,7 +119,7 @@ class Form(ModelForm):
             if isinstance(val, BaseField):
                 val.name = key
                 self._fields[key] = val
-        super(Form, self).__init__(self, **kwargs)
+        super(Form, self).__init__(*args, **kwargs)
 
 
     def _load_data(self, data):
