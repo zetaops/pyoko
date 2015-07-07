@@ -100,9 +100,19 @@ See tests for more usage examples.
 #### Tests ####
 
 Create a bucket type named models and activate it with following commands:
+
 ```bash
-./riak-admin bucket-type create models
-./riak-admin bucket-type activate models
+
+#!/bin/sh
+
+# 1 node development:
+./bin/riak-admin bucket-type create models '{"props":{"last_write_wins":true, "allow_mult":false}}'
+
+# multi node production:
+#./bin/riak-admin bucket-type create models '{"props":{"consistent":true}}'
+
+./bin/riak-admin bucket-type activate models
+
 ```
 You need to define the following environmental variable to run tests. 
 
