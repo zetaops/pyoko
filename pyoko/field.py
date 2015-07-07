@@ -94,7 +94,8 @@ class DateTime(BaseField):
     def __init__(self, *args, **kwargs):
         self.format = kwargs.pop('format', DATE_TIME_FORMAT)
         super(DateTime, self).__init__(*args, **kwargs)
-        self.default = lambda: datetime.datetime.now().strftime(self.format)
+        if self.default is None:
+            self.default = lambda: datetime.datetime.now().strftime(self.format)
 
     def clean_value(self, val):
         if val is None:
