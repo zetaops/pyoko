@@ -30,17 +30,17 @@ class Student(Model):
         },
     }
 
-    number = field.String(index=True)
-    pno = field.String(index=True)
-    name = field.String(index_as='text_tr')
-    surname = field.String(index_as='text_tr')
-    join_date = field.Date(index=True)
-    bio = field.Text(index=True)
+    number = field.String("Student No", index=True)
+    pno = field.String("TC No", index=True)
+    name = field.String("First Name", index_as='text_tr')
+    surname = field.String("Last Name", index_as='text_tr')
+    join_date = field.Date("Join Date", index=True)
+    bio = field.Text("Biography", index=True)
 
     class AuthInfo(Node):
-        username = field.String(index=True)
-        email = field.String(index=True)
-        password = field.String()
+        username = field.String("Username", index=True)
+        email = field.String("Email", index=True)
+        password = field.String("Password")
 
     class Lectures(ListNode):
         name = field.String(index_as='text_tr')

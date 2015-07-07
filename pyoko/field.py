@@ -15,17 +15,26 @@ DATE_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 DATE_FORMAT = "%Y-%m-%dT00:00:00Z"
 
 
+#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W
+#
+#  FIXME: INPUT VALIDATIONS ARE MISSING !!!
+#
+#     in __set__() methods of fields
+#
+#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W
+
 class BaseField(object):
     _TYPE = 'Field'
     default_value = None
 
-    def __init__(self,
+    def __init__(self, title='',
                  default=None,
-                 required=False,
+                 required=True,
                  index=False,
                  index_as=None,
                  store=False):
         self.required = required
+        self.title = title
         if index_as:
             self.solr_type = index_as
         self.index = index or bool(index_as)
@@ -81,10 +90,12 @@ class Boolean(BaseField):
 
 class DateTime(BaseField):
     solr_type = 'date'
-    def __init__(self, format=DATE_TIME_FORMAT, *args, **kwargs):
+
+    def __init__(self, *args, **kwargs):
+        self.format = kwargs.pop('format', DATE_TIME_FORMAT)
         super(DateTime, self).__init__(*args, **kwargs)
-        self.format = format
-        self.default = lambda: datetime.datetime.now().strftime(self.format)
+        if self.default is None:
+            self.default = lambda: datetime.datetime.now().strftime(self.format)
 
     def clean_value(self, val):
         if val is None:
@@ -99,9 +110,11 @@ class DateTime(BaseField):
 
 
 class Date(DateTime):
-    solr_type = 'date'
-    def __init__(self, format=DATE_FORMAT, *args, **kwargs):
-        super(Date, self).__init__(format=format, *args, **kwargs)
+
+    def __init__(self, *args, **kwargs):
+        if 'format' not in kwargs:
+            kwargs['format'] = DATE_FORMAT
+        super(Date, self).__init__(*args, **kwargs)
 
 
 class Integer(BaseField):

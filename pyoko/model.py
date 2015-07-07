@@ -223,7 +223,9 @@ class Node(object):
         for name in self._nodes:
             _name = un_camel(name)
             if _name in data:
-                getattr(self, name)._load_data(data[_name])
+                new = getattr(self, name).__class__()
+                new._load_data(data[_name])
+                setattr(self, name, new)
         self._set_fields_values(data)
         return self
         # for name, field_ins in self._fields.items():
@@ -267,10 +269,12 @@ class Model(Node):
 
     def __init__(self, context=None, **kwargs):
         self._riak_object = None
+        self.key = None
         self.context = context or {}
         self.row_level_access()
         self._prepare_linked_models()
         self._is_one_to_one = kwargs.pop('one_to_one', False)
+        self.title = kwargs.pop('title', self.__class__.__name__)
         # self.filter_cells()
 
 

@@ -31,7 +31,13 @@ def un_camel_id(input):
     return un_camel(input) + '_id'
 
 def to_camel(s):
-    return re.sub(r'(?!^)_([a-zA-Z])', lambda m: m.group(1).upper(), s)
+    """
+    :param string s: under_scored string to be CamelCased
+    :return: CamelCase version of input
+    :rtype: str
+    """
+    # r'(?!^)_([a-zA-Z]) original regex wasn't process first groups
+    return re.sub(r'_([a-zA-Z])', lambda m: m.group(1).upper(), '_' + s)
 
 def grayed(*args):
     return '\033[1;37m%s\033[1;m' % ' '.join(map(str, args))
