@@ -62,7 +62,7 @@ class LoginForm(Form):
 
 serialized_login_form = [
     {'value': '', 'name': 'password', 'storage': 'main',
-     'default': None, 'type': 'string', 'section': 'main',
+     'default': None, 'type': 'password', 'section': 'main',
      'required': True, 'title': 'Password'},
     {'value': '', 'name': 'username', 'storage': 'main', 'default': None,
      'type': 'string', 'section': 'main', 'required': True,
@@ -89,7 +89,7 @@ class TestModelRelations:
         assert raw_form_output == serialized_model
 
     def test_plain_form(self):
-        serialized_model = sorted(LoginForm()._serialize(), key=lambda d: d['name'])
+        serialized_model = sorted(LoginForm(types={'password':'password'})._serialize(), key=lambda d: d['name'])
         assert serialized_model == serialized_login_form
 
     def test_plain_form_deserialize(self):

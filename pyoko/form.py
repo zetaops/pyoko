@@ -15,7 +15,7 @@ class ModelForm(object):
     def __init__(self, model=None, **kwargs):
         """
         keyword arguments:
-            base_fields = True
+            fields = True
             nodes = True
             linked_models = True
             list_nodes = False
@@ -25,9 +25,11 @@ class ModelForm(object):
         """
         self.model = model or self
         if not kwargs or 'all' in kwargs:
-            kwargs = {'base_fields': 1, 'nodes': 1, 'linked_models': 1}
+            kwargs = {'fields': True, 'nodes': True, 'models': True}
             if 'all' in kwargs:
-                kwargs['list_nodes'] = 1
+                kwargs['list_nodes'] = True
+        if 'nodes' not in kwargs or 'models' not in kwargs or 'fields' not in kwargs:
+            kwargs['fields'] = True
         self.config = kwargs
         self.customize_types = kwargs.get('types', {})
         self.title = kwargs.get('title', self.model.__class__.__name__)
@@ -57,7 +59,7 @@ class ModelForm(object):
         """
         # TODO: to return in consistent order we should iterate over sorted list of keys
         while 1:
-            if 'base_fields' in self.config:
+            if 'fields' in self.config:
                 for name, field in self.model._fields.items():
                     if name in ['deleted', 'timestamp']: continue
                     value = self.model._field_values.get(name, '')
@@ -91,7 +93,7 @@ class ModelForm(object):
                                    'section': node_name,
                                    'storage': node_type,
                                    }
-            if 'linked_models' in self.config:
+            if 'models' in self.config:
                 for model_attr_name, model in self.model._linked_models.items():
                     yield {'name': "%s_id" % model_attr_name,
                            'model_name': model.__name__,
