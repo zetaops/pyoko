@@ -178,7 +178,8 @@ class Node(object):
 
     def _set_fields_values(self, kwargs):
         for name in self._fields:
-            setattr(self, name, kwargs.get(name))
+            if name in kwargs:
+                setattr(self, name, kwargs[name])
             # self._field_values[k] = kwargs.get(k)
         for name in self._linked_models:
             linked_model = kwargs.get(name)
