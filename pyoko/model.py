@@ -252,7 +252,8 @@ class Node(object):
                     dct['_cache'][un_camel(name)] = obj.clean_value()
                     dct['_cache'][un_camel(name)]['key'] = obj.key
         for name, field_ins in self._fields.items():
-            dct[un_camel(name)] = field_ins.clean_value(self._field_values[name])
+            if name in self._field_values:
+                dct[un_camel(name)] = field_ins.clean_value(self._field_values[name])
         return dct
 
 
@@ -264,7 +265,7 @@ class Model(Node):
     }
     _is_auto_created_reverse_link = False
     _DEFAULT_BASE_FIELDS = {
-        'archived': field.Boolean(default=False, index=True),
+        'archived': field.Boolean(default=False, index=True, required=False),
         'timestamp': field.TimeStamp(),
         'deleted': field.Boolean(default=False, index=True)}
 
