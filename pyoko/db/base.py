@@ -159,10 +159,17 @@ class DBObjects(object):
         :param str key: riak object key
         :return:
         """
-        if self._data_type == 'map' and isinstance(data, dict):
-            return Dictomap(self.bucket, data, str(key)).map.store()
+        # if self._data_type == 'map' and isinstance(data, dict):
+        #     return Dictomap(self.bucket, data, str(key)).map.store()
+        # else:
+        if key is None:
+            return self.bucket.new(data=data).store()
         else:
-            return self.bucket.new(data=data, key=key).store()
+            obj = self.bucket.get(key)
+            obj.data = data
+            return obj.store()
+
+
 
     def save_model(self):
         """
