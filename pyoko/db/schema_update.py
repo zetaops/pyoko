@@ -107,7 +107,7 @@ class SchemaUpdater(object):
         """
         bucket_type = self.client.bucket_type(settings.DEFAULT_BUCKET_TYPE)
         bucket = bucket_type.bucket(bucket_name)
-
+        index_name = "%s_%s" % (settings.DEFAULT_BUCKET_TYPE, bucket_name)
         # delete stale indexes
         # inuse_indexes = [b.get_properties().get('search_index') for b in
         #                  bucket_type.get_buckets()]
@@ -125,14 +125,14 @@ class SchemaUpdater(object):
             self.client.delete_search_index(existing_index)
             time.sleep(10) # we need to wait, otherwise following commands will fail
 
-        self.client.create_search_schema(bucket_name, new_schema)
-        self.client.create_search_index(bucket_name, bucket_name)
-        bucket.set_property('search_index', bucket_name)
+        self.client.create_search_schema(index_name, new_schema)
+        self.client.create_search_index(index_name, index_name)
+        bucket.set_property('search_index', index_name)
 
         if existing_index:
             self.client.delete_search_index(tmp_index_name)
 
-        schema_from_riak = self.client.get_search_schema(bucket_name)['content']
-        return bucket.get_property('search_index') == bucket_name and \
+        schema_from_riak = self.client.get_search_schema(index_name)['content']
+        return bucket.get_property('search_index') == index_name and \
                schema_from_riak == new_schema.decode("utf-8")
 

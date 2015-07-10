@@ -11,6 +11,7 @@ import copy
 
 # noinspection PyCompatibility
 from enum import Enum
+from pyoko.conf import settings
 from pyoko.db.connection import client
 import riak
 from pyoko.exceptions import MultipleObjectsReturned
@@ -148,7 +149,7 @@ class DBObjects(object):
         self.bucket = self._client.bucket_type(
             self._cfg['bucket_type']).bucket(self._cfg['bucket_name'])
         if 'index' not in self._cfg:
-            self._cfg['index'] = name
+            self._cfg['index'] = "%s_%s" % (settings.DEFAULT_BUCKET_TYPE, name)
         return self
 
     def save(self, data, key=None):
