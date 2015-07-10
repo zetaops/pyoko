@@ -7,6 +7,7 @@
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 from time import sleep
+from tests.data.test_data import data
 from tests.models import *
 
 
@@ -22,7 +23,7 @@ class TestModelRelations:
     @classmethod
     def preprocess(cls):
         if not cls.cleaned_up:
-            for model in [User, Employee, Scholar, TimeTable]:
+            for model in [Student]:
                 model.objects._clear_bucket()
             sleep(2)
             cls.cleaned_up = True
@@ -34,5 +35,18 @@ class TestModelRelations:
     # def test_one_to_one_simple_benchmarked(self, benchmark):
     #     benchmark(self.test_one_to_one_simple)
 
-    def test_one_to_one_simple(self):
+    def test_update_with_partial_data(self):
         self.prepare_testbed()
+        student = Student().set_data(data)
+        student.save()
+        sleep(1)
+        db_student = Student.objects.filter().get()
+        db_student.surname = 'Freeman'
+        db_student.save()
+        sleep(1)
+        updated_db_student = Student.objects.filter().get()
+        assert updated_db_student.surname == db_student.surname
+        assert updated_db_student.name == student.name
+
+
+

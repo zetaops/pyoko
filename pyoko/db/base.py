@@ -233,7 +233,7 @@ class DBObjects(object):
         if key param exists, retrieves object from riak,
         otherwise ensures that we got only one doc from solr query
         :type key: builtins.NoneType
-        :return: :raise MultipleObjectsReturned:
+        :rtype: pyoko.Model
         """
         clone = copy.deepcopy(self)
         if key:
