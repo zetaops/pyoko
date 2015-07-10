@@ -12,6 +12,7 @@ from random import randint
 from riak import RiakError
 import six
 import time
+from pyoko.conf import settings
 from pyoko.db.connection import client
 # from pyoko.db.solr_schema_fields import SOLR_FIELDS
 import os, inspect
@@ -104,7 +105,7 @@ class SchemaUpdater(object):
         :return: True or False
         :rtype: bool
         """
-        bucket_type = self.client.bucket_type('models')
+        bucket_type = self.client.bucket_type(settings.DEFAULT_BUCKET_TYPE)
         bucket = bucket_type.bucket(bucket_name)
 
         # delete stale indexes

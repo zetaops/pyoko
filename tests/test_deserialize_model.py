@@ -13,7 +13,7 @@ from tests.models import Student
 
 def test_json_to_model_to_json():
     st = Student()
-    st._load_data(data)
+    st.set_data(data)
     clean_value = st.clean_value()
     clean_data['timestamp'] = clean_value['timestamp']
     assert clean_data == clean_value
@@ -33,7 +33,7 @@ def test_json_to_model_to_json_partial():
     partial_data['lectures'][0]['exams'] = []
     partial_data['lectures'][1]['exams'] = []
 
-    st._load_data(partial_data)
+    st.set_data(partial_data)
     clean_value = st.clean_value()
     partial_data_clean['timestamp'] = clean_value['timestamp']
     assert partial_data_clean == clean_value

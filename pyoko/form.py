@@ -12,6 +12,7 @@ from pyoko.lib.utils import un_camel, to_camel
 
 
 class ModelForm(object):
+    TYPES = {}
     def __init__(self, model=None, **kwargs):
         """
         keyword arguments:
@@ -31,7 +32,7 @@ class ModelForm(object):
         if 'nodes' not in kwargs or 'models' not in kwargs or 'fields' not in kwargs:
             kwargs['fields'] = True
         self.config = kwargs
-        self.customize_types = kwargs.get('types', {})
+        self.customize_types = kwargs.get('types', self.TYPES)
         self.title = kwargs.get('title', self.model.__class__.__name__)
 
     def deserialize(self, data):
@@ -50,7 +51,7 @@ class ModelForm(object):
                 proccessed_data[keys[0]][keys[1]] = val
             else:
                 proccessed_data[key] = val
-        self.model._load_data(proccessed_data)
+        self.model.set_data(proccessed_data)
         return self.model
 
     def _serialize(self):
@@ -124,7 +125,7 @@ class Form(ModelForm):
         super(Form, self).__init__(*args, **kwargs)
 
 
-    def _load_data(self, data):
+    def set_data(self, data):
         """
         fills form with data
         :param dict data:

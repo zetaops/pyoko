@@ -9,6 +9,7 @@
 from collections import defaultdict
 from six import add_metaclass
 from pyoko import field
+from pyoko.conf import settings
 from pyoko.db.base import DBObjects
 from pyoko.lib.utils import un_camel, un_camel_id
 
@@ -179,7 +180,7 @@ class Node(object):
     def _set_fields_values(self, kwargs):
         for name in self._fields:
             if name in kwargs:
-                setattr(self, name, kwargs[name])
+                setattr(self, name, kwargs.get(name, self._field_values.get(name)))
             # self._field_values[k] = kwargs.get(k)
         for name in self._linked_models:
             linked_model = kwargs.get(name)
@@ -252,8 +253,8 @@ class Node(object):
                     dct['_cache'][un_camel(name)] = obj.clean_value()
                     dct['_cache'][un_camel(name)]['key'] = obj.key
         for name, field_ins in self._fields.items():
-            if name in self._field_values:
-                dct[un_camel(name)] = field_ins.clean_value(self._field_values[name])
+            # if name in self._field_values:
+                dct[un_camel(name)] = field_ins.clean_value(self._field_values.get(name))
         return dct
 
 
@@ -261,11 +262,11 @@ class Model(Node):
     objects = DBObjects
     _TYPE = 'Model'
     _META = {
-        'bucket_type' : 'models'
+        'bucket_type' : settings.DEFAULT_BUCKET_TYPE
     }
     _is_auto_created_reverse_link = False
     _DEFAULT_BASE_FIELDS = {
-        'archived': field.Boolean(default=False, index=True, required=False),
+        # 'archived': field.Boolean(default=False, index=True, required=False),
         'timestamp': field.TimeStamp(),
         'deleted': field.Boolean(default=False, index=True)}
 
@@ -285,14 +286,14 @@ class Model(Node):
         self.objects.model = self
         self.objects.model_class = self.__class__
 
-    def _load_data(self, data):
+    def set_data(self, data):
         """
         first calls supers load_data
         then fills linked models
         :param data:
         :return:
         """
-        super(Model, self)._load_data(data)
+        self._load_data(data)
         cache = data.get('_cache', {})
         if cache:
             for name in self._linked_models:
@@ -300,7 +301,7 @@ class Model(Node):
                 if _name in cache:
                     mdl = getattr(self, name)
                     mdl.key = cache[_name]['key']
-                    mdl._load_data(cache[_name])
+                    mdl.set_data(cache[_name])
         return self
 
     def has_many_values(self):
@@ -374,7 +375,7 @@ class Model(Node):
 
 
 class ListNode(Node):
-    # TODO: _load_data should run lazily at __iter__
+    # TODO: set_data should run lazily at __iter__
     def __init__(self, **kwargs):
         super(ListNode, self).__init__(**kwargs)
         self.values = []
@@ -400,7 +401,7 @@ class ListNode(Node):
                 if _name in cache:
                     ins = model(cache[_name])
                     ins.key = cache[_name]['key']
-                    ins._load_data(cache[_name])
+                    ins.set_data(cache[_name])
                     setattr(clone, name, ins)
             self.node_stack.append(clone)
 

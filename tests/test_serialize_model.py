@@ -42,7 +42,6 @@ def test_model_to_json_expanded():
     s = Student()
     s.number = d['number']
     s.deleted = d['deleted']
-    s.archived = d['archived']
     # s.timestamp = d['timestamp']
     s.bio = d['bio']
     s.name = d['name']

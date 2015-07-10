@@ -32,7 +32,6 @@ def random_student():
     s = Student()
     s.number = f.random_int(10000000000, 19999999999)
     s.deleted = f.random_element(False, False, False, False, False, False, True)
-    s.archived = f.random_element(False, False, False, False, False, False, True)
     s.bio = '\n'.join(f.paragraphs())
     s.name = first_name
     s.surname = last_name

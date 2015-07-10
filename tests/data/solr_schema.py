@@ -9,7 +9,6 @@
 
 test_data_solr_fields = [
     ('bio', 'text_general', True, False, False),
-    ('archived', 'boolean', True, False, False),
     ('surname', 'text_tr', True, False, False),
     ('name', 'text_tr', True, False, False),
     ('timestamp', 'long', True, False, False),
@@ -34,7 +33,6 @@ test_data_solr_fields = [
 
 test_data_solr_schema = [
     '<field type="text_general" name="bio"  indexed="true" stored="false" multiValued="false" />',
-    '<field type="boolean" name="archived"  indexed="true" stored="false" multiValued="false" />',
     '<field type="text_tr" name="surname"  indexed="true" stored="false" multiValued="false" />',
     '<field type="text_tr" name="name"  indexed="true" stored="false" multiValued="false" />',
     '<field type="long" name="timestamp"  indexed="true" stored="false" multiValued="false" />',

@@ -15,8 +15,6 @@ from tests.data.test_data import data
 from tests.models import *
 
 raw_form_output = [
-    {'storage': 'main', 'default': False, 'name': 'archived', 'section': 'main', 'required': True,
-     'value': False, 'type': 'boolean', 'title': ''},
     {'storage': 'Node', 'default': None, 'name': 'auth_info.email', 'section': 'AuthInfo',
      'required': True, 'value': '', 'type': 'string', 'title': 'Email'},
     {'storage': 'Node', 'default': None, 'name': 'auth_info.password', 'section': 'AuthInfo',
@@ -46,7 +44,6 @@ received_data = {
            "After the avalanche, it took us a week to climb out.",
     'join_date': datetime.date(2015, 5, 16),
     'name': 'Samuel',
-    'archived': False,
     'deleted': False,
     'number': '20300344',
     'timestamp': None,
@@ -55,6 +52,9 @@ received_data = {
 
 
 class LoginForm(Form):
+    TYPES = {
+        'password': 'password'
+    }
     username = field.String("Username")
     password = field.String("Password")
 
@@ -83,13 +83,13 @@ class TestModelRelations:
     def test_modelform_serialize_simple(self):
         self.clean()
         student = Student()
-        student._load_data(data)
+        student.set_data(data)
         student.save()
         serialized_model = sorted(ModelForm(student)._serialize(), key=lambda d: d['name'])
         assert raw_form_output == serialized_model
 
     def test_plain_form(self):
-        serialized_model = sorted(LoginForm(types={'password':'password'})._serialize(), key=lambda d: d['name'])
+        serialized_model = sorted(LoginForm()._serialize(), key=lambda d: d['name'])
         assert serialized_model == serialized_login_form
 
     def test_plain_form_deserialize(self):

@@ -7,6 +7,7 @@
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 from time import sleep
+from pyoko.conf import settings
 from pyoko.manage import ManagementCommands
 from tests.data.test_data import data, clean_data
 from tests.models import Student
@@ -31,7 +32,7 @@ class TestDBRelations:
     def get_or_create_new_obj(cls):
         if cls.new_obj is None:
             cls.new_obj = Student()
-            cls.new_obj._load_data(data)
+            cls.new_obj.set_data(data)
             cls.new_obj.save()
             sleep(1)  # wait for Riak -> Solr sync
         return cls.new_obj
@@ -98,8 +99,9 @@ class TestDBRelations:
         st2_doc = list(Student.objects.solr().filter(
             auth_info__email=data['auth_info']['email']))[0]
         solr_doc = {'_yz_rb': 'student',
-                    '_yz_rt': 'models',
+                    '_yz_rt': settings.DEFAULT_BUCKET_TYPE,
                     '_yz_id': st2_doc['_yz_id'],
                     'score': st2_doc['score'],
                     '_yz_rk': st.key}
         assert solr_doc == st2_doc
+
