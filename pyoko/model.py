@@ -8,6 +8,7 @@
 # (GPLv3).  See LICENSE.txt for details.
 from collections import defaultdict
 from six import add_metaclass
+import six
 from pyoko import field
 from pyoko.conf import settings
 from pyoko.db.base import DBObjects
@@ -42,7 +43,7 @@ class Registry(object):
                     link_model._linked_models[un_camel(kls.__name__)] = kls
                 else:
                     # other side of one-to-many should be a ListNode named with a "_set" suffix and
-                    # our linked_model as a sole element of the listnode
+                    # our linked_model as the sole element of the listnode
                     reverse_model_set_name = '%s_set' % un_camel(kls.__name__)
                     kl = kls()
                     kl._is_auto_created_reverse_link = True
@@ -75,15 +76,14 @@ class ModelMeta(type):
         class_type = getattr(base_model_class, '_TYPE', None)
         if class_type == 'Model':
             mcs.process_models(attrs, base_model_class)
-        mcs.process_attributes(mcs, attrs, class_type)
+        mcs.process_attributes(attrs)
         new_class = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
         return new_class
 
     @staticmethod
-    def process_attributes(mcs, attrs, class_type):
+    def process_attributes(attrs):
         """
         we're iterating over attributes of the soon to be created class object.
-        :param str class_type: type of the current class
         :param dict attrs: attribute dict
         """
         attrs['_nodes'] = {}
@@ -172,6 +172,20 @@ class Node(object):
             ins = klass()
             ins.path = self.path + [self.__class__.__name__.lower()]
             setattr(self, name, ins)
+
+
+    def __repr__(self):
+        try:
+            u = six.text_type(self)
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            u = '[Bad Unicode data]'
+        return six.text_type('<%s: %s>' % (self.__class__.__name__, u))
+
+
+    def __str__(self):
+        if six.PY2 and hasattr(self, '__unicode__'):
+            return six.text_type(self).encode('utf-8')
+        return '%s object' % self.__class__.__name__
 
     def __call__(self, *args, **kwargs):
         self._set_fields_values(kwargs)

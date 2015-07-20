@@ -62,7 +62,6 @@ class TestDBRelations:
     def test_exclude(self):
         # exclude by name, if name equals filtered names then append to list
         self.prepare_testbed()
-        print(Student.objects.count())
         exclude_result = [s.name for s in Student.objects.exclude(name='Jack')
                           if s.name == 'Jack']
 
@@ -78,8 +77,8 @@ class TestDBRelations:
 
     def test_save_query_list_models(self):
         self.prepare_testbed()
-        students = list(Student.objects.filter(
-            auth_info__email=data['auth_info']['email']))
+        students = Student.objects.filter(
+            auth_info__email=data['auth_info']['email'])
         st2 = students[0]
         clean_value = st2.clean_value()
         clean_data['timestamp'] = clean_value['timestamp']
@@ -87,8 +86,8 @@ class TestDBRelations:
 
     def test_save_query_list_riak_objects(self):
         self.prepare_testbed()
-        students = list(Student.objects.data().filter(
-            auth_info__email=data['auth_info']['email']))
+        students = Student.objects.data().filter(
+            auth_info__email=data['auth_info']['email'])
         st2_data = students[0].data
         clean_data['timestamp'] = st2_data['timestamp']
         assert clean_data == st2_data
@@ -96,8 +95,8 @@ class TestDBRelations:
     def test_save_query_list_solr_docs(self):
         # FIXME: order of multivalued field values varies between solr versions
         st = self.prepare_testbed()
-        st2_doc = list(Student.objects.solr().filter(
-            auth_info__email=data['auth_info']['email']))[0]
+        st2_doc = Student.objects.solr().filter(
+            auth_info__email=data['auth_info']['email'])[0]
         solr_doc = {'_yz_rb': 'student',
                     '_yz_rt': settings.DEFAULT_BUCKET_TYPE,
                     '_yz_id': st2_doc['_yz_id'],

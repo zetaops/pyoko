@@ -21,16 +21,12 @@ class TestModelRelations:
 
 
     @classmethod
-    def preprocess(cls):
+    def prepare_testbed(cls):
         if not cls.cleaned_up:
             for model in [Student]:
                 model.objects._clear_bucket()
             sleep(2)
             cls.cleaned_up = True
-
-    @classmethod
-    def prepare_testbed(cls):
-        cls.preprocess()
 
     # def test_one_to_one_simple_benchmarked(self, benchmark):
     #     benchmark(self.test_one_to_one_simple)

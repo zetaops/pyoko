@@ -35,8 +35,9 @@ class DBObjects(object):
     def __init__(self, **conf):
 
         self.bucket = riak.RiakBucket
-        self._cfg = conf
-        self._cfg['row_size'] = 100
+        self._cfg={'row_size': 100,
+                   'rtype': ReturnType.Model}
+        self._cfg.update(conf)
         self.model = None
         self._client = self._cfg.pop('client', client)
         if 'model' in conf:
@@ -44,7 +45,7 @@ class DBObjects(object):
             self.model_class = self.model.__class__
         elif 'model_class' in conf:
             self.model_class = conf['model_class']
-        self._cfg['rtype'] = ReturnType.Model
+
         self.set_bucket(self.model_class._META['bucket_type'],
                         self.model_class._get_bucket_name())
         self._data_type = None  # we convert new object data according to
@@ -106,15 +107,32 @@ class DBObjects(object):
                 yield (self._make_model(riak_obj.data, riak_obj)
                        if self._cfg['rtype'] == ReturnType.Model else riak_obj)
 
+
+    def __len__(self):
+        # print("~~~~!!! __len__ CALLED !!!~~~~")
+        return self.count()
+        # return len(self._solr_cache)
+
     def __getitem__(self, index):
         if isinstance(index, int):
-            self._params(rows=1, start=index)
+            self.set_params(rows=1, start=index)
             return self._get()
         elif isinstance(index, slice):
-            start, stop, step = index.indices(len(self))
-            clone = copy.deepcopy(self)
-            clone._params(rows=stop - start, start=start)
-            return clone
+            # start, stop, step = index.indices(len(self))
+            if index.start is not None:
+                start = int(index.start)
+            else:
+                start = 0
+            if index.stop is not None:
+                stop = int(index.stop)
+            else:
+                stop = None
+            if start >= 0 and stop:
+                clone = copy.deepcopy(self)
+                clone.set_params(rows=stop - start, start=start)
+                return clone
+            else:
+                raise TypeError("unlimited slicing not supported")
         else:
             raise TypeError("index must be int or slice")
 
@@ -209,6 +227,10 @@ class DBObjects(object):
         model.key = riak_obj.key if riak_obj else data.get('key')
         return model.set_data(data)
 
+
+    def __repr__(self):
+        return [obj for obj in self[:10]].__repr__()
+
     def filter(self, **filters):
         """
         applies query filters to queryset.
@@ -251,15 +273,17 @@ class DBObjects(object):
         :return:  number of objects matches to the query
         :rtype: int
         """
+
         if self._solr_cache:
             obj = self
         else:
             obj = copy.deepcopy(self)
-            obj._params(rows=0)
+            obj.set_params(rows=0)
             obj._exec_query()
+        obj._exec_query()
         return obj._solr_cache.get('num_found', -1)
 
-    def _params(self, **params):
+    def set_params(self, **params):
         """
         add/update solr query parameters
         """
@@ -268,7 +292,7 @@ class DBObjects(object):
 
     def fields(self, *args):
         """
-        Riak's  official Python client (2.1) depends on existence of "_yz_rk"
+        Riak's  official Python client (as of v2.1) depends on existence of "_yz_rk"
         for distinguishing between old and new search API.
         :param args:
         :return:
@@ -330,7 +354,7 @@ class DBObjects(object):
         :return:
         """
         if not self._solr_cache and self._cfg['rtype'] != ReturnType.Solr:
-            self._params(fl='_yz_rk')  # we're going to riak, fetch only keys
+            self.set_params(fl='_yz_rk')  # we're going to riak, fetch only keys
         if not self._solr_locked:
             self._solr_cache = self.bucket.search(self._compile_query(),
                                                   self._cfg['index'],
