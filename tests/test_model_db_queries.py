@@ -59,6 +59,14 @@ class TestDBRelations:
 
         assert len(filter_result) == 0
 
+    def test_raw_query(self):
+        self.prepare_testbed()
+        assert 'Jack' == Student.objects.raw('name:Jack').get().name
+        no_row_result = Student.objects.raw('name:Jack', {'rows':0})._exec_query()._solr_cache
+        assert no_row_result['docs'] == []
+        assert no_row_result['num_found'] == 1
+        assert not bool(Student.objects.raw('name:Nope'))
+
     def test_exclude(self):
         # exclude by name, if name equals filtered names then append to list
         self.prepare_testbed()

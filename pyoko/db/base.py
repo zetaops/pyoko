@@ -50,6 +50,7 @@ class DBObjects(object):
                         self.model_class._get_bucket_name())
         self._data_type = None  # we convert new object data according to
         # bucket datatype, eg: Dictomaping for 'map' type
+        self.compiled_query = ''
         self._solr_query = {}  # query parts, will be compiled before execution
         self._solr_params = {}  # search parameters. eg: rows, fl, start, sort etc.
         self._solr_locked = False
@@ -153,6 +154,7 @@ class DBObjects(object):
                 obj.__dict__[k] = v
             else:
                 obj.__dict__[k] = copy.deepcopy(v, memo)
+        self.compiled_query = ''
         return obj
 
     def set_bucket(self, type, name):
@@ -319,6 +321,18 @@ class DBObjects(object):
         clone._set_return_type(ReturnType.Object)
         return clone
 
+    def raw(self, query, params=None):
+        """
+        make a raw query
+        :param str query: solr query
+        :param dict params: solr parameters
+        """
+        clone = copy.deepcopy(self)
+        clone.compiled_query = query
+        if params is not None:
+            clone._solr_params = params
+        return clone
+
     def _compile_query(self):
         """
         this will support "OR" and maybe other more advanced queries as well
@@ -341,7 +355,7 @@ class DBObjects(object):
         joined_query = anded
         if joined_query == '':
             joined_query = '*:*'
-        return joined_query
+        self.compiled_query = joined_query
 
     def _process_params(self):
         if 'rows' not in self._solr_params:
@@ -356,7 +370,9 @@ class DBObjects(object):
         if not self._solr_cache and self._cfg['rtype'] != ReturnType.Solr:
             self.set_params(fl='_yz_rk')  # we're going to riak, fetch only keys
         if not self._solr_locked:
-            self._solr_cache = self.bucket.search(self._compile_query(),
+            if not self.compiled_query:
+                self._compile_query()
+            self._solr_cache = self.bucket.search(self.compiled_query,
                                                   self._cfg['index'],
                                                   **self._process_params())
             self._solr_locked = True
