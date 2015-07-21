@@ -76,3 +76,6 @@ class Scholar(Model):
     class TimeTables(ListNode):
         timetable = TimeTable()
         confirmed = field.Boolean("Is confirmed", index=True)
+
+        def __str__(self):
+            return self.timetable.__repr__()

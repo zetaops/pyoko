@@ -389,21 +389,28 @@ class Model(Node):
 
 
 class ListNode(Node):
-    # TODO: set_data should run lazily at __iter__
     def __init__(self, **kwargs):
         super(ListNode, self).__init__(**kwargs)
         self.values = []
         self.node_stack = []
+        self._data = ''
 
     # ######## Public Methods  #########
 
     def _load_data(self, data):
         """
-        creates clones of it self with input data and store them in node_stack
-        TODO: it would be more efficient if this run only when we need it at __iter__
+        just stores the data at self._data, actual object creation done at _create_instances()
         """
         self._data = data
-        for node_data in data:
+
+    def _create_instances(self):
+        """
+        should be called from __iter__, __len__ or __getitem__
+        creates clones of the object with self._data and store them in node_stack
+        """
+        if self.node_stack:
+            return
+        for node_data in self._data:
             clone = self.__class__(**node_data)
             for name in self._nodes:
                 _name = un_camel(name)
@@ -417,6 +424,8 @@ class ListNode(Node):
                     ins.key = cache[_name]['key']
                     ins.set_data(cache[_name])
                     setattr(clone, name, ins)
+            del clone.values
+            del clone.node_stack
             self.node_stack.append(clone)
 
     def clean_value(self):
@@ -424,9 +433,20 @@ class ListNode(Node):
         populates json serialization ready data for storing on riak
         :return: [{},]
         """
-        return [super(ListNode, mdl).clean_value() for mdl in self.node_stack]
+        return [super(ListNode, mdl).clean_value() for mdl in self]
 
     # ######## Python Magic  #########
+
+
+    def __repr__(self):
+        if hasattr(self, 'node_stack'):
+            return [obj for obj in self[:10]].__repr__()
+        else:
+            try:
+                u = six.text_type(self)
+            except (UnicodeEncodeError, UnicodeDecodeError):
+                u = '[Bad Unicode data]'
+            return six.text_type('<%s: %s>' % (self.__class__.__name__, u))
 
     def __call__(self, **kwargs):
         clone = self.__class__(**kwargs)
@@ -434,13 +454,15 @@ class ListNode(Node):
         return clone
 
     def __len__(self):
+        self._create_instances()
         return len(self.node_stack)
 
     def __getitem__(self, index):
+        self._create_instances()
         if isinstance(index, int):
             return self.node_stack[index]
         elif isinstance(index, slice):
-            return self.node_stack.__getitem__(slice)
+            return self.node_stack.__getitem__(index)
         else:
             raise TypeError("index must be int or slice")
 
@@ -452,5 +474,6 @@ class ListNode(Node):
     #     del self.values[key]
 
     def __iter__(self):
+        self._create_instances()
         return iter(self.node_stack)
 
