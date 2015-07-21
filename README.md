@@ -8,18 +8,20 @@
 - Nested class based data models (schemas).
 - AND queries by using filter() and exclude() methods.
 - Query chaining and caching.
-- Automatic Solr schema creation / update (one way migration).
-- One-To-One relations.
+- Solr schema creation / update (one way migration).
+- One-To-One relations with auto denormalization.
+- A basic form manager with generic serialization / deserialization. 
 
 #### Work in progress ####
 - ManyToMany and ManyToOne relations with auto denormalization
-- Pythonic APIs for Solr's extensive query features.
+- Row level access control, permission based cell filtering.
+- FormSet support for form manager.
 
 #### Planned ####
-- Row level access control, permission based cell filtering. 
-- Custom and backwards migrations.
-- Auto retry of failed writes (on strongly consistent buckets).  
+- More python APIs for Solr queries. 
 - Automatic versioning on write-once buckets.
+- Custom migrations with migratin history.
+- Auto retry of failed writes (on strongly consistent buckets).  
 - Picklable models.
 - CRDT based models.
 
