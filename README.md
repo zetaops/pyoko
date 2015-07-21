@@ -101,19 +101,19 @@ See tests for more usage examples.
 
 #### Tests ####
 
-Create a bucket type named models and activate it with following commands:
+Create a bucket type named "pyoko_models" and activate it with following commands:
 
 ```bash
 
 #!/bin/sh
 
 # 1 node development:
-./bin/riak-admin bucket-type create models '{"props":{"last_write_wins":true, "allow_mult":false}}'
+./bin/riak-admin bucket-type create pyoko_models '{"props":{"last_write_wins":true, "allow_mult":false}}'
 
-# multi node production:
-#./bin/riak-admin bucket-type create models '{"props":{"consistent":true}}'
+# >= 3 node production:
+#./bin/riak-admin bucket-type create pyoko_models '{"props":{"consistent":true}}'
 
-./bin/riak-admin bucket-type activate models
+./bin/riak-admin bucket-type activate pyoko_models
 
 ```
 You need to define the following environmental variable to run tests. 
