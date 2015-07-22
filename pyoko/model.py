@@ -14,6 +14,7 @@ from pyoko.conf import settings
 from pyoko.db.base import DBObjects
 from pyoko.lib.utils import un_camel, un_camel_id
 
+
 # TODO: implement versioned data update mechanism
 # TODO: implement one-to-many
 # TODO: implement many-to-many
@@ -55,6 +56,7 @@ class Registry(object):
     def get_base_models(self):
         return self.registry
 
+
 _registry = Registry()
 
 
@@ -93,7 +95,7 @@ class ModelMeta(type):
 
         for key, attr in list(attrs.items()):
             # if it's a class (not instance) and it's type is Node
-            if hasattr(attr, '__base__') and getattr(attr.__base__, '_TYPE', '')== 'Node':
+            if hasattr(attr, '__base__') and getattr(attr.__base__, '_TYPE', '') == 'Node':
                 attrs['_nodes'][key] = attrs.pop(key)
             # it's a field or linked model instance
             else:
@@ -116,6 +118,8 @@ class ModelMeta(type):
         copy_of_base_meta = base_model_class._META.copy()
         copy_of_base_meta.update(meta)
         attrs['META'] = copy_of_base_meta
+
+
 # endregion
 
 
@@ -132,16 +136,13 @@ class Node(object):
 
     Since fields are defined as descriptors,
     they can access to instance they called from but
-    we can't access their methods and attributes from model instance.
+    we can't access to their methods and attributes from model instance.
     I've kinda solved it by copying fields in to _fields[] attribute of
-    model instance at ModelMeta.
-
-    So, we access field values from _field_values[] attribute
-    and fields themselves from _fields[]
+    model instance at ModelMeta. So, we get values of fields from _field_values[]
+    and access to fields themselves from _fields[]
 
     """
     _TYPE = 'Node'
-
 
     def __init__(self, **kwargs):
         super(Node, self).__init__()
@@ -151,7 +152,6 @@ class Node(object):
         self._field_values = {}
         self._instantiate_nodes()
         self._set_fields_values(kwargs)
-
 
     @classmethod
     def _get_bucket_name(cls):
@@ -173,14 +173,12 @@ class Node(object):
             ins.path = self.path + [self.__class__.__name__.lower()]
             setattr(self, name, ins)
 
-
     def __repr__(self):
         try:
             u = six.text_type(self)
         except (UnicodeEncodeError, UnicodeDecodeError):
             u = '[Bad Unicode data]'
         return six.text_type('<%s: %s>' % (self.__class__.__name__, u))
-
 
     def __str__(self):
         if six.PY2 and hasattr(self, '__unicode__'):
@@ -195,7 +193,7 @@ class Node(object):
         for name in self._fields:
             if name in kwargs:
                 setattr(self, name, kwargs.get(name, self._field_values.get(name)))
-            # self._field_values[k] = kwargs.get(k)
+                # self._field_values[k] = kwargs.get(k)
         for name in self._linked_models:
             linked_model = kwargs.get(name)
             if linked_model:
@@ -268,7 +266,7 @@ class Node(object):
                     dct['_cache'][un_camel(name)]['key'] = obj.key
         for name, field_ins in self._fields.items():
             # if name in self._field_values:
-                dct[un_camel(name)] = field_ins.clean_value(self._field_values.get(name))
+            dct[un_camel(name)] = field_ins.clean_value(self._field_values.get(name))
         return dct
 
 
@@ -276,11 +274,10 @@ class Model(Node):
     objects = DBObjects
     _TYPE = 'Model'
     _META = {
-        'bucket_type' : settings.DEFAULT_BUCKET_TYPE
+        'bucket_type': settings.DEFAULT_BUCKET_TYPE
     }
     _is_auto_created_reverse_link = False
     _DEFAULT_BASE_FIELDS = {
-        # 'archived': field.Boolean(default=False, index=True, required=False),
         'timestamp': field.TimeStamp(),
         'deleted': field.Boolean(default=False, index=True)}
 
@@ -365,7 +362,7 @@ class Model(Node):
 
     def save(self, dont_save_backlinks=False):
         self.objects.save_model()
-        if not dont_save_backlinks: # to avoid a reciprocal save loop
+        if not dont_save_backlinks:  # to avoid a reciprocal save loop
             self._save_backlinked_models()
         return self
 
@@ -393,25 +390,29 @@ class ListNode(Node):
         super(ListNode, self).__init__(**kwargs)
         self.values = []
         self.node_stack = []
-        self._data = ''
+        self._data = []
+        self._is_clone = False
 
     # ######## Public Methods  #########
 
     def _load_data(self, data):
         """
-        just stores the data at self._data, actual object creation done at _create_instances()
+        just stores the data at self._data, actual object creation done at _generate_instances()
         """
         self._data = data
 
-    def _create_instances(self):
+    def _generate_instances(self, data):
         """
-        should be called from __iter__, __len__ or __getitem__
-        creates clones of the object with self._data and store them in node_stack
+        a clone generator that will be used by __iter__ or __getitem__
         """
-        if self.node_stack:
-            return
-        for node_data in self._data:
+        for node_data in data:
+            yield self._make_instance(node_data)
+        for node in self.node_stack:
+            yield node
+
+    def _make_instance(self, node_data):
             clone = self.__class__(**node_data)
+            clone._is_clone = True
             for name in self._nodes:
                 _name = un_camel(name)
                 if _name in node_data:  # check for partial data
@@ -424,9 +425,7 @@ class ListNode(Node):
                     ins.key = cache[_name]['key']
                     ins.set_data(cache[_name])
                     setattr(clone, name, ins)
-            del clone.values
-            del clone.node_stack
-            self.node_stack.append(clone)
+            return clone
 
     def clean_value(self):
         """
@@ -435,11 +434,9 @@ class ListNode(Node):
         """
         return [super(ListNode, mdl).clean_value() for mdl in self]
 
-    # ######## Python Magic  #########
-
 
     def __repr__(self):
-        if hasattr(self, 'node_stack'):
+        if not self._is_clone:
             return [obj for obj in self[:10]].__repr__()
         else:
             try:
@@ -448,21 +445,31 @@ class ListNode(Node):
                 u = '[Bad Unicode data]'
             return six.text_type('<%s: %s>' % (self.__class__.__name__, u))
 
+    def add(self, **kwargs):
+        """
+        adds a node data to node_stack without creating an instance of it
+        this is more efficient if instance is not required
+        :param kwargs: properties of the ListNode
+        :return: None
+        """
+        self._data.append(kwargs)
+
     def __call__(self, **kwargs):
         clone = self.__class__(**kwargs)
+        clone._is_clone = True
         self.node_stack.append(clone)
         return clone
 
     def __len__(self):
-        self._create_instances()
-        return len(self.node_stack)
+        return len(self._data)
 
     def __getitem__(self, index):
-        self._create_instances()
+        if self.node_stack:
+            raise RuntimeError("Can't slice on modified NodeList")
         if isinstance(index, int):
-            return self.node_stack[index]
+            return self._make_instance(self._data[index])
         elif isinstance(index, slice):
-            return self.node_stack.__getitem__(index)
+            return self._generate_instances(self._data.__getitem__(index))
         else:
             raise TypeError("index must be int or slice")
 
@@ -474,6 +481,4 @@ class ListNode(Node):
     #     del self.values[key]
 
     def __iter__(self):
-        self._create_instances()
-        return iter(self.node_stack)
-
+        return self._generate_instances(self._data)
