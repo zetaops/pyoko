@@ -57,7 +57,7 @@ class BaseField(object):
         instance._field_values[self.name] = value
 
     def __delete__(self, instance):
-        raise AttributeError("Can't delete attribute")
+        raise AttributeError("Can't delete an attribute")
 
     def clean_value(self, val):
         if val is None:

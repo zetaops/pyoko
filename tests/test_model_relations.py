@@ -18,18 +18,13 @@ class TestModelRelations:
     cleaned_up = False
     index_checked = False
 
-
     @classmethod
-    def preprocess(cls):
+    def prepare_testbed(cls):
         if not cls.cleaned_up:
-            for model in [User, Employee, Scholar, TimeTable]:
+            for model in [User, Employee, Scholar, TimeTable, Permission, AbstractRole, Role]:
                 model.objects._clear_bucket()
             sleep(2)
             cls.cleaned_up = True
-
-    @classmethod
-    def prepare_testbed(cls):
-        cls.preprocess()
 
     # def test_one_to_one_simple_benchmarked(self, benchmark):
     #     benchmark(self.test_one_to_one_simple)
@@ -37,9 +32,9 @@ class TestModelRelations:
     def test_one_to_one_simple(self):
         self.prepare_testbed()
         user = User(name='Joe').save()
-        employee = Employee(role='Coder', usr=user).save()
+        employee = Employee(eid='E1', usr=user).save()
         sleep(1)
-        employee_from_db = Employee.objects.filter(role=employee.role).get()
+        employee_from_db = Employee.objects.filter(eid=employee.eid).get()
 
         assert employee_from_db.usr.name == user.name
 
@@ -47,12 +42,12 @@ class TestModelRelations:
         user_from_db.name = 'Joen'
         user_from_db.save()
         sleep(1)
-        employee_from_db = Employee.objects.filter(role='Coder').get()
+        employee_from_db = Employee.objects.filter(eid='E1').get()
 
         assert employee_from_db.usr.name == user_from_db.name
 
 
-    def test_many_to_one_simple(self):
+    def test_many_to_many(self):
         self.prepare_testbed()
         scholar = Scholar(name='Munu')
         tt1 = TimeTable(lecture='rock101', week_day=2, hours=2).save()
@@ -64,3 +59,15 @@ class TestModelRelations:
         db_scholar = Scholar.objects.get()
         db_tt1 = db_scholar.TimeTables[0].timetable
         assert tt1.lecture == db_tt1.lecture
+
+    def taest_many_to_many_to_one(self):
+        self.prepare_testbed()
+        perm = Permission(name="Can see employee data", codename="employee.all").save()
+        abs_role = AbstractRole(name="Employee Manager")
+        abs_role.Permissions(permission=perm)
+        abs_role.save()
+        user = User(name='Adams').save()
+        role = Role(usr=user, abstract_role=abs_role, active=True).save()
+        user_db = User.objects.get(user.key)
+        assert role == user_db.role_set[0]
+
