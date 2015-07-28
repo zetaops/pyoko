@@ -24,8 +24,6 @@ class Settings(object):
                 "Could not import settings '%s' (Is it on sys.path? Is there an import error in the settings file?): %s"
                 % (self.SETTINGS_MODULE, e)
             )
-
-        self._explicit_settings = set()
         for setting in dir(mod):
             if setting.isupper():
                 setting_value = getattr(mod, setting)

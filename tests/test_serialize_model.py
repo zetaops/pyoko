@@ -12,7 +12,16 @@ from tests.data.test_data import data, clean_data
 from tests.models import Student
 
 
+def sort_it(dct, k_sk):
+    """
+    :param (('','')) k_v: key, sub_key ie: ('lectures', 'code')
+    """
+    for key, sub_key in k_sk:
+        dct[key] = sorted(dct[key], key=lambda x: x[sub_key])
+    return dct
 
+
+# clean_data = sort_it(clean_data, (('lectures','code'),))
 
 
 # def model_to_json_compact():
@@ -24,13 +33,14 @@ def test_model_to_json_compact():
         lecture = st.Lectures(**lct_data)
         lecture.NodeInListNode(**lct_data['node_in_list_node'])
         for atd in lct_data['attendance']:
-            lecture.Attendance(**atd)
+            lecture.Attendance.add(**atd)
         for exam in lct_data['exams']:
             lecture.Exams(**exam)
     # print st.clean_value()
-    clean_value  = st.clean_value()
+    clean_value = st.clean_value()
     clean_data['timestamp'] = clean_value['timestamp']
     assert clean_data == clean_value
+
 
 # def test_mode8l_to_json_compact(benchmark):
 #     benchmark(model_to_json_compact )

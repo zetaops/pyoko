@@ -32,10 +32,14 @@ class Registry(object):
 
     def register_model(self, kls):
         if kls not in self.registry:
+            # register model to base registry
             self.registry += [kls]
             for name, link_model in kls._linked_models.items():
+                # register models that linked from this model
                 self.link_registry[link_model].append((name, kls))
+                # register models that gives (back)links to this model
                 self.back_link_registry[kls].append((name, un_camel(kls.__name__), link_model))
+                print(kls, self.back_link_registry[kls])
                 instance = getattr(kls, name)
                 if instance._is_one_to_one:
                     kl = kls(one_to_one=True)
@@ -43,7 +47,7 @@ class Registry(object):
                     setattr(link_model, un_camel(kls.__name__), kl)
                     link_model._linked_models[un_camel(kls.__name__)] = kls
                 else:
-                    # other side of one-to-many should be a ListNode named with a "_set" suffix and
+                    # other side of n-to-many should be a ListNode named with a "_set" suffix and
                     # our linked_model as the sole element of the listnode
                     reverse_model_set_name = '%s_set' % un_camel(kls.__name__)
                     kl = kls()
@@ -51,7 +55,7 @@ class Registry(object):
                     listnode = type(reverse_model_set_name, (ListNode,),
                                     {un_camel(kls.__name__): kl})
                     listnode._linked_models[un_camel(kls.__name__)] = kls
-                    setattr(link_model, reverse_model_set_name, listnode)
+                    link_model._nodes[reverse_model_set_name] = listnode
 
     def get_base_models(self):
         return self.registry
@@ -69,9 +73,10 @@ class ModelMeta(type):
             _registry.register_model(mcs)
 
             # setup relations for linked models which lives in a ListNode (1-n n-n)
-            for node_name, node in attrs['_nodes'].items():
-                mcs._many_to_models.update(node._linked_models)
-                # for model_name, model in node._linked_models.items():
+            # for node_name in attrs['_nodes']:
+            #     mcs._many_to_models.update(node._linked_models)
+
+            #### for model_name, model in node._linked_models.items():
 
     def __new__(mcs, name, bases, attrs):
         base_model_class = bases[0]
@@ -97,8 +102,7 @@ class ModelMeta(type):
             # if it's a class (not instance) and it's type is Node
             if hasattr(attr, '__base__') and getattr(attr.__base__, '_TYPE', '') == 'Node':
                 attrs['_nodes'][key] = attrs.pop(key)
-            # it's a field or linked model instance
-            else:
+            else:  # otherwise it should be a field or linked model instance
                 attr_type = getattr(attr, '_TYPE', '')
                 if attr_type == 'Model':
                     attrs['_linked_models'][key] = attr.__class__
@@ -193,12 +197,11 @@ class Node(object):
         for name in self._fields:
             if name in kwargs:
                 setattr(self, name, kwargs.get(name, self._field_values.get(name)))
-                # self._field_values[k] = kwargs.get(k)
         for name in self._linked_models:
             linked_model = kwargs.get(name)
             if linked_model:
                 setattr(self, name, linked_model)
-                # self._field_values[k] = kwargs.get(k)
+
 
     def _collect_index_fields(self, model_name=None, in_multi=False):
         """
@@ -375,10 +378,16 @@ class Model(Node):
                 obj.save(dont_save_backlinks=mdl._is_auto_created_reverse_link)
         for pointer, name, mdl in self._get_forward_links():
             obj = mdl.objects.get(getattr(self, pointer).key)
-            is_auto_created = getattr(obj, name)._is_auto_created_reverse_link
-            setattr(obj, name, self)
-            # obj.save()
-            obj.save(dont_save_backlinks=is_auto_created)
+            back_linking_model = getattr(obj, name, None)
+            if back_linking_model:
+                is_auto_created = getattr(obj, name, None)._is_auto_created_reverse_link
+                setattr(obj, name, self)
+                obj.save(dont_save_backlinks=is_auto_created)
+            else:
+                object_set = getattr(obj, '%s_set' % name)
+                object_set.add(**{name:self})
+                obj.save(dont_save_backlinks=True)
+
 
     def delete(self):
         self.deleted = True
@@ -386,12 +395,15 @@ class Model(Node):
 
 
 class ListNode(Node):
+    """
+    Currently we disregard the ordering when updating items of a ListNode
+    """
     def __init__(self, **kwargs):
         super(ListNode, self).__init__(**kwargs)
         self.values = []
         self.node_stack = []
         self._data = []
-        self._is_clone = False
+        self._is_item = False
 
     # ######## Public Methods  #########
 
@@ -411,21 +423,22 @@ class ListNode(Node):
             yield node
 
     def _make_instance(self, node_data):
-            clone = self.__class__(**node_data)
-            clone._is_clone = True
-            for name in self._nodes:
-                _name = un_camel(name)
-                if _name in node_data:  # check for partial data
-                    getattr(clone, name)._load_data(node_data[_name])
-            cache = node_data.get('_cache', {})
-            for name, model in self._linked_models.items():
-                _name = un_camel(name)
-                if _name in cache:
-                    ins = model(cache[_name])
-                    ins.key = cache[_name]['key']
-                    ins.set_data(cache[_name])
-                    setattr(clone, name, ins)
-            return clone
+        clone = self.__class__(**node_data)
+        clone._is_item = True
+        for name in self._nodes:
+            _name = un_camel(name)
+            if _name in node_data:  # check for partial data
+                getattr(clone, name)._load_data(node_data[_name])
+        cache = node_data.get('_cache', {})
+        for name, model in self._linked_models.items():
+            _name = un_camel(name)
+            if _name in cache:
+                ins = model(cache[_name])
+                ins.key = cache[_name]['key']
+                ins.set_data(cache[_name])
+                setattr(clone, name, ins)
+        self.node_stack.append(clone)
+        return clone
 
     def clean_value(self):
         """
@@ -434,9 +447,14 @@ class ListNode(Node):
         """
         return [super(ListNode, mdl).clean_value() for mdl in self]
 
-
     def __repr__(self):
-        if not self._is_clone:
+        """
+        this works for two different object.
+        - Main ListNode object
+        - Items of the node (like instance of a class) which created on iteration of main object
+        :return:
+        """
+        if not self._is_item:
             return [obj for obj in self[:10]].__repr__()
         else:
             try:
@@ -447,16 +465,21 @@ class ListNode(Node):
 
     def add(self, **kwargs):
         """
-        adds a node data to node_stack without creating an instance of it
-        this is more efficient if instance is not required
+        stores node data without creating an instance of it
+        this is more efficient if node instance is not required
         :param kwargs: properties of the ListNode
         :return: None
         """
         self._data.append(kwargs)
 
     def __call__(self, **kwargs):
+        """
+        stores created instance in node_stack and returns it's reference to callee
+        :param kwargs:
+        :return:
+        """
         clone = self.__class__(**kwargs)
-        clone._is_clone = True
+        clone._is_item = True
         self.node_stack.append(clone)
         return clone
 
@@ -465,20 +488,24 @@ class ListNode(Node):
 
     def __getitem__(self, index):
         if self.node_stack:
-            raise RuntimeError("Can't slice on modified NodeList")
+            # since we create node instances on demand based,
+            # mixing the output of generator with content of node_stack can cause a confusion
+            # so it's safer to prevent this -hopefully- rarely needed usage
+            raise RuntimeError("Can't slice a modified NodeList")
         if isinstance(index, int):
-            return self._make_instance(self._data[index])
+            return self._make_instance(self._data.pop(index))
         elif isinstance(index, slice):
-            return self._generate_instances(self._data.__getitem__(index))
+            data_slice = self._data.__getitem__(index)
+            self._data = self._data[:slice.start] + self._data[slice.stop:]
+            return self._generate_instances(data_slice)
         else:
             raise TypeError("index must be int or slice")
 
-    #
-    # def __setitem__(self, key, value):
-    #     self.values[key] = value
-    #
-    # def __delitem__(self, key):
-    #     del self.values[key]
-
     def __iter__(self):
         return self._generate_instances(self._data)
+
+        # def __setitem__(self, key, value):
+        #     self.values[key] = value
+
+        # def __delitem__(self, key):
+        #     del self.values[key]
