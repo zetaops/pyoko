@@ -78,7 +78,7 @@ class ModelForm(object):
                            'storage': 'main',
                            }
             if 'nodes' in self.config or 'list_nodes' in self.config:
-                for node_name, node in self.model._nodes.items():
+                for node_name in self.model._nodes:
                     node_type = getattr(self.model, node_name).__class__.__base__.__name__
                     if (node_type == 'Node' and 'nodes' in self.config) or (
                         node_type == 'ListNode' and 'list_nodes' in self.config):

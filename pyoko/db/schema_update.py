@@ -7,14 +7,10 @@
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 import codecs
-from pprint import pprint
 from random import randint
-from riak import RiakError
-import six
 import time
 from pyoko.conf import settings
 from pyoko.db.connection import client
-# from pyoko.db.solr_schema_fields import SOLR_FIELDS
 import os, inspect
 from pyoko.lib.utils import un_camel, random_word
 

@@ -47,7 +47,7 @@ class TestModelRelations:
         assert employee_from_db.usr.name == user_from_db.name
 
 
-    def test_many_to_many(self):
+    def test_many_to_many_simple(self):
         self.prepare_testbed()
         scholar = Scholar(name='Munu')
         tt1 = TimeTable(lecture='rock101', week_day=2, hours=2).save()
@@ -60,7 +60,7 @@ class TestModelRelations:
         db_tt1 = db_scholar.TimeTables[0].timetable
         assert tt1.lecture == db_tt1.lecture
 
-    def taest_many_to_many_to_one(self):
+    def test_many_to_many_to_one(self):
         self.prepare_testbed()
         perm = Permission(name="Can see employee data", codename="employee.all").save()
         abs_role = AbstractRole(name="Employee Manager")
@@ -69,5 +69,5 @@ class TestModelRelations:
         user = User(name='Adams').save()
         role = Role(usr=user, abstract_role=abs_role, active=True).save()
         user_db = User.objects.get(user.key)
-        assert role == user_db.role_set[0]
+        assert role == user_db.role_set[0].role
 
