@@ -56,8 +56,8 @@ class User(Model):
 
 
 class Role(Model):
-    usr = LinkModel(User)
-    abstract_role = LinkModel(AbstractRole)
+    usr = User()
+    abstract_role = AbstractRole()
     name = field.String("Name", index=True)
     active = field.Boolean("Is Active")
     start = field.Date("Start Date")
@@ -68,7 +68,7 @@ class Role(Model):
 
 
 class Employee(Model):
-    usr = LinkModel(User, one_to_one=True)
+    usr = User(one_to_one=True)
     eid = field.String("Employee ID", index=True)
 
     def __unicode__(self):
@@ -91,8 +91,6 @@ class Scholar(Model):
         return 'Scholar named %s' % self.name
 
     class TimeTables(ListNode):
-        timetable = LinkModel(TimeTable)
+        timetable = TimeTable()
         confirmed = field.Boolean("Is confirmed", index=True)
 
-        def __str__(self):
-            return self.timetable.__repr__()
