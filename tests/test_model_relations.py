@@ -30,20 +30,21 @@ class TestModelRelations:
     # def test_one_to_one_simple_benchmarked(self, benchmark):
     #     benchmark(self.test_one_to_one_simple)
 
-    def txest_one_to_one_simple(self):
+    def test_one_to_one_simple(self):
         self.prepare_testbed()
         user = User(name='Joe').save()
         employee = Employee(eid='E1', usr=user).save()
         employee_from_db = Employee.objects.get(employee.key)
         assert employee_from_db.usr.name == user.name
-        user_from_db = User.objects.filter(name='Joe').get(user.key)
+        user_from_db = User.objects.get(user.key)
+        # FIXME: this 1 sec wait shouldn't be required
+        sleep(1)
         user_from_db.name = 'Joen'
         user_from_db.save()
-        sleep(1)
         employee_from_db = Employee.objects.get(employee.key)
         assert employee_from_db.usr.name == user_from_db.name
 
-    def txest_many_to_many_simple(self):
+    def test_many_to_many_simple(self):
         self.prepare_testbed()
         scholar = Scholar(name='Munu')
         tt1 = TimeTable(lecture='rock101', week_day=2, hours=2).save()
@@ -51,9 +52,10 @@ class TestModelRelations:
         scholar.TimeTables(timetable=tt1, confirmed=True)
         scholar.TimeTables(timetable=tt2, confirmed=False)
         scholar.save()
-        sleep(1)
-        db_scholar = Scholar.objects.get()
+        db_scholar = Scholar.objects.get(scholar.key)
         db_tt1 = db_scholar.TimeTables[0].timetable
+        db_tt2 = db_scholar.TimeTables[1].timetable
+        assert db_tt2.lecture != db_tt1.lecture
         assert tt1.lecture == db_tt1.lecture
 
     def test_many_to_many_to_one(self):
@@ -66,4 +68,4 @@ class TestModelRelations:
         user = User(name='Adams').save()
         role = Role(usr=user, abstract_role=abs_role, active=True).save()
         user_db = User.objects.get(user.key)
-        assert role == user_db.role_set[0].role
+        assert role.key == user_db.role_set[0].role.key
