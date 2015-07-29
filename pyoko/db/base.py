@@ -227,7 +227,7 @@ class DBObjects(object):
         """
         model = self.model_class()
         model.key = riak_obj.key if riak_obj else data.get('key')
-        return model.set_data(data)
+        return model.set_data(data, from_db=True)
 
 
     def __repr__(self):
