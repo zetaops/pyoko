@@ -8,7 +8,7 @@ data models for tests
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 
-from pyoko.model import Model, ListNode, field
+from pyoko.model import Model, ListNode, field, LinkModel
 
 """
 
@@ -56,8 +56,8 @@ class User(Model):
 
 
 class Role(Model):
-    usr = User()
-    abstract_role = AbstractRole()
+    usr = LinkModel(User)
+    abstract_role = LinkModel(AbstractRole)
     name = field.String("Name", index=True)
     active = field.Boolean("Is Active")
     start = field.Date("Start Date")
@@ -68,7 +68,7 @@ class Role(Model):
 
 
 class Employee(Model):
-    usr = User(one_to_one=True)
+    usr = LinkModel(User, one_to_one=True)
     eid = field.String("Employee ID", index=True)
 
     def __unicode__(self):
@@ -81,17 +81,17 @@ class TimeTable(Model):
     hours = field.Integer("Hours", index=True)
 
     def __unicode__(self):
-        return self.lecture
+        return 'TimeTable for %s' % self.lecture
 
 
 class Scholar(Model):
     name = field.String("Name", index=True)
 
     def __unicode__(self):
-        return self.name
+        return 'Scholar named %s' % self.name
 
     class TimeTables(ListNode):
-        timetable = TimeTable()
+        timetable = LinkModel(TimeTable)
         confirmed = field.Boolean("Is confirmed", index=True)
 
         def __str__(self):

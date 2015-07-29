@@ -7,21 +7,24 @@
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 from collections import defaultdict
+from datetime import datetime
 from six import add_metaclass
 import six
 from pyoko import field
 from pyoko.conf import settings
 from pyoko.db.base import DBObjects
 from pyoko.lib.utils import un_camel, un_camel_id
+import weakref
+
+class LinkModel(object):
+    _TYPE = 'Proxy'
+    def __init__(self, model, one_to_one=False, **kwargs):
+        self.model = model
+        self.is_one_to_one = one_to_one
+        self.kwargs = kwargs
 
 
-# TODO: implement versioned data update mechanism
-# TODO: implement one-to-many
-# TODO: implement many-to-many
-# TODO: Add validation checks
-# TODO: Check for missing magic methods and add if needed.
-# TODO: Add Migration support with automatic 'schema_version' field.
-# TODO: Add backwards migrations
+
 
 # region ModelMeta and Registry
 class Registry(object):
@@ -34,32 +37,42 @@ class Registry(object):
         if kls not in self.registry:
             # register model to base registry
             self.registry += [kls]
-            for name, link_model in kls._linked_models.items():
+            klas_name = un_camel(kls.__name__)
+            for name, link_model_proxy in kls._linked_models.items():
                 # register models that linked from this model
-                self.link_registry[link_model].append((name, kls))
+                self.link_registry[link_model_proxy.model].append((name, kls))
                 # register models that gives (back)links to this model
-                self.back_link_registry[kls].append((name, un_camel(kls.__name__), link_model))
-                print(kls, self.back_link_registry[kls])
-                instance = getattr(kls, name)
-                if instance._is_one_to_one:
-                    kl = kls(one_to_one=True)
-                    kl._is_auto_created_reverse_link = True
-                    setattr(link_model, un_camel(kls.__name__), kl)
-                    link_model._linked_models[un_camel(kls.__name__)] = kls
+                self.back_link_registry[kls].append((name, klas_name,
+                                                     link_model_proxy.model))
+                # print(kls, self.back_link_registry[kls])
+                linked_model_instance = link_model_proxy.model()
+                klass = kls() # one_to_one=True
+                klass._is_auto_created_reverse_link = True
+                setattr(kls, name, linked_model_instance)
+                if link_model_proxy.is_one_to_one:
+                    setattr(link_model_proxy.model, klas_name, klass)
+                    linked_model_instance._linked_models[klas_name] = kls
                 else:
-                    # other side of n-to-many should be a ListNode named with a "_set" suffix and
-                    # our linked_model as the sole element of the listnode
-                    reverse_model_set_name = '%s_set' % un_camel(kls.__name__)
-                    kl = kls()
-                    kl._is_auto_created_reverse_link = True
-                    listnode = type(reverse_model_set_name, (ListNode,),
-                                    {un_camel(kls.__name__): kl})
-                    listnode._linked_models[un_camel(kls.__name__)] = kls
-                    link_model._nodes[reverse_model_set_name] = listnode
+                    self._bind_many_models(klas_name, klass, kls, link_model_proxy)
+
+    def _bind_many_models(self, klas_name, klass, kls, link_model_proxy):
+        # other side of n-to-many should be a ListNode
+        # named with a "_set" suffix and
+        # our linked_model as the sole element
+        rvrs_model_set_name = '%s_set' % klas_name
+        # create a new class which extends ListNode
+        listnode = type(rvrs_model_set_name,
+                        (ListNode,),
+                        {klas_name: klass})
+        listnode._linked_models[klas_name] = kls
+        link_model_proxy.model._nodes[rvrs_model_set_name] = listnode
+        for instance_ref in kls._instance_registry:
+            instance_ref()._instantiate_node(rvrs_model_set_name, listnode)
+        print("\n MAKE %s on %s" % (rvrs_model_set_name,
+                                 link_model_proxy.model))
 
     def get_base_models(self):
         return self.registry
-
 
 _registry = Registry()
 
@@ -102,10 +115,10 @@ class ModelMeta(type):
             # if it's a class (not instance) and it's type is Node
             if hasattr(attr, '__base__') and getattr(attr.__base__, '_TYPE', '') == 'Node':
                 attrs['_nodes'][key] = attrs.pop(key)
-            else:  # otherwise it should be a field or linked model instance
+            else:  # otherwise it should be a field or linked model proxy
                 attr_type = getattr(attr, '_TYPE', '')
-                if attr_type == 'Model':
-                    attrs['_linked_models'][key] = attr.__class__
+                if attr_type == 'Proxy':
+                    attrs['_linked_models'][key] = attrs.pop(key)
                 elif attr_type == 'Field':
                     attr.name = key
                     attrs['_fields'][key] = attr
@@ -157,6 +170,7 @@ class Node(object):
         self._instantiate_nodes()
         self._set_fields_values(kwargs)
 
+
     @classmethod
     def _get_bucket_name(cls):
         return cls._META.get('bucket_name', cls.__name__.lower())
@@ -168,14 +182,20 @@ class Node(object):
         return '.'.join(list(self.path + [un_camel(self.__class__.__name__),
                                           prop]))
 
+    def _instantiate_node(self, name, klass):
+        # instantiate given node, pass path data
+        ins = klass()
+        ins.path = self.path + [self.__class__.__name__.lower()]
+        setattr(self, name, ins)
+
     def _instantiate_nodes(self):
         """
-        instantiate all nodes, pass path data
+        instantiate all nodes
         """
         for name, klass in self._nodes.items():
-            ins = klass()
-            ins.path = self.path + [self.__class__.__name__.lower()]
-            setattr(self, name, ins)
+            self._instantiate_node(name, klass)
+        # if self._nodes:
+        #     print("INS NODE: ", self, self._nodes)
 
     def __repr__(self):
         try:
@@ -194,9 +214,15 @@ class Node(object):
         return self
 
     def _set_fields_values(self, kwargs):
-        for name in self._fields:
+        for name, _field in self._fields.items():
             if name in kwargs:
-                setattr(self, name, kwargs.get(name, self._field_values.get(name)))
+                val = kwargs.get(name, self._field_values.get(name))
+                setattr(self, name, val)
+                # _field._load_data(self, val)
+                # if isinstance(_field, field.Date):
+                #     val = datetime.strptime(val, field.DATE_FORMAT)
+                # if isinstance(_field, field.DateTime):
+                #     val = datetime.strptime(val, field.DATE_TIME_FORMAT)
         for name in self._linked_models:
             linked_model = kwargs.get(name)
             if linked_model:
@@ -229,7 +255,7 @@ class Node(object):
             result.extend(getattr(self, mdl_ins)._collect_index_fields(model_name, multi))
         return result
 
-    def _load_data(self, data):
+    def _load_data(self, data, from_db=False):
         """
         fills model instance (and sub-nodes and linked model instances)
          with the data returned from riak
@@ -241,9 +267,15 @@ class Node(object):
             _name = un_camel(name)
             if _name in data:
                 new = getattr(self, name).__class__()
-                new._load_data(data[_name])
+                new._load_data(data[_name], from_db)
                 setattr(self, name, new)
-        self._set_fields_values(data)
+        if not from_db:
+            self._set_fields_values(data)
+        else:
+            for name, _field in self._fields.items():
+                if name in data:
+                    val = data.get(name, self._field_values.get(name))
+                    _field._load_data(self, val)
         return self
         # for name, field_ins in self._fields.items():
         #     self._field_values[name] = data[name]
@@ -284,13 +316,18 @@ class Model(Node):
         'timestamp': field.TimeStamp(),
         'deleted': field.Boolean(default=False, index=True)}
 
+
+    _instance_registry = set()
+
+
     def __init__(self, context=None, **kwargs):
         self._riak_object = None
         self.key = None
+        self._instance_registry.add(weakref.ref(self))
         self.context = context or {}
         self.row_level_access()
         self._prepare_linked_models()
-        self._is_one_to_one = kwargs.pop('one_to_one', False)
+        # self._is_one_to_one = kwargs.pop('one_to_one', False)
         self.title = kwargs.pop('title', self.__class__.__name__)
         # self.filter_cells()
 
@@ -300,14 +337,14 @@ class Model(Node):
         self.objects.model = self
         self.objects.model_class = self.__class__
 
-    def set_data(self, data):
+    def set_data(self, data, from_db=False):
         """
         first calls supers load_data
         then fills linked models
         :param data:
         :return:
         """
-        self._load_data(data)
+        self._load_data(data, from_db)
         cache = data.get('_cache', {})
         if cache:
             for name in self._linked_models:
@@ -315,7 +352,7 @@ class Model(Node):
                 if _name in cache:
                     mdl = getattr(self, name)
                     mdl.key = cache[_name]['key']
-                    mdl.set_data(cache[_name])
+                    mdl.set_data(cache[_name], from_db)
         return self
 
     def has_many_values(self):
@@ -399,28 +436,37 @@ class ListNode(Node):
     Currently we disregard the ordering when updating items of a ListNode
     """
     def __init__(self, **kwargs):
-        super(ListNode, self).__init__(**kwargs)
+        self._is_item = False
+        self._from_db = False
         self.values = []
         self.node_stack = []
         self._data = []
-        self._is_item = False
+        super(ListNode, self).__init__(**kwargs)
+
 
     # ######## Public Methods  #########
 
-    def _load_data(self, data):
+    def _load_data(self, data, from_db=False):
         """
         just stores the data at self._data, actual object creation done at _generate_instances()
         """
         self._data = data
+        self._from_db = from_db
 
-    def _generate_instances(self, data):
+    def _generate_instances(self, index=None):
         """
         a clone generator that will be used by __iter__ or __getitem__
         """
-        for node_data in data:
-            yield self._make_instance(node_data)
+        if index:
+            data = self._data.__getitem__(index)
+            self._data = self._data[:index.start] + self._data[index.stop:]
+        else:
+            data = self._data
         for node in self.node_stack:
             yield node
+        while data:
+            yield self._make_instance(data.pop(0))
+
 
     def _make_instance(self, node_data):
         clone = self.__class__(**node_data)
@@ -435,7 +481,7 @@ class ListNode(Node):
             if _name in cache:
                 ins = model(cache[_name])
                 ins.key = cache[_name]['key']
-                ins.set_data(cache[_name])
+                ins.set_data(cache[_name], self._from_db)
                 setattr(clone, name, ins)
         self.node_stack.append(clone)
         return clone
@@ -463,6 +509,7 @@ class ListNode(Node):
                 u = '[Bad Unicode data]'
             return six.text_type('<%s: %s>' % (self.__class__.__name__, u))
 
+
     def add(self, **kwargs):
         """
         stores node data without creating an instance of it
@@ -487,22 +534,15 @@ class ListNode(Node):
         return len(self._data)
 
     def __getitem__(self, index):
-        if self.node_stack:
-            # since we create node instances on demand based,
-            # mixing the output of generator with content of node_stack can cause a confusion
-            # so it's safer to prevent this -hopefully- rarely needed usage
-            raise RuntimeError("Can't slice a modified NodeList")
         if isinstance(index, int):
             return self._make_instance(self._data.pop(index))
         elif isinstance(index, slice):
-            data_slice = self._data.__getitem__(index)
-            self._data = self._data[:slice.start] + self._data[slice.stop:]
-            return self._generate_instances(data_slice)
+            return self._generate_instances(index)
         else:
             raise TypeError("index must be int or slice")
 
     def __iter__(self):
-        return self._generate_instances(self._data)
+        return self._generate_instances()
 
         # def __setitem__(self, key, value):
         #     self.values[key] = value

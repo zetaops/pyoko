@@ -8,5 +8,5 @@
 # (GPLv3).  See LICENSE.txt for details.
 from tests.models.student import Student
 from tests.models.users import *
-
+from tests.models.date_models import *
 

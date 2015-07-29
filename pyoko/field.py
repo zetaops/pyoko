@@ -15,13 +15,13 @@ DATE_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 DATE_FORMAT = "%Y-%m-%dT00:00:00Z"
 
 
-#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W
+# W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W
 #
 #  FIXME: INPUT VALIDATIONS ARE MISSING !!!
 #
 #     in __set__() methods of fields
 #
-#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W
+# W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W
 
 class BaseField(object):
     _TYPE = 'Field'
@@ -52,9 +52,16 @@ class BaseField(object):
             instance._load_from_parent()
             return instance._field_values.get(self.name, None)
 
-
     def __set__(self, instance, value):
         instance._field_values[self.name] = value
+
+
+    def _load_data(self, instance, value):
+        """
+        for some field types (eg:date, datetime)
+        we treat differently to data that came from db and given by user
+        """
+        self.__set__(instance, value)
 
     def __delete__(self, instance):
         raise AttributeError("Can't delete an attribute")
@@ -95,26 +102,49 @@ class DateTime(BaseField):
         self.format = kwargs.pop('format', DATE_TIME_FORMAT)
         super(DateTime, self).__init__(*args, **kwargs)
         if self.default is None:
-            self.default = lambda: datetime.datetime.now().strftime(self.format)
+            self.default = lambda: datetime.datetime.now().strftime(
+                DATE_TIME_FORMAT)
 
     def clean_value(self, val):
         if val is None:
             return self.default() if callable(self.default) else self.default
         else:
-            return val.strftime(self.format)
+            return val.strftime(DATE_TIME_FORMAT)
 
     def __set__(self, instance, value):
         if isinstance(value, six.string_types):
             value = datetime.datetime.strptime(value, self.format)
         instance._field_values[self.name] = value
 
+    def _load_data(self, instance, value):
+        instance._field_values[self.name] = datetime.datetime.strptime(value,
+                                                                       DATE_TIME_FORMAT)
 
-class Date(DateTime):
+
+class Date(BaseField):
+    solr_type = 'date'
 
     def __init__(self, *args, **kwargs):
-        if 'format' not in kwargs:
-            kwargs['format'] = DATE_FORMAT
+        self.format = kwargs.pop('format', DATE_FORMAT)
         super(Date, self).__init__(*args, **kwargs)
+        if self.default is None:
+            self.default = lambda: datetime.datetime.now().strftime(
+                DATE_FORMAT)
+
+    def __set__(self, instance, value):
+        if isinstance(value, six.string_types):
+            value = datetime.datetime.strptime(value, self.format).date()
+        instance._field_values[self.name] = value
+
+    def clean_value(self, val):
+        if val is None:
+            return self.default() if callable(self.default) else self.default
+        else:
+            return val.strftime(DATE_FORMAT)
+
+    def _load_data(self, instance, value):
+        instance._field_values[self.name] = datetime.datetime.strptime(value,
+                                                                       DATE_FORMAT).date()
 
 
 class Integer(BaseField):
@@ -128,20 +158,21 @@ class Integer(BaseField):
             except ValueError:
                 raise ValidationError("%r could not be cast to integer" % val)
         elif val is None and self.default is not None:
-            return int(self.default() if callable(self.default) else self.default)
+            return int(
+                self.default() if callable(self.default) else self.default)
         else:
             return self.default_value
 
+
 class TimeStamp(BaseField):
     solr_type = 'long'
+
     def __init__(self, *args, **kwargs):
         super(TimeStamp, self).__init__(*args, **kwargs)
         self.index = True
 
-
     def clean_value(self, val):
         return int(repr(time.time()).replace('.', ''))
-
 
 # class Link(object):
 #     """

@@ -10,7 +10,7 @@ import datetime
 from pprint import pprint
 from time import sleep
 from pyoko.form import ModelForm, Form
-from tests.data.test_data import data
+from tests.data.test_data import data, clean_data
 
 from tests.models import *
 
@@ -83,7 +83,7 @@ class TestModelRelations:
     def test_modelform_serialize_simple(self):
         self.clean()
         student = Student()
-        student.set_data(data)
+        student.set_data(clean_data)
         student.save()
         serialized_model = sorted(ModelForm(student)._serialize(), key=lambda d: d['name'])
         assert raw_form_output == serialized_model
