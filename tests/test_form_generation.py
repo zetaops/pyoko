@@ -103,7 +103,6 @@ class TestModelRelations:
         student = ModelForm(Student()).deserialize(received_data)
         student.save()
         sleep(1)
-        db_student = Student.objects.filter(
-            auth_info__email=received_data['auth_info.email']).get()
+        db_student = Student.objects.filter(auth_info__email=received_data['auth_info.email']).get()
         assert db_student.AuthInfo.email == received_data['auth_info.email']
         assert db_student.bio == received_data['bio']

@@ -29,9 +29,11 @@ class SchemaUpdater(object):
         self.registry = registry
         self.client = client
         self.bucket_names = [b.lower() for b in bucket_names.split(',')]
+        self.t1 = 0.0 # start time
 
 
     def run(self):
+        self.t1 = time.time()
         for klass in self.registry.get_base_models():
             if self.bucket_names[0] == 'all' or klass.__name__.lower() in self.bucket_names:
                 ins = klass()
@@ -53,6 +55,7 @@ class SchemaUpdater(object):
         if all(results):
             report = "Schema and index definitions successfully applied for:\n + " + \
                      "\n + ".join(buckets)
+            report += "\n Operation took %s secs" % round(time.time() - self.t1)
         else:
             report = "Operation failed:\n" + str(self.report)
         return report
@@ -103,7 +106,7 @@ class SchemaUpdater(object):
         """
         bucket_type = self.client.bucket_type(settings.DEFAULT_BUCKET_TYPE)
         bucket = bucket_type.bucket(bucket_name)
-        index_name = "%s_%s" % (settings.DEFAULT_BUCKET_TYPE, bucket_name)
+
         # delete stale indexes
         # inuse_indexes = [b.get_properties().get('search_index') for b in
         #                  bucket_type.get_buckets()]
@@ -112,23 +115,14 @@ class SchemaUpdater(object):
         # for stale_index in stale_indexes:
         #     self.client.delete_search_index(stale_index)
 
-        # delete index of the bucket (if exist)
-        existing_index = bucket.get_properties().get('search_index', None)
-        if existing_index:
-            tmp_index_name = "%s_%s" % (bucket_name, randint(1000, 9999))
-            self.client.create_search_index(tmp_index_name)
-            bucket.set_property('search_index', tmp_index_name)
-            self.client.delete_search_index(existing_index)
-            time.sleep(10) # we need to wait, otherwise following commands will fail
+        new_index_name = "%s_%s" % (bucket_name, randint(1000, 9999999))
+        self.client.create_search_schema(new_index_name, new_schema)
+        self.client.create_search_index(new_index_name, new_index_name)
+        bucket.set_property('search_index', new_index_name)
+        settings.update_index(bucket_name, new_index_name)
 
-        self.client.create_search_schema(index_name, new_schema)
-        self.client.create_search_index(index_name, index_name)
-        bucket.set_property('search_index', index_name)
-
-        if existing_index:
-            self.client.delete_search_index(tmp_index_name)
-
-        schema_from_riak = self.client.get_search_schema(index_name)['content']
-        return bucket.get_property('search_index') == index_name and \
-               schema_from_riak == new_schema.decode("utf-8")
+        return True
+        # schema_from_riak = self.client.get_search_schema(index_name)['content']
+        # return bucket.get_property('search_index') == index_name and \
+        #        schema_from_riak == new_schema.decode("utf-8")
 
