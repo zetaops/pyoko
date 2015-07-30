@@ -6,8 +6,10 @@
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
+
 import codecs
 from random import randint
+import threading
 import time
 from pyoko.conf import settings
 from pyoko.db.connection import client
@@ -24,41 +26,53 @@ class SchemaUpdater(object):
     FIELD_TEMPLATE = '<field type="{type}" name="{name}"  indexed="{index}" ' \
                      'stored="{store}" multiValued="{multi}" />'
 
-    def __init__(self, registry, bucket_names):
+    def __init__(self, registry, bucket_names, silent=None):
         self.report = []
         self.registry = registry
         self.client = client
+        self.silent = silent
         self.bucket_names = [b.lower() for b in bucket_names.split(',')]
-        self.t1 = 0.0 # start time
-
+        self.t1 = 0.0  # start time
 
     def run(self):
         self.t1 = time.time()
-        for klass in self.registry.get_base_models():
-            if self.bucket_names[0] == 'all' or klass.__name__.lower() in self.bucket_names:
-                ins = klass()
+        apply_threads = []
+        for model in self.registry.get_base_models():
+            if self.bucket_names[
+                0] == 'all' or model.__name__.lower() in self.bucket_names:
+                ins = model()
                 fields = self.get_schema_fields(ins._collect_index_fields())
                 new_schema = self.compile_schema(fields)
-                bucket_name = ins._get_bucket_name()
-                self.report.append((bucket_name, self.apply_schema(new_schema,
-                                                                   bucket_name)))
+
+                apply_threads.append(threading.Thread(target=self.apply_schema,
+                                                      args=(
+                                                          self.client,
+                                                          new_schema,
+                                                          model, self.silent)))
+        if not self.silent:
+            print(
+            "Schema creation started for %s model" % len(apply_threads))
+        for t in apply_threads:
+            t.start()
+        for t in apply_threads:
+            t.join()
+        if apply_threads:
+            self.report = "Schema and index definitions successfully " \
+                          "applied for the models listed above."
+
 
     def create_report(self):
         """
         creates a text report for the human user
         :return: str
         """
-        if not self.report:
-            return "noop"
-        buckets, results = zip(*self.report)
-        report = ''
-        if all(results):
-            report = "Schema and index definitions successfully applied for:\n + " + \
-                     "\n + ".join(buckets)
-            report += "\n Operation took %s secs" % round(time.time() - self.t1)
+
+        if self.report:
+            self.report += "\n Operation took %s secs" % round(
+                time.time() - self.t1)
         else:
-            report = "Operation failed:\n" + str(self.report)
-        return report
+            self.report = "Operation failed: %s \n" % self.report
+        return self.report
 
     @classmethod
     def get_schema_fields(cls, fields):
@@ -90,7 +104,8 @@ class SchemaUpdater(object):
             schema_template = fh.read()
         return schema_template.format('\n'.join(fields)).encode('utf-8')
 
-    def apply_schema(self, new_schema, bucket_name):
+    @staticmethod
+    def apply_schema(client, new_schema, model, silent=False):
         """
         riak doesn't support schema/index updates ( http://git.io/vLOTS )
 
@@ -104,7 +119,8 @@ class SchemaUpdater(object):
         :return: True or False
         :rtype: bool
         """
-        bucket_type = self.client.bucket_type(settings.DEFAULT_BUCKET_TYPE)
+        bucket_name = model._get_bucket_name()
+        bucket_type = client.bucket_type(settings.DEFAULT_BUCKET_TYPE)
         bucket = bucket_type.bucket(bucket_name)
 
         # delete stale indexes
@@ -116,13 +132,13 @@ class SchemaUpdater(object):
         #     self.client.delete_search_index(stale_index)
 
         new_index_name = "%s_%s" % (bucket_name, randint(1000, 9999999))
-        self.client.create_search_schema(new_index_name, new_schema)
-        self.client.create_search_index(new_index_name, new_index_name)
+        client.create_search_schema(new_index_name, new_schema)
+        client.create_search_index(new_index_name, new_index_name)
         bucket.set_property('search_index', new_index_name)
         settings.update_index(bucket_name, new_index_name)
+        if not silent:
+            print("+ %s " % model.__name__)
 
-        return True
-        # schema_from_riak = self.client.get_search_schema(index_name)['content']
-        # return bucket.get_property('search_index') == index_name and \
-        #        schema_from_riak == new_schema.decode("utf-8")
-
+            # schema_from_riak = self.client.get_search_schema(index_name)['content']
+            # return bucket.get_property('search_index') == index_name and \
+            #        schema_from_riak == new_schema.decode("utf-8")
