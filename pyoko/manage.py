@@ -31,6 +31,8 @@ class ManagementCommands(object):
         parser_create.set_defaults(command='schema_update')
         parser_create.add_argument(
             '--bucket', required=True, help='Bucket name(s) to be updated')
+        parser_create.add_argument(
+            '--silent', required=False, help='Silent operation')
 
         # parser_create = subparsers.add_parser('index_bucket')
         # parser_create.set_defaults(command='index_bucket')
@@ -49,7 +51,7 @@ class ManagementCommands(object):
         self._get_models()
         from pyoko.db.schema_update import SchemaUpdater
 
-        self.robot = SchemaUpdater(self.registry, self.args.bucket)
+        self.robot = SchemaUpdater(self.registry, self.args.bucket, self.args.silent)
         self.robot.run()
         self.report = self.robot.create_report()
 
