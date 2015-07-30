@@ -177,6 +177,7 @@ class Node(object):
     def __init__(self, **kwargs):
         super(Node, self).__init__()
         self.key = None
+        self.timer = 0.0
         self.path = []
         self._parent = None
         self._field_values = {}
@@ -334,6 +335,13 @@ class Model(Node):
     _DEFAULT_BASE_FIELDS = {
         'timestamp': field.TimeStamp(),
         'deleted': field.Boolean(default=False, index=True)}
+    _SEARCH_INDEX = ''
+
+    @classmethod
+    def get_search_index(cls):
+        if not cls._SEARCH_INDEX:
+            cls._SEARCH_INDEX = settings.get_index(cls._get_bucket_name())
+        return cls._SEARCH_INDEX
 
     def __init__(self, context=None, **kwargs):
         self._riak_object = None

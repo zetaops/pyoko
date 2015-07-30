@@ -6,6 +6,7 @@
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
+from pprint import pprint
 from time import sleep
 from tests.models import *
 
@@ -37,9 +38,12 @@ class TestModelRelations:
         employee_from_db = Employee.objects.get(employee.key)
         assert employee_from_db.usr.name == user.name
         user_from_db = User.objects.get(user.key)
+
+        user_from_db.name = 'Joen'
+        # pprint(user_from_db.clean_value())
         # FIXME: this 1 sec wait shouldn't be required
         sleep(1)
-        user_from_db.name = 'Joen'
+        # pprint(user_from_db.clean_value())
         user_from_db.save()
         employee_from_db = Employee.objects.get(employee.key)
         assert employee_from_db.usr.name == user_from_db.name
