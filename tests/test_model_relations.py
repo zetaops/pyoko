@@ -35,15 +35,15 @@ class TestModelRelations:
         self.prepare_testbed()
         user = User(name='Joe').save()
         employee = Employee(eid='E1', usr=user).save()
+        # need to wait a sec because we will query solr in the
+        # _save_backlinked_models of User object
+        sleep(1)
         employee_from_db = Employee.objects.get(employee.key)
         assert employee_from_db.usr.name == user.name
         user_from_db = User.objects.get(user.key)
 
+
         user_from_db.name = 'Joen'
-        # pprint(user_from_db.clean_value())
-        # FIXME: this 1 sec wait shouldn't be required
-        sleep(1)
-        # pprint(user_from_db.clean_value())
         user_from_db.save()
         employee_from_db = Employee.objects.get(employee.key)
         assert employee_from_db.usr.name == user_from_db.name
