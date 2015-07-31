@@ -7,7 +7,7 @@
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 from pprint import pprint
-from time import sleep
+from time import sleep, time
 from tests.models import *
 
 
@@ -41,8 +41,6 @@ class TestModelRelations:
         employee_from_db = Employee.objects.get(employee.key)
         assert employee_from_db.usr.name == user.name
         user_from_db = User.objects.get(user.key)
-
-
         user_from_db.name = 'Joen'
         user_from_db.save()
         employee_from_db = Employee.objects.get(employee.key)
@@ -71,5 +69,34 @@ class TestModelRelations:
         abs_role.save()
         user = User(name='Adams').save()
         role = Role(usr=user, abstract_role=abs_role, active=True).save()
+        t1 = time()
         user_db = User.objects.get(user.key)
         assert role.key == user_db.role_set[0].role.key
+        role_node = user_db.role_set[0]
+        permission_node = role_node.role.abstract_role.Permissions[0]
+        assert perm.codename == permission_node.permission.codename
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

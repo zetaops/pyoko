@@ -276,8 +276,11 @@ class Node(object):
 
     def _load_data(self, data, from_db=False):
         """
-        fills model instance (and sub-nodes and linked model instances)
-         with the data returned from riak
+        With the data returned from riak:
+        - fills model's fields, nodes and listnodes
+        - instantiates linked model instances
+        :type bool from_db: if data coming from db instead of calling
+        self._set_fields_values() we simply use field's _load_data method.
         :param dict data:
         :return: self
         """
@@ -301,23 +304,28 @@ class Node(object):
 
     # ######## Public Methods  #########
 
-    def clean_value(self):
+    def clean_value(self, root_obj_key=None):
         """
         generates a json serializable representation of the model data
         :rtype: dict
         :return: riak ready python dict
         """
         dct = {}
+        if root_obj_key is None:
+            root_obj_key = self.key
         for name in self._nodes:
-            dct[un_camel(name)] = getattr(self, name).clean_value()
+            dct[un_camel(name)] = getattr(self, name).clean_value(root_obj_key)
         if self._linked_models:
             dct['_cache'] = {}
             for name in self._linked_models:
-                obj = getattr(self, name)
-                dct[un_camel_id(name)] = obj.key or ''
-                if not obj._is_auto_created_reverse_link and obj.key:
-                    dct['_cache'][un_camel(name)] = obj.clean_value()
-                    dct['_cache'][un_camel(name)]['key'] = obj.key
+                link_mdl = getattr(self, name)
+                dct[un_camel_id(name)] = link_mdl.key or ''
+                if (link_mdl.key and not link_mdl._is_auto_created_reverse_link):
+                    if root_obj_key is None or link_mdl.key != root_obj_key:
+                        dct['_cache'][un_camel(name)] = link_mdl.clean_value(root_obj_key)
+                    else:
+                        dct['_cache'][un_camel(name)]={}
+                    dct['_cache'][un_camel(name)]['key'] = link_mdl.key
         for name, field_ins in self._fields.items():
             # if name in self._field_values:
             dct[un_camel(name)] = field_ins.clean_value(
@@ -352,10 +360,6 @@ class Model(Node):
         # self._prepare_linked_models()
         self._is_one_to_one = kwargs.pop('one_to_one', False)
         self.title = kwargs.pop('title', self.__class__.__name__)
-        # self.filter_cells()
-
-
-
         super(Model, self).__init__(**kwargs)
         self.objects.model = self
         self.objects.model_class = self.__class__
@@ -364,7 +368,10 @@ class Model(Node):
         """
         first calls supers load_data
         then fills linked models
-        :param data:
+
+        :param from_db: if data coming from db then we will
+        use related field type's _load_data method
+        :param data: data
         :return:
         """
         self._load_data(data, from_db)
@@ -378,27 +385,7 @@ class Model(Node):
                     mdl.set_data(cache[_name], from_db)
         return self
 
-    def has_many_values(self):
-        """
-        is this model represents multiple instances of itself eg: ManyToMany, ManyToOne
-        :return:
-        """
-        return False
 
-    # def _prepare_linked_models(self):
-    #     """
-    #     prepare linked models
-    #     """
-    #     for name, model in self._linked_models.items():
-    #         model._parent = self
-
-    def _load_from_parent(self):
-        """
-        this method will be invoked by a field instance of an empty linked model
-
-        :return:
-        """
-        pass
 
     def row_level_access(self):
         """
@@ -505,12 +492,12 @@ class ListNode(Node):
         # self.node_stack.append(clone)
         return clone
 
-    def clean_value(self):
+    def clean_value(self, root_obj_key):
         """
         populates json serialization ready data for storing on riak
         :return: [{},]
         """
-        return [super(ListNode, mdl).clean_value() for mdl in self]
+        return [super(ListNode, mdl).clean_value(root_obj_key) for mdl in self]
 
     def __repr__(self):
         """
