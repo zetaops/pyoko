@@ -55,7 +55,6 @@ class BaseField(object):
     def __set__(self, instance, value):
         instance._field_values[self.name] = value
 
-
     def _load_data(self, instance, value):
         """
         for some field types (eg:date, datetime)
@@ -87,12 +86,27 @@ class Text(BaseField):
 
 class Float(BaseField):
     solr_type = 'float'
-    pass
+
+    def clean_value(self, val):
+        try:
+            if val is not None:
+                return float(val)
+            elif val is None and self.default is not None:
+                return float(
+                    self.default() if callable(self.default) else self.default)
+        except ValueError:
+            raise ValidationError("%r could not be cast to float" % val)
 
 
 class Boolean(BaseField):
     solr_type = 'boolean'
-    pass
+
+    def clean_value(self, val):
+        if val is None:
+            return bool(
+                self.default() if callable(self.default) else self.default)
+        else:
+            return bool(val)
 
 
 class DateTime(BaseField):
@@ -148,6 +162,8 @@ class Date(BaseField):
 
 
 class Integer(BaseField):
+    # TODO: check for solr's int field's limits
+    # TODO: add support for solr's long int field
     solr_type = 'int'
     default_value = 0
 
@@ -173,28 +189,3 @@ class TimeStamp(BaseField):
 
     def clean_value(self, val):
         return int(repr(time.time()).replace('.', ''))
-
-# class Link(object):
-#     """
-#     Model Relations
-#     """
-#     def __init__(self, model, *args, **kwargs):
-#         self.model = model
-#
-# class LinkToOne(Link):
-#     """
-#     OneToOne Relations
-#     """
-#
-#     def __init__(self, model, *args, **kwargs):
-#         super(LinkToOne, self).__init__(model, *args, **kwargs)
-#         self.model = model
-
-# class LinkToMany(Link):
-#     """
-#     OneToOne Relations
-#     """
-#
-#     def __init__(self, model, *args, **kwargs):
-#         super(LinkToMany, self).__init__(model, *args, **kwargs)
-#         self.model = model
