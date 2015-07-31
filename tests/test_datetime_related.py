@@ -30,8 +30,13 @@ class TestModelRelations:
 
     def test_date_formatting(self):
         self.prepare_testbed()
-        date_model = DateModel(date_with_format='20.01.2001', name='foo').save()
-        sleep(1)
-        from_db = DateModel.objects.get()
-        assert from_db.date_with_format == date_model.date_with_format
+        dm = DateModel(name='foo')
+        ln = dm.LNodeWithDate()
+        ln.date_with_format = '20.01.2001'
+        ln.name = 'foo'
+        dm.save()
+        from_db = DateModel.objects.get(dm.key)
+        assert from_db.LNodeWithDate[0].date_with_format == ln.date_with_format
+
+
 

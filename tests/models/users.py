@@ -95,32 +95,3 @@ class Scholar(Model):
         confirmed = field.Boolean("Is confirmed", index=True)
 
 
-x = {u'deleted': False,
-     u'name': u'Employee Manager',
-     u'permissions': [
-         {u'_cache': {u'permission': {u'codename': u'employee.all',
-                                      u'deleted': False,
-                                      u'key': u'KNQxlm7AoyyBML24IthFgtAeEpJ',
-                                      u'name': u'Can see employee data',
-                                      u'timestamp': 1438333042993253}},
-          u'permission_id': u'KNQxlm7AoyyBML24IthFgtAeEpJ'}],
-     u'role_set': [{u'_cache': {u'role': {u'_cache': {
-         u'abstract_role': {u'key': u'2rhBtJKj2X1ZQh1HGaQgucG2YJC'},
-         u'usr': {u'_cache': {},
-                  u'deleted': False,
-                  u'employee_id': u'',
-                  u'key': u'NXe5VfTn5DNqQe840nG24UjXyIv',
-                  u'name': u'Adams',
-                  u'role_set': [],
-                  u'timestamp': 1438333042993439}},
-                                          u'abstract_role_id': u'2rhBtJKj2X1ZQh1HGaQgucG2YJC',
-                                          u'active': True,
-                                          u'deleted': False,
-                                          u'end': u'2015-07-31T00:00:00Z',
-                                          u'key': u'AzYtyQAXhgVnqnkg7FFkTFvjlji',
-                                          u'name': None,
-                                          u'start': u'2015-07-31T00:00:00Z',
-                                          u'timestamp': 1438333042993511,
-                                          u'usr_id': u'NXe5VfTn5DNqQe840nG24UjXyIv'}},
-                    u'role_id': u'AzYtyQAXhgVnqnkg7FFkTFvjlji'}],
-     u'timestamp': 1438333042993695}

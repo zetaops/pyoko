@@ -199,6 +199,8 @@ class Node(object):
             mdl = self._linked_models[item][0]()
             setattr(self, item, mdl)
             return mdl
+        else:
+            raise AttributeError
 
     def _instantiate_node(self, name, klass):
         # instantiate given node, pass path data
@@ -232,15 +234,15 @@ class Node(object):
         return self
 
     def _set_fields_values(self, kwargs):
+
         for name, _field in self._fields.items():
             if name in kwargs:
                 val = kwargs.get(name, self._field_values.get(name))
-                setattr(self, name, val)
-                # _field._load_data(self, val)
-                # if isinstance(_field, field.Date):
-                #     val = datetime.strptime(val, field.DATE_FORMAT)
-                # if isinstance(_field, field.DateTime):
-                #     val = datetime.strptime(val, field.DATE_TIME_FORMAT)
+                if 'from_db' not in kwargs:
+                    setattr(self, name, val)
+                else:
+                    _field._load_data(self, val)
+
         for name in self._linked_models:
             linked_model = kwargs.get(name)
             if linked_model:
@@ -291,13 +293,15 @@ class Node(object):
                 new = getattr(self, name).__class__()
                 new._load_data(data[_name], from_db)
                 setattr(self, name, new)
-        if not from_db:
-            self._set_fields_values(data)
-        else:
-            for name, _field in self._fields.items():
-                if name in data:
-                    val = data.get(name, self._field_values.get(name))
-                    _field._load_data(self, val)
+        # if not from_db:
+        if from_db:
+            data['from_db'] = True
+        self._set_fields_values(data)
+        # else:
+        #     for name, _field in self._fields.items():
+        #         if name in data:
+        #             val = data.get(name, self._field_values.get(name))
+        #             _field._load_data(self, val)
         return self
         # for name, field_ins in self._fields.items():
         #     self._field_values[name] = data[name]
@@ -474,6 +478,8 @@ class ListNode(Node):
             yield self._make_instance(self._data.pop(0))
 
     def _make_instance(self, node_data):
+        if self._from_db:
+            node_data['from_db'] = True
         clone = self.__call__(**node_data)
         clone._is_item = True
         for name in self._nodes:
