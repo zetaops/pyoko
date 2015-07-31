@@ -11,7 +11,9 @@ from pyoko.model import Model, ListNode, field, Node
 
 class DateModel(Model):
     name = field.String(index=True)
+    stamp = field.Float(index=True)
 
     class LNodeWithDate(ListNode):
         date_with_format = field.Date(index=True, format="%d.%m.%Y")
         name = field.String(index=True)
+        id = field.Integer(index=True)

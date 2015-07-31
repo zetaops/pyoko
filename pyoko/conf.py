@@ -46,7 +46,8 @@ class Settings(object):
         from pyoko.db.connection import client
         pyoko_bucket_type = client.bucket_type(self.DEFAULT_BUCKET_TYPE)
         if not bucket_name:
-            for bucket in pyoko_bucket_type.get_buckets():
+            for model in _registry.registry:
+                bucket = pyoko_bucket_type.bucket(model._get_bucket_name())
                 self.SEARCH_INDEXES[bucket.name] = bucket.get_property(
                     'search_index')
         else:
