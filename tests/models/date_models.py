@@ -10,5 +10,8 @@
 from pyoko.model import Model, ListNode, field, Node
 
 class DateModel(Model):
-    date_with_format = field.Date(index=True, format="%d.%m.%Y")
     name = field.String(index=True)
+
+    class LNodeWithDate(ListNode):
+        date_with_format = field.Date(index=True, format="%d.%m.%Y")
+        name = field.String(index=True)
