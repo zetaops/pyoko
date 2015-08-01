@@ -162,7 +162,7 @@ class Date(BaseField):
 
 
 class Integer(BaseField):
-    # TODO: check for solr's int field's limits
+    # TODO: add checks for solr's int field's limits
     # TODO: add support for solr's long int field
     solr_type = 'int'
     default_value = 0

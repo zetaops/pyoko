@@ -13,6 +13,11 @@ import os
 
 class Settings(object):
     def __init__(self):
+        """
+        Proxy object for both static and dynamic app settings
+        stores dynamic settings in a bucket named 'pyoko_settings'
+        :return:
+        """
         self.SEARCH_INDEXES = {}
         self.SETTINGS_MODULE = os.environ.get('PYOKO_SETTINGS')
         self.MODELS_MODULE = '.'.join(
@@ -32,6 +37,13 @@ class Settings(object):
                 setattr(self, setting, setting_value)
 
     def get_index(self, bucket_name):
+        """
+        returns index name of given bucket (model)
+        if index can not found in SEARCH_INDEX dict of settings instance
+        we get up to date data from db and cache it for future requests
+        :type bucket_name: str
+        :return: index name
+        """
         if not self.SEARCH_INDEXES:
             from pyoko.db.connection import client
             self.SEARCH_INDEXES = client.bucket('pyoko_settings').get(
@@ -42,6 +54,14 @@ class Settings(object):
             raise Exception("Error: No index found for %s" % bucket_name)
 
     def update_index(self, bucket_name=None, index_name=None):
+        """
+        Creates and updates search index cache
+        (settings.SEARCH_INDEX[bucket_name: index_name])
+         If bucket_name not given, updates all buckets,
+         if index_name not given, gets it's value from riak
+        :param bucket_name:
+        :param index_name:
+        """
         from pyoko.model import _registry
         from pyoko.db.connection import client
         pyoko_bucket_type = client.bucket_type(self.DEFAULT_BUCKET_TYPE)
