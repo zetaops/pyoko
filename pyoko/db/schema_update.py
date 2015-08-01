@@ -138,7 +138,3 @@ class SchemaUpdater(object):
         settings.update_index(bucket_name, new_index_name)
         if not silent:
             print("+ %s " % model.__name__)
-
-            # schema_from_riak = self.client.get_search_schema(index_name)['content']
-            # return bucket.get_property('search_index') == index_name and \
-            #        schema_from_riak == new_schema.decode("utf-8")
