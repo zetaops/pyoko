@@ -47,7 +47,9 @@ class Settings(object):
         if not self.SEARCH_INDEXES:
             from pyoko.db.connection import client
             self.SEARCH_INDEXES = client.bucket('pyoko_settings').get(
-                'search_indexes').data
+                'search_indexes').data or {}
+            if not self.SEARCH_INDEXES:
+                self.update_index()
         try:
             return self.SEARCH_INDEXES[bucket_name]
         except KeyError:
