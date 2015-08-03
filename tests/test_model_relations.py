@@ -46,7 +46,7 @@ class TestCase:
         employee_from_db = Employee.objects.get(employee.key)
         assert employee_from_db.usr.name == user_from_db.name
 
-    def test_many_to_many_simple(self):
+    def tast_many_to_many_simple(self):
         self.prepare_testbed()
         scholar = Scholar(name='Munu')
         tt1 = TimeTable(lecture='rock101', week_day=2, hours=2).save()

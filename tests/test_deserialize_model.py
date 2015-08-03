@@ -37,4 +37,5 @@ def test_json_to_model_to_json_partial():
     st.set_data(partial_data)
     clean_value = st.clean_value()
     partial_data_clean['timestamp'] = clean_value['timestamp']
+    partial_data_clean['timestamp'] = clean_value['timestamp']
     assert partial_data_clean == clean_value
