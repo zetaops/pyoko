@@ -352,6 +352,8 @@ class DBObjects(object):
         # elif len(self.solr_query) > 1 and '*:*' in self.solr_query:
         # self.solr_query.remove('*:*')
         query = []
+        if 'deleted' not in self._solr_query:
+            query.append('-deleted:True')
         for key, val in self._solr_query.items():
             key = key.replace('__', '.')
             if val is None:
