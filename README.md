@@ -1,7 +1,7 @@
 # PYOKO #
 
 
-### Pyoko is a Django-esque ORM for Riak/Solr (aka Yokozuna)  ###
+### A Django-esque ORM for Riak KV  ###
 
 #### Supported Features ####
 - Supports Riak 2.1.1
@@ -9,14 +9,13 @@
 - AND queries by using filter() and exclude() methods.
 - Query chaining and caching.
 - Automatic Solr schema creation / update (one way migration).
-- One-To-One relations.
+- One-To-One, ManyToMany and ManyToOne relations with auto denormalization
 
 #### Work in progress ####
-- ManyToMany and ManyToOne relations with auto denormalization
-- Pythonic APIs for Solr's extensive query features.
+- Row level access control, permission based cell filtering.
 
 #### Planned ####
-- Row level access control, permission based cell filtering. 
+- More pythonic APIs for Solr's extensive query features.
 - Custom and backwards migrations.
 - Auto retry of failed writes (on strongly consistent buckets).  
 - Automatic versioning on write-once buckets.

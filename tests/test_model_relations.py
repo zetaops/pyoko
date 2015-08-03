@@ -11,7 +11,7 @@ from time import sleep, time
 from tests.models import *
 
 
-class TestModelRelations:
+class TestCase:
     """
     tests for many to one, one to one functionalities of pyoko
     sleep() s are required to give enough time to yokozuna for update solr index
@@ -36,7 +36,7 @@ class TestModelRelations:
         user = User(name='Joe').save()
         employee = Employee(eid='E1', usr=user).save()
         # need to wait a sec because we will query solr in the
-        # _save_backlinked_models of User object
+        # _save_back_linked_models of User object
         sleep(1)
         employee_from_db = Employee.objects.get(employee.key)
         assert employee_from_db.usr.name == user.name
@@ -57,6 +57,7 @@ class TestModelRelations:
         db_scholar = Scholar.objects.get(scholar.key)
         db_tt1 = db_scholar.TimeTables[0].timetable
         db_tt2 = db_scholar.TimeTables[1].timetable
+        assert db_tt1.scholar_set[0].name == db_scholar.name
         assert db_tt2.lecture != db_tt1.lecture
         assert tt1.lecture == db_tt1.lecture
 
@@ -75,8 +76,6 @@ class TestModelRelations:
         role_node = user_db.role_set[0]
         permission_node = role_node.role.abstract_role.Permissions[0]
         assert perm.codename == permission_node.permission.codename
-
-
 
 
 

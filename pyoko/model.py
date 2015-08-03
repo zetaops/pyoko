@@ -15,6 +15,7 @@ from pyoko.conf import settings
 from pyoko.db.base import DBObjects
 from pyoko.lib.utils import un_camel, un_camel_id
 import weakref
+import lazy_object_proxy
 
 
 class LinkModel(object):
@@ -26,6 +27,19 @@ class LinkModel(object):
         self.kwargs = kwargs
 
 
+# class LinkModelProxy(object):
+#     # TODO: this isn't nice, brake's introspection in ipython etc
+#     def __init__(self, model, name, o2o, parent):
+#         self.model = model
+#         self.name = name
+#         self.o2o = o2o
+#         self.parent = parent
+#
+#     def __getattr__(self, item):
+#         model = self.model(self.o2o)
+#         setattr(self.parent, self.name, model)
+#         return getattr(model, item)
+
 # region ModelMeta and Registry
 class Registry(object):
     def __init__(self):
@@ -33,24 +47,34 @@ class Registry(object):
         self.link_registry = defaultdict(list)
         self.back_link_registry = defaultdict(list)
 
-    def register_model(self, kls):
-        if kls not in self.registry:
+
+    def register_model(self, klass):
+        if klass not in self.registry:
             # register model to base registry
-            self.registry += [kls]
-            klass_name = un_camel(kls.__name__)
+            self.registry += [klass]
+            klass_name = un_camel(klass.__name__)
+            self.process_many_to_many(klass, klass_name)
             for name, (
-            linked_model, is_one_to_one) in kls._linked_models.items():
+            linked_model, is_one_to_one) in klass._linked_models.items():
                 # register models that linked from this model
-                self.link_registry[linked_model].append((name, kls))
+                self.link_registry[linked_model].append((name, klass))
                 # register models that gives (back)links to this model
-                self.back_link_registry[kls].append((name, klass_name,
+                self.back_link_registry[klass].append((name, klass_name,
                                                      linked_model))
                 if is_one_to_one:
-                    self._bind_one_to_one(kls, klass_name, linked_model)
+                    self._process_one_to_one(klass, klass_name, linked_model)
                 else:
-                    self._bind_n_to_many(kls, klass_name, linked_model)
+                    self._process_one_to_many(klass, klass_name, linked_model)
 
-    def _bind_one_to_one(self, klass, klass_name, linked_model):
+    def process_many_to_many(self, klass, klass_name):
+        for node in klass._nodes.values():
+            if node._linked_models:
+                for (model, is_o2o) in node._linked_models.values():
+                    klass._many_to_models.append(model)
+                    self._process_one_to_many(klass, klass_name, model)
+
+
+    def _process_one_to_one(self, klass, klass_name, linked_model):
         klass_instance = klass(one_to_one=True)
         klass_instance._is_auto_created_reverse_link = True
         for instance_ref in linked_model._instance_registry:
@@ -59,7 +83,7 @@ class Registry(object):
                 setattr(mdl, klass_name, klass_instance)
         linked_model._linked_models[klass_name] = (klass, True)
 
-    def _bind_n_to_many(self, klass, klass_name, linked_model):
+    def _process_one_to_many(self, klass, klass_name, linked_model):
         # other side of n-to-many should be a ListNode
         # named with a "_set" suffix and
         # our linked_model as the sole element
@@ -70,7 +94,7 @@ class Registry(object):
         listnode = type(set_name,
                         (ListNode,),
                         {klass_name: klass_instance})
-        listnode._linked_models[klass_name] = (klass_instance.__class__, False)
+        listnode._linked_models[klass_name] = (klass, False)
         linked_model._nodes[set_name] = listnode
         # add just created model_set to already initialised instances
         for instance_ref in linked_model._instance_registry:
@@ -93,20 +117,20 @@ class ModelMeta(type):
             mcs.objects = DBObjects(model_class=mcs)
             _registry.register_model(mcs)
 
-            # setup relations for linked models which lives in a ListNode (1-n n-n)
-            # for node_name in attrs['_nodes']:
-            #     mcs._many_to_models.update(node._linked_models)
-
-            #### for model_name, model in node._linked_models.items():
-
     def __new__(mcs, name, bases, attrs):
         base_model_class = bases[0]
         class_type = getattr(base_model_class, '_TYPE', None)
         if class_type == 'Model':
             mcs.process_models(attrs, base_model_class)
+        if class_type == 'ListNode':
+            mcs.process_listnode(attrs, base_model_class)
         mcs.process_attributes(attrs)
         new_class = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
         return new_class
+
+    @staticmethod
+    def process_listnode(attrs, base_model):
+        attrs['idx'] = field.Id()
 
     @staticmethod
     def process_attributes(attrs):
@@ -117,14 +141,14 @@ class ModelMeta(type):
         attrs['_nodes'] = {}
         attrs['_linked_models'] = {}  # property_name: (model, is_one_to_one)
         attrs['_fields'] = {}
-        attrs['_many_to_models'] = {}
+        attrs['_many_to_models'] = []
 
         for key, attr in list(attrs.items()):
             # if it's a class (not instance) and it's type is Node
             if hasattr(attr, '__base__') and getattr(attr.__base__,
-                                                     '_TYPE', '') == 'Node':
+                                                     '_TYPE', '') in ['Node', 'ListNode']:
                 attrs['_nodes'][key] = attrs.pop(key)
-            else:  # otherwise it should be a field or linked model proxy
+            else:  # otherwise it should be a field or linked model
                 attr_type = getattr(attr, '_TYPE', '')
                 if attr_type == 'Model':
                     linked_model_instance = attrs.pop(key)
@@ -181,6 +205,7 @@ class Node(object):
         self.path = []
         self._parent = None
         self._field_values = {}
+        self._instantiate_linked_models()
         self._instantiate_nodes()
         self._set_fields_values(kwargs)
 
@@ -194,13 +219,18 @@ class Node(object):
         """
         return '.'.join(list(self.path + [un_camel(self.__class__.__name__),
                                           prop]))
-    def __getattr__(self, item):
-        if item in self._linked_models:
-            mdl = self._linked_models[item][0]()
-            setattr(self, item, mdl)
-            return mdl
-        else:
-            raise AttributeError
+    # def __getattr__(self, item):
+    #     if item in self._linked_models:
+    #         mdl = self._linked_models[item][0]()
+    #         setattr(self, item, mdl)
+    #         return mdl
+    #     else:
+    #         raise AttributeError
+
+    def _instantiate_linked_models(self):
+        for name, (mdl, o2o) in self._linked_models.items():
+            # setattr(self, name, LinkModelProxy(mdl, name, o2o, self))
+            setattr(self, name, lazy_object_proxy.Proxy(mdl))
 
     def _instantiate_node(self, name, klass):
         # instantiate given node, pass path data
@@ -238,7 +268,7 @@ class Node(object):
         for name, _field in self._fields.items():
             if name in kwargs:
                 val = kwargs.get(name, self._field_values.get(name))
-                if 'from_db' not in kwargs:
+                if kwargs.get('from_db'):
                     setattr(self, name, val)
                 else:
                     _field._load_data(self, val)
@@ -257,12 +287,12 @@ class Node(object):
         """
         result = []
         if not model_name:
-
             model_name = self._get_bucket_name()
-            for name in self._linked_models:
-                # obj = getattr(self, name) ### obj.has_many_values()
-                result.append((un_camel_id(name), 'string', True, True, False))
         multi = in_multi or isinstance(self, ListNode)
+        for name in self._linked_models:
+            # obj = getattr(self, name) ### obj.has_many_values()
+            result.append((un_camel_id(name), 'string', True, True, multi))
+
         for name, field_ins in self._fields.items():
             field_name = self._path_of(name).replace(model_name + '.', '')
             result.append((field_name,
@@ -293,18 +323,9 @@ class Node(object):
                 new = getattr(self, name).__class__()
                 new._load_data(data[_name], from_db)
                 setattr(self, name, new)
-        # if not from_db:
-        if from_db:
-            data['from_db'] = True
+        data['from_db'] = from_db
         self._set_fields_values(data)
-        # else:
-        #     for name, _field in self._fields.items():
-        #         if name in data:
-        #             val = data.get(name, self._field_values.get(name))
-        #             _field._load_data(self, val)
         return self
-        # for name, field_ins in self._fields.items():
-        #     self._field_values[name] = data[name]
 
     # ######## Public Methods  #########
 
@@ -317,21 +338,27 @@ class Node(object):
         dct = {}
         if root_obj_key is None:
             root_obj_key = self.key
+
+        # get values of nodes
         for name in self._nodes:
             dct[un_camel(name)] = getattr(self, name).clean_value(root_obj_key)
+
+        # get vales of linked models
         if self._linked_models:
             dct['_cache'] = {}
             for name in self._linked_models:
                 link_mdl = getattr(self, name)
+                _name = un_camel(name)
                 dct[un_camel_id(name)] = link_mdl.key or ''
                 if (link_mdl.key and not link_mdl._is_auto_created_reverse_link):
                     if root_obj_key is None or link_mdl.key != root_obj_key:
-                        dct['_cache'][un_camel(name)] = link_mdl.clean_value(root_obj_key)
+                        dct['_cache'][_name] = link_mdl.clean_value(root_obj_key)
                     else:
-                        dct['_cache'][un_camel(name)]={}
-                    dct['_cache'][un_camel(name)]['key'] = link_mdl.key
+                        dct['_cache'][_name]={}
+                    dct['_cache'][_name]['key'] = link_mdl.key
+
+        # get values of fields
         for name, field_ins in self._fields.items():
-            # if name in self._field_values:
             dct[un_camel(name)] = field_ins.clean_value(
                 self._field_values.get(name))
         return dct
@@ -420,9 +447,22 @@ class Model(Node):
             self._save_backlinked_models()
         return self
 
+    def _save_many_models(self):
+        """
+        add/update self on linked models from our listnodes
+        """
+        for mdl in self._many_to_models:
+            id_name = un_camel_id(self.__class__.__name__)
+            for obj in mdl.objects.filter(**{id_name: self.key}):
+                set_name = "%s_set" % un_camel(self.__class__.__name__)
+                obj_set = getattr(obj, set_name)
+                obj_set.update_linked_model(self)
+                obj.save()
+
     def _save_backlinked_models(self):
         # TODO: when called from a deleted object, instead of
         # updating we should remove it from target
+        self._save_many_models()
         for name, mdl in self._get_reverse_links():
             for obj in mdl.objects.filter(**{un_camel_id(name): self.key}):
                 setattr(obj, name, self)
@@ -450,6 +490,8 @@ class ListNode(Node):
     """
     Currently we disregard the ordering when updating items of a ListNode
     """
+    # HASH_BY = '' # calculate __hash__ value by field defined here
+    _TYPE = 'ListNode'
 
     def __init__(self, **kwargs):
         self._is_item = False
@@ -460,6 +502,15 @@ class ListNode(Node):
         super(ListNode, self).__init__(**kwargs)
 
     # ######## Public Methods  #########
+
+    def update_linked_model(self, model_ins):
+        for name, (mdl, o2o) in self._linked_models.items():
+            if model_ins.__class__ == mdl:
+                for item in self:
+                    if getattr(item, name).key == model_ins.key:
+                        self.node_stack.pop()
+                        self.node_stack.append(model_ins)
+
 
     def _load_data(self, data, from_db=False):
         """
@@ -478,8 +529,8 @@ class ListNode(Node):
             yield self._make_instance(self._data.pop(0))
 
     def _make_instance(self, node_data):
-        if self._from_db:
-            node_data['from_db'] = True
+
+        node_data['from_db'] = self._from_db
         clone = self.__call__(**node_data)
         clone._is_item = True
         for name in self._nodes:
@@ -520,6 +571,10 @@ class ListNode(Node):
             except (UnicodeEncodeError, UnicodeDecodeError):
                 u = '[Bad Unicode data]'
             return six.text_type('<%s: %s>' % (self.__class__.__name__, u))
+
+    # def __hash__(self):
+    #     if self.HASH_BY:
+    #         return hash(getattr(self, self.HASH_BY))
 
     def add(self, **kwargs):
         """

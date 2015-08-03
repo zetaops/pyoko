@@ -91,6 +91,7 @@ class Scholar(Model):
         return 'Scholar named %s' % self.name
 
     class TimeTables(ListNode):
+
         timetable = TimeTable()
         confirmed = field.Boolean("Is confirmed", index=True)
 

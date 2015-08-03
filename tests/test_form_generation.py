@@ -69,7 +69,7 @@ serialized_login_form = [
      'title': 'Username'}
 ]
 
-class TestModelRelations:
+class TestCase:
     cleaned_up = False
 
     @classmethod

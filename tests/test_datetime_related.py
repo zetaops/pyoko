@@ -11,10 +11,9 @@ from time import sleep
 from tests.models.date_models import *
 
 
-class TestModelRelations:
+class TestCase:
     """
-    tests for many to one, one to one functionalities of pyoko
-    sleep() s are required to give enough time to yokozuna for update solr index
+    tests for format parameter of date/datetime fields
     """
     cleaned_up = False
     index_checked = False
