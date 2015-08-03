@@ -13,7 +13,7 @@ from tests.data.test_data import data, clean_data
 from tests.models import Student
 
 
-class TestDBRelations:
+class TestCase:
     """
     For the sake of DRY and to speedup tests, we're running clear_bucket
     only once at first test, then creating a new object and reusing it.
@@ -46,7 +46,7 @@ class TestDBRelations:
     def test_save_load_model(self):
         st = self.prepare_testbed()
         key = st.key
-        st2 = Student.objects.get(key=key)
+        st2 = Student.objects.get(key)
         clean_value = st2.clean_value()
         clean_data['timestamp'] = clean_value['timestamp']
         assert clean_data == clean_value

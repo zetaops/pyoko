@@ -8,6 +8,7 @@
 # (GPLv3).  See LICENSE.txt for details.
 import datetime
 import time
+import uuid
 import six
 from pyoko.exceptions import ValidationError
 
@@ -77,6 +78,18 @@ class BaseField(object):
 class String(BaseField):
     solr_type = 'string'
     pass
+
+class Id(BaseField):
+    solr_type = 'string'
+
+    def clean_value(self, val):
+        try:
+            if val is not None:
+                return str(val)
+            else:
+                return str(self.default() if self.default else uuid.uuid4().hex)
+        except ValueError:
+            raise ValidationError("%r could not be cast to string" % val)
 
 
 class Text(BaseField):
