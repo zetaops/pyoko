@@ -81,6 +81,9 @@ class String(BaseField):
 
 class Id(BaseField):
     solr_type = 'string'
+    def __init__(self, *arg, **kwargs):
+        super(Id, self).__init__(*arg, **kwargs)
+        self.index = True
 
     def clean_value(self, val):
         try:

@@ -268,7 +268,7 @@ class Node(object):
         for name, _field in self._fields.items():
             if name in kwargs:
                 val = kwargs.get(name, self._field_values.get(name))
-                if kwargs.get('from_db'):
+                if not kwargs.get('from_db'):
                     setattr(self, name, val)
                 else:
                     _field._load_data(self, val)
@@ -316,15 +316,15 @@ class Node(object):
         :param dict data:
         :return: self
         """
-        self._data = data
+        self._data = data.copy()
         for name in self._nodes:
             _name = un_camel(name)
-            if _name in data:
+            if _name in self._data:
                 new = getattr(self, name).__class__()
-                new._load_data(data[_name], from_db)
+                new._load_data(self._data[_name], from_db)
                 setattr(self, name, new)
-        data['from_db'] = from_db
-        self._set_fields_values(data)
+        self._data['from_db'] = from_db
+        self._set_fields_values(self._data)
         return self
 
     # ######## Public Methods  #########
