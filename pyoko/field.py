@@ -46,12 +46,12 @@ class BaseField(object):
     def __get__(self, instance, cls=None):
         if cls is None:
             return self
-        val = instance._field_values.get(self.name, None)
-        if val or not instance._parent:
-            return val
-        else:
-            instance._load_from_parent()
-            return instance._field_values.get(self.name, None)
+        return instance._field_values.get(self.name, None)
+        # if val or not instance.parent:
+        #     return val
+        # else:
+        #     instance._load_from_parent()
+        #     return instance._field_values.get(self.name, None)
 
     def __set__(self, instance, value):
         instance._field_values[self.name] = value

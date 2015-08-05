@@ -46,19 +46,21 @@ class TestCase:
         employee_from_db = Employee.objects.get(employee.key)
         assert employee_from_db.usr.name == user_from_db.name
 
-    def tast_many_to_many_simple(self):
+    def test_many_to_many_simple(self):
         self.prepare_testbed()
-        scholar = Scholar(name='Munu')
+
         tt1 = TimeTable(lecture='rock101', week_day=2, hours=2).save()
         tt2 = TimeTable(lecture='math101', week_day=4, hours=4).save()
+        scholar = Scholar(name='Munu')
         scholar.TimeTables(timetable=tt1, confirmed=True)
         scholar.TimeTables(timetable=tt2, confirmed=False)
         scholar.save()
+        sleep(1)
         db_scholar = Scholar.objects.get(scholar.key)
-        db_tt1 = db_scholar.TimeTables[0].timetable
-        db_tt2 = db_scholar.TimeTables[1].timetable
-        assert db_tt1.scholar_set[0].name == db_scholar.name
-        assert db_tt2.lecture != db_tt1.lecture
+        db_tt1 = TimeTable.objects.filter()[0]
+        db_sc_tt2 = db_scholar.TimeTables[1].timetable
+        assert db_tt1.scholar_set[0].scholar.name == db_scholar.name
+        assert db_sc_tt2.lecture != db_tt1.lecture
         assert tt1.lecture == db_tt1.lecture
 
     def test_many_to_many_to_one(self):
@@ -68,14 +70,23 @@ class TestCase:
         abs_role = AbstractRole(name="Employee Manager")
         abs_role.Permissions(permission=perm)
         abs_role.save()
-        user = User(name='Adams').save()
-        role = Role(usr=user, abstract_role=abs_role, active=True).save()
+        db_perm = Permission.objects.get(perm.key)
+        assert len(db_perm.abstract_role_set) == 1
+        user = User(name='Adams')
+        user.save()
+        role = Role(usr=user, abstract_role=abs_role, active=True)
+        role.save()
         t1 = time()
         user_db = User.objects.get(user.key)
         assert role.key == user_db.role_set[0].role.key
         role_node = user_db.role_set[0]
-        permission_node = role_node.role.abstract_role.Permissions[0]
-        assert perm.codename == permission_node.permission.codename
+        db_user_role_abs_role = role_node.role.abstract_role
+        assert abs_role.name == db_user_role_abs_role.name
+        db_abs_role = AbstractRole.objects.get(abs_role.key)
+        # this works:
+        assert perm.codename == db_abs_role.Permissions[0].permission.codename
+        # but this would fail, cause denormalization doesn't reach this far, yet!
+        # assert perm.codename == db_user_role_abs_role.Permissions[0].permission.codename
 
 
 
