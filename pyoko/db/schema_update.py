@@ -122,7 +122,7 @@ class SchemaUpdater(object):
         bucket_name = model._get_bucket_name()
         bucket_type = client.bucket_type(settings.DEFAULT_BUCKET_TYPE)
         bucket = bucket_type.bucket(bucket_name)
-
+        n_val = bucket_type.get_property('n_val')
         # delete stale indexes
         # inuse_indexes = [b.get_properties().get('search_index') for b in
         #                  bucket_type.get_buckets()]
@@ -133,7 +133,7 @@ class SchemaUpdater(object):
 
         new_index_name = "%s_%s" % (bucket_name, randint(1000, 9999999))
         client.create_search_schema(new_index_name, new_schema)
-        client.create_search_index(new_index_name, new_index_name)
+        client.create_search_index(new_index_name, new_index_name, n_val)
         bucket.set_property('search_index', new_index_name)
         settings.update_index(bucket_name, new_index_name)
         if not silent:

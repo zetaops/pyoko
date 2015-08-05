@@ -59,8 +59,9 @@ class TestCase:
         db_scholar = Scholar.objects.get(scholar.key)
         db_tt1 = TimeTable.objects.filter()[0]
         db_sc_tt2 = db_scholar.TimeTables[1].timetable
+        db_sc_tt1 = db_scholar.TimeTables[0].timetable
         assert db_tt1.scholar_set[0].scholar.name == db_scholar.name
-        assert db_sc_tt2.lecture != db_tt1.lecture
+        assert db_sc_tt2.lecture != db_sc_tt1.lecture
         assert tt1.lecture == db_tt1.lecture
 
     def test_many_to_many_to_one(self):

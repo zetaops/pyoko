@@ -21,7 +21,7 @@ ENV_VARS = [
     ('TEST_SERVER_USER', '', 'user'),
     ('TEST_SERVER_PORT', '22', 'port'),
     ('PROJECT_DIR', '~/{project_name}', 'directory'),
-    ('VENV_ACTIVATE_PATH', '~/.virtualenvs/{project_name}/bin/activate', 'activate'),
+    ('VENV_ACTIVATE_PATH', 'source ~/.virtualenvs/{project_name}/bin/activate', 'activate'),
 ]
 
 for env_var, def_val, int_name in ENV_VARS:
@@ -57,13 +57,14 @@ def test(keyword='', verbose=True, sync=True):
     :param verbose: be verbose (-vv)
     :param sync: Copy files to remote before running tests
     """
+
     if sync:
         copy()
-    cmd = ['py.test', '-x']
+    cmd = ['python -m pytest', '  -x']
     if keyword:
-        cmd.append("-k %s" % keyword)
+        cmd.append(" -k %s" % keyword)
     if verbose:
-        cmd.append("-vv")
+        cmd.append(" -vv")
     with _virtualenv():
         run(' '.join(cmd))
 
