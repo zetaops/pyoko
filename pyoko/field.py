@@ -8,6 +8,7 @@
 # (GPLv3).  See LICENSE.txt for details.
 import datetime
 import time
+import uuid
 import six
 from pyoko.exceptions import ValidationError
 
@@ -15,13 +16,13 @@ DATE_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 DATE_FORMAT = "%Y-%m-%dT00:00:00Z"
 
 
-#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W
+# W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W
 #
 #  FIXME: INPUT VALIDATIONS ARE MISSING !!!
 #
 #     in __set__() methods of fields
 #
-#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W
+# W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W
 
 class BaseField(object):
     _TYPE = 'Field'
@@ -45,19 +46,25 @@ class BaseField(object):
     def __get__(self, instance, cls=None):
         if cls is None:
             return self
-        val = instance._field_values.get(self.name, None)
-        if val or not instance._parent:
-            return val
-        else:
-            instance._load_from_parent()
-            return instance._field_values.get(self.name, None)
-
+        return instance._field_values.get(self.name, None)
+        # if val or not instance.parent:
+        #     return val
+        # else:
+        #     instance._load_from_parent()
+        #     return instance._field_values.get(self.name, None)
 
     def __set__(self, instance, value):
         instance._field_values[self.name] = value
 
+    def _load_data(self, instance, value):
+        """
+        for some field types (eg:date, datetime)
+        we treat differently to data that came from db and given by user
+        """
+        self.__set__(instance, value)
+
     def __delete__(self, instance):
-        raise AttributeError("Can't delete attribute")
+        raise AttributeError("Can't delete an attribute")
 
     def clean_value(self, val):
         if val is None:
@@ -72,6 +79,21 @@ class String(BaseField):
     solr_type = 'string'
     pass
 
+class Id(BaseField):
+    solr_type = 'string'
+    def __init__(self, *arg, **kwargs):
+        super(Id, self).__init__(*arg, **kwargs)
+        self.index = True
+
+    def clean_value(self, val):
+        try:
+            if val is not None:
+                return str(val)
+            else:
+                return str(self.default() if self.default else uuid.uuid4().hex)
+        except ValueError:
+            raise ValidationError("%r could not be cast to string" % val)
+
 
 class Text(BaseField):
     solr_type = 'text_general'
@@ -80,12 +102,27 @@ class Text(BaseField):
 
 class Float(BaseField):
     solr_type = 'float'
-    pass
+
+    def clean_value(self, val):
+        try:
+            if val is not None:
+                return float(val)
+            elif val is None and self.default is not None:
+                return float(
+                    self.default() if callable(self.default) else self.default)
+        except ValueError:
+            raise ValidationError("%r could not be cast to float" % val)
 
 
 class Boolean(BaseField):
     solr_type = 'boolean'
-    pass
+
+    def clean_value(self, val):
+        if val is None:
+            return bool(
+                self.default() if callable(self.default) else self.default)
+        else:
+            return bool(val)
 
 
 class DateTime(BaseField):
@@ -95,29 +132,54 @@ class DateTime(BaseField):
         self.format = kwargs.pop('format', DATE_TIME_FORMAT)
         super(DateTime, self).__init__(*args, **kwargs)
         if self.default is None:
-            self.default = lambda: datetime.datetime.now().strftime(self.format)
+            self.default = lambda: datetime.datetime.now().strftime(
+                DATE_TIME_FORMAT)
 
     def clean_value(self, val):
         if val is None:
             return self.default() if callable(self.default) else self.default
         else:
-            return val.strftime(self.format)
+            return val.strftime(DATE_TIME_FORMAT)
 
     def __set__(self, instance, value):
         if isinstance(value, six.string_types):
             value = datetime.datetime.strptime(value, self.format)
         instance._field_values[self.name] = value
 
+    def _load_data(self, instance, value):
+        instance._field_values[self.name] = datetime.datetime.strptime(value,
+                                                                       DATE_TIME_FORMAT)
 
-class Date(DateTime):
+
+class Date(BaseField):
+    solr_type = 'date'
 
     def __init__(self, *args, **kwargs):
-        if 'format' not in kwargs:
-            kwargs['format'] = DATE_FORMAT
+        self.format = kwargs.pop('format', DATE_FORMAT)
         super(Date, self).__init__(*args, **kwargs)
+        if self.default is None:
+            self.default = lambda: datetime.datetime.now().strftime(
+                DATE_FORMAT)
+
+    def __set__(self, instance, value):
+        if isinstance(value, six.string_types):
+            value = datetime.datetime.strptime(value, self.format).date()
+        instance._field_values[self.name] = value
+
+    def clean_value(self, val):
+        if val is None:
+            return self.default() if callable(self.default) else self.default
+        else:
+            return val.strftime(DATE_FORMAT)
+
+    def _load_data(self, instance, value):
+        instance._field_values[self.name] = datetime.datetime.strptime(value,
+                                                                       DATE_FORMAT).date()
 
 
 class Integer(BaseField):
+    # TODO: add checks for solr's int field's limits
+    # TODO: add support for solr's long int field
     solr_type = 'int'
     default_value = 0
 
@@ -128,42 +190,18 @@ class Integer(BaseField):
             except ValueError:
                 raise ValidationError("%r could not be cast to integer" % val)
         elif val is None and self.default is not None:
-            return int(self.default() if callable(self.default) else self.default)
+            return int(
+                self.default() if callable(self.default) else self.default)
         else:
             return self.default_value
 
+
 class TimeStamp(BaseField):
     solr_type = 'long'
+
     def __init__(self, *args, **kwargs):
         super(TimeStamp, self).__init__(*args, **kwargs)
         self.index = True
 
-
     def clean_value(self, val):
         return int(repr(time.time()).replace('.', ''))
-
-
-# class Link(object):
-#     """
-#     Model Relations
-#     """
-#     def __init__(self, model, *args, **kwargs):
-#         self.model = model
-#
-# class LinkToOne(Link):
-#     """
-#     OneToOne Relations
-#     """
-#
-#     def __init__(self, model, *args, **kwargs):
-#         super(LinkToOne, self).__init__(model, *args, **kwargs)
-#         self.model = model
-
-# class LinkToMany(Link):
-#     """
-#     OneToOne Relations
-#     """
-#
-#     def __init__(self, model, *args, **kwargs):
-#         super(LinkToMany, self).__init__(model, *args, **kwargs)
-#         self.model = model

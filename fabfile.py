@@ -35,7 +35,7 @@ REMOTE_ENV_VARS = {
 
 @_contextmanager
 def _virtualenv():
-    with cd(env.directory + "tests"):
+    with cd(env.directory + "/tests"):
         with prefix(env.activate):
             with shell_env(**REMOTE_ENV_VARS):
                 yield
@@ -59,7 +59,7 @@ def test(keyword='', verbose=True, sync=True):
     """
     if sync:
         copy()
-    cmd = ['py.test']
+    cmd = ['py.test', '-x']
     if keyword:
         cmd.append("-k %s" % keyword)
     if verbose:

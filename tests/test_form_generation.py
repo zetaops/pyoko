@@ -10,7 +10,7 @@ import datetime
 from pprint import pprint
 from time import sleep
 from pyoko.form import ModelForm, Form
-from tests.data.test_data import data
+from tests.data.test_data import data, clean_data
 
 from tests.models import *
 
@@ -69,7 +69,7 @@ serialized_login_form = [
      'title': 'Username'}
 ]
 
-class TestModelRelations:
+class TestCase:
     cleaned_up = False
 
     @classmethod
@@ -83,7 +83,7 @@ class TestModelRelations:
     def test_modelform_serialize_simple(self):
         self.clean()
         student = Student()
-        student.set_data(data)
+        student.set_data(clean_data)
         student.save()
         serialized_model = sorted(ModelForm(student)._serialize(), key=lambda d: d['name'])
         assert raw_form_output == serialized_model
@@ -103,7 +103,6 @@ class TestModelRelations:
         student = ModelForm(Student()).deserialize(received_data)
         student.save()
         sleep(1)
-        db_student = Student.objects.filter(
-            auth_info__email=received_data['auth_info.email']).get()
+        db_student = Student.objects.filter(auth_info__email=received_data['auth_info.email']).get()
         assert db_student.AuthInfo.email == received_data['auth_info.email']
         assert db_student.bio == received_data['bio']

@@ -150,7 +150,7 @@ class DBObjects(object):
                 obj.__dict__[k] = []
             elif k == '_solr_cache':
                 obj.__dict__[k] = {}
-            elif k.endswith(('bucket', '_client')):
+            elif k.endswith(('bucket', '_client', 'model', 'model_class')):
                 obj.__dict__[k] = v
             else:
                 obj.__dict__[k] = copy.deepcopy(v, memo)
@@ -168,8 +168,8 @@ class DBObjects(object):
         self._cfg['bucket_name'] = name
         self.bucket = self._client.bucket_type(
             self._cfg['bucket_type']).bucket(self._cfg['bucket_name'])
-        if 'index' not in self._cfg:
-            self._cfg['index'] = "%s_%s" % (settings.DEFAULT_BUCKET_TYPE, name)
+        # if 'index' not in self._cfg:
+        #     self._cfg['index'] = "%s_%s" % (settings.DEFAULT_BUCKET_TYPE, name)
         return self
 
     def save(self, data, key=None):
@@ -192,14 +192,18 @@ class DBObjects(object):
 
 
 
-    def save_model(self):
+    def save_model(self, model=None):
         """
         saves the model instance to riak
         :return:
         """
-        riak_object = self.save(self.model.clean_value(), self.model.key)
-        if not self.model.key:
-            self.model.key = riak_object.key
+        if model: # workaround,
+            self.model = model
+        clean_value = self.model.clean_value()
+        if not self.model.key or self.model.key.startswith('TMP_'):
+            self.model.key = None
+        riak_object = self.save(clean_value, self.model.key)
+        self.model.key = riak_object.key
 
     def _get(self):
         """
@@ -227,11 +231,19 @@ class DBObjects(object):
         """
         model = self.model_class()
         model.key = riak_obj.key if riak_obj else data.get('key')
-        return model.set_data(data)
+        return model.set_data(data, from_db=True)
 
 
     def __repr__(self):
-        return [obj for obj in self[:10]].__repr__()
+        try:
+            return "%s | %s | %s " % (self.model_class.__name__,
+                                      self._solr_query,
+                                      self._solr_params)
+            # return [obj for obj in self[:10]].__repr__()
+        except AssertionError as e:
+            return e.msg
+        except TypeError:
+            return str("queryset: %s" % self._solr_query)
 
     def filter(self, **filters):
         """
@@ -289,7 +301,11 @@ class DBObjects(object):
         """
         add/update solr query parameters
         """
-        assert not self._solr_locked, "Query already executed, no changes can be made."
+        if self._solr_locked:
+
+            raise Exception("Query already executed, no changes can be made."
+                            "%s %s %s" % (self._solr_query, self._solr_params)
+                            )
         self._solr_params.update(params)
 
     def fields(self, *args):
@@ -343,6 +359,8 @@ class DBObjects(object):
         # elif len(self.solr_query) > 1 and '*:*' in self.solr_query:
         # self.solr_query.remove('*:*')
         query = []
+        if 'deleted' not in self._solr_query:
+            query.append('-deleted:True')
         for key, val in self._solr_query.items():
             key = key.replace('__', '.')
             if val is None:
@@ -360,7 +378,11 @@ class DBObjects(object):
     def _process_params(self):
         if 'rows' not in self._solr_params:
             self._solr_params['rows'] = self._cfg['row_size']
+        for key, val in self._solr_params.items():
+            if isinstance(val, str):
+                self._solr_params[key] = val.encode(encoding='UTF-8')
         return self._solr_params
+
 
     def _exec_query(self):
         """
@@ -373,7 +395,7 @@ class DBObjects(object):
             if not self.compiled_query:
                 self._compile_query()
             self._solr_cache = self.bucket.search(self.compiled_query,
-                                                  self._cfg['index'],
+                                                  self.model_class.get_search_index(),
                                                   **self._process_params())
             self._solr_locked = True
         return self

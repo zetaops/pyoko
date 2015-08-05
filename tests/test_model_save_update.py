@@ -11,9 +11,8 @@ from tests.data.test_data import data
 from tests.models import *
 
 
-class TestModelRelations:
+class TestCase:
     """
-    tests for many to one, one to one functionalities of pyoko
     sleep() s are required to give enough time to yokozuna for update solr index
     """
     cleaned_up = False
@@ -39,8 +38,7 @@ class TestModelRelations:
         db_student = Student.objects.filter().get()
         db_student.surname = 'Freeman'
         db_student.save()
-        sleep(1)
-        updated_db_student = Student.objects.filter().get()
+        updated_db_student = Student.objects.filter().get(db_student.key)
         assert updated_db_student.surname == db_student.surname
         assert updated_db_student.name == student.name
 

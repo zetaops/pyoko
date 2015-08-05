@@ -1,27 +1,25 @@
 # PYOKO #
 
 
-### Pyoko is a Django-esque ORM for Riak  ###
+### A Django-esque ORM for Riak KV  ###
 
 #### Supported Features ####
 - Supports Riak 2.1.1
-- Nested class based models (schemas).
+- Nested class based data models (schemas).
 - AND queries by using filter() and exclude() methods.
 - Query chaining and caching.
-- Solr schema creation / update (one way migration).
-- One-To-One relations with auto denormalization.
-- A basic form manager with generic serialization / deserialization. 
+- Automatic Solr schema creation / update (one way migration).
+- One-To-One, ManyToMany and ManyToOne relations with auto denormalization
 
 #### Work in progress ####
-- ManyToMany and ManyToOne relations with auto denormalization
 - Row level access control, permission based cell filtering.
-- FormSet support for form manager.
+- Self referencing model relations.
 
 #### Planned ####
-- Automatic / transparent versioning to write-once buckets.
-- More python APIs for Solr queries. 
-- Custom migrations with migration history.
+- More pythonic APIs for Solr's extensive query features.
+- Custom and backwards migrations.
 - Auto retry of failed writes (on strongly consistent buckets).  
+- Automatic versioning on write-once buckets.
 - Picklable models.
 - CRDT based models.
 
@@ -29,7 +27,7 @@
 
 #### Setup / Configuration ####
 
-Your project should within Python path, so you should be able to import it.
+Your project should within Python path, so you could be able to import it.
 
 Base file structure of a Pyoko based project;
 
