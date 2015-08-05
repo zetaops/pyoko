@@ -52,7 +52,7 @@ class TestCase:
         clean_value = st2.clean_value()
         clean_data['timestamp'] = clean_value['timestamp']
         assert clean_data == clean_value
-        st2.delete()
+
 
 
     def test_delete_model(self):

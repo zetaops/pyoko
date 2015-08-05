@@ -192,14 +192,18 @@ class DBObjects(object):
 
 
 
-    def save_model(self):
+    def save_model(self, model=None):
         """
         saves the model instance to riak
         :return:
         """
-        riak_object = self.save(self.model.clean_value(), self.model.key)
-        if not self.model.key:
-            self.model.key = riak_object.key
+        if model: # workaround,
+            self.model = model
+        clean_value = self.model.clean_value()
+        if not self.model.key or self.model.key.startswith('TMP_'):
+            self.model.key = None
+        riak_object = self.save(clean_value, self.model.key)
+        self.model.key = riak_object.key
 
     def _get(self):
         """
@@ -232,7 +236,10 @@ class DBObjects(object):
 
     def __repr__(self):
         try:
-            return [obj for obj in self[:10]].__repr__()
+            return "%s | %s | %s " % (self.model_class.__name__,
+                                      self._solr_query,
+                                      self._solr_params)
+            # return [obj for obj in self[:10]].__repr__()
         except AssertionError as e:
             return e.msg
         except TypeError:
