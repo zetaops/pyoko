@@ -594,6 +594,7 @@ class ListNode(Node):
 
         node_data['from_db'] = self._from_db
         clone = self.__call__(**node_data)
+        clone.parent = self
         clone._is_item = True
         for name in self._nodes:
             _name = un_camel(name)
@@ -672,8 +673,18 @@ class ListNode(Node):
     def __iter__(self):
         return self._generate_instances()
 
-        # def __setitem__(self, key, value):
-        #     self.values[key] = value
+    def __setitem__(self, key, value):
+        if self._is_item:
+            raise TypeError("This an item of the parent ListNode")
+        self.values[key] = value
 
-        # def __delitem__(self, key):
-        #     del self.values[key]
+    def __delitem__(self, key):
+        if self._is_item:
+            raise TypeError("This an item of the parent ListNode")
+        self.node_stack.remove(self[key])
+
+    def remove(self):
+        if not self._is_item:
+            raise TypeError("ListNode cannot be deleted")
+        self.parent.node_stack.remove(self)
+
