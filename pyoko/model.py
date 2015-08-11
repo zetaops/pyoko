@@ -206,13 +206,18 @@ class Node(object):
         self.path = []
         self.set_tmp_key()
         self.parent = kwargs.pop('parent', None)
-        self._model_in_node = defaultdict(list)
         self._field_values = {}
+
+        # linked models registry for finding the list_nodes that contains a link to us
+        self._model_in_node = defaultdict(list)
+
+        # a registry for -keys of- models which processed with clean_value method
+        # this is required to prevent endless recursive invocation of n-n related models
         self.processed_nodes = kwargs.pop('processed_nodes', [])
+
         self._instantiate_linked_models()
         self._instantiate_nodes()
         self._set_fields_values(kwargs)
-
 
     def set_tmp_key(self):
         self.key = "TMP_%s_%s" % (self.__class__.__name__, uuid4().hex[:10])
@@ -228,25 +233,18 @@ class Node(object):
         return '.'.join(list(self.path + [un_camel(self.__class__.__name__),
                                           prop]))
 
-    # def __getattr__(self, item):
-    #     if item in self._linked_models:
-    #         mdl = self._linked_models[item][0]()
-    #         setattr(self, item, mdl)
-    #         return mdl
-    #     else:
-    #         raise AttributeError
-
     def _instantiate_linked_models(self):
         for name, (mdl, o2o) in self._linked_models.items():
             # setattr(self, name, LinkModelProxy(mdl, name, o2o, self))
-            setattr(self, name, lazy_object_proxy.Proxy(mdl))
+            obj = lazy_object_proxy.Proxy(mdl)
+            obj.parent = self.parent or self
+            setattr(self, name, obj)
 
     def _instantiate_node(self, name, klass):
-        # instantiate given node, pass path data
+        # instantiate given node, pass path and parent info
         ins = klass(**{'processed_nodes': self.processed_nodes,
-                       'parent': self})
+                       'parent': self.parent or self})
         ins.path = self.path + [self.__class__.__name__.lower()]
-
         for (mdl, o2o) in klass._linked_models.values():
             self._model_in_node[mdl].append(ins)
         setattr(self, name, ins)
@@ -343,7 +341,35 @@ class Node(object):
         self._set_fields_values(self._data)
         return self
 
-    # ######## Public Methods  #########
+    def _clean_node_value(self, dct):
+        # get values of nodes
+        for name in self._nodes:
+            node = getattr(self, name)
+            node.processed_nodes = self.processed_nodes
+            dct[un_camel(name)] = node.clean_value()
+        return dct
+
+    def _clean_field_value(self, dct):
+        # get values of fields
+        for name, field_ins in self._fields.items():
+            dct[un_camel(name)] = field_ins.clean_value(
+                self._field_values.get(name))
+        return dct
+
+    def _clean_linked_model_value(self, dct):
+        # get vales of linked models
+        dct['_cache'] = {}
+        for name in self._linked_models:
+            link_mdl = getattr(self, name)
+            # print("LM: ", link_mdl)
+            link_mdl.processed_nodes = self.processed_nodes
+            _name = un_camel(name)
+            dct[un_camel_id(name)] = link_mdl.key or ''
+            if link_mdl.is_in_db() and not link_mdl._is_auto_created:
+                dct['_cache'][_name] = link_mdl.clean_value()
+            else:
+                dct['_cache'][_name] = {}
+            dct['_cache'][_name]['key'] = link_mdl.key
 
     def clean_value(self):
         """
@@ -351,43 +377,19 @@ class Node(object):
         :rtype: dict
         :return: riak ready python dict
         """
+
         dct = {}
-        obj_key = getattr(self, 'key', None)
+        self._clean_field_value(dct)
+        self._clean_node_value(dct)
 
-        # get values of fields
-        for name, field_ins in self._fields.items():
-            dct[un_camel(name)] = field_ins.clean_value(
-                self._field_values.get(name))
-
-        # print(self.__class__.__name__, self.processed_nodes)
-        # get values of nodes
-        for name in self._nodes:
-            node = getattr(self, name)
-            node.processed_nodes = self.processed_nodes
-            dct[un_camel(name)] = node.clean_value()
-
-        if obj_key and obj_key in self.processed_nodes:
+        if self.key in self.processed_nodes:
             return dct
         else:
             self.processed_nodes.append(self.key)
 
-        # get vales of linked models
         if self._linked_models:
-            dct['_cache'] = {}
-            for name in self._linked_models:
-                link_mdl = getattr(self, name)
-                # print("LM: ", link_mdl)
-                link_mdl.processed_nodes = self.processed_nodes
-                _name = un_camel(name)
-                dct[un_camel_id(name)] = link_mdl.key or ''
-                if link_mdl.is_in_db() and not link_mdl._is_auto_created:
-                    dct['_cache'][_name] = link_mdl.clean_value()
-                else:
-                    dct['_cache'][_name] = {}
-                dct['_cache'][_name]['key'] = link_mdl.key
+            self._clean_linked_model_value(dct)
 
-        # print("\n", self.__class__.__name__, " \n")
-        # print(dct)
         return dct
 
 
@@ -497,20 +499,26 @@ class Model(Node):
         """
         add/update self on linked models from our list nodes
         """
+        # traverse all nodes
         for node_name, node in self._nodes.items():
+            # for each linked_model definition
             for lnk_mdl_name in node._linked_models.keys():
-                # print('\n--%s--%s' % (node_name, lnk_mdl_name))
+                # traverse all items of this list node
                 list_node = getattr(self, node_name)
                 for item in list_node:
                     linked_mdl = getattr(item, lnk_mdl_name)
-                    # print('--%s--%s--%s' % (node_name, lnk_mdl_name, item))
+                    # do nothing if linked_model instance is already updated
                     if linked_mdl.key in self.saved_models:
                         continue
-
+                    # pass saved_models and processed_nodes registry
                     linked_mdl.saved_models = self.saved_models
                     linked_mdl.processed_nodes = self.processed_nodes
+                    # to prevent wrongly bypassing of a previously processed
+                    # node, we're force removing it from the registry
                     if linked_mdl.key in self.processed_nodes:
                         self.processed_nodes.remove(linked_mdl.key)
+                    # traversing on the previously created reverse-list of
+                    # listnodes which contains a link to "us" (aka: self)
                     for mdl_set in linked_mdl._model_in_node[self.__class__]:
                         mdl_set.update_linked_model(self)
                     linked_mdl.save()
@@ -674,7 +682,6 @@ class ListNode(Node):
         self.node_stack = []
         self._data = []
 
-
     def __len__(self):
         return len(self._data or self.node_stack)
 
@@ -702,4 +709,3 @@ class ListNode(Node):
         if not self._is_item:
             raise TypeError("A ListNode cannot be deleted")
         self.parent.node_stack.remove(self)
-
