@@ -426,7 +426,8 @@ class Model(Node):
     @classmethod
     def get_search_index(cls):
         if not cls._SEARCH_INDEX:
-            cls._SEARCH_INDEX = settings.get_index(cls._get_bucket_name())
+            # cls._SEARCH_INDEX = settings.get_index(cls._get_bucket_name())
+            cls._SEARCH_INDEX = cls.objects.bucket.get_property('search_index')
         return cls._SEARCH_INDEX
 
     def set_data(self, data, from_db=False):
