@@ -665,8 +665,18 @@ class ListNode(Node):
         self.node_stack.append(clone)
         return clone
 
+    def clear(self):
+        """
+        clear outs the list node
+        """
+        if self._is_item:
+            raise TypeError("This an item of the parent ListNode")
+        self.node_stack = []
+        self._data = []
+
+
     def __len__(self):
-        return len(self._data)
+        return len(self._data or self.node_stack)
 
     def __getitem__(self, index):
         return list(self._generate_instances()).__getitem__(index)
@@ -677,7 +687,7 @@ class ListNode(Node):
     def __setitem__(self, key, value):
         if self._is_item:
             raise TypeError("This an item of the parent ListNode")
-        self.values[key] = value
+        self.node_stack[key] = value
 
     def __delitem__(self, key):
         if self._is_item:
@@ -685,7 +695,11 @@ class ListNode(Node):
         self.node_stack.remove(self[key])
 
     def remove(self):
+        """
+        remove this item from list node
+        note: you should save the parent object yourself.
+        """
         if not self._is_item:
-            raise TypeError("ListNode cannot be deleted")
+            raise TypeError("A ListNode cannot be deleted")
         self.parent.node_stack.remove(self)
 
