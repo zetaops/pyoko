@@ -212,7 +212,7 @@ class Node(object):
         self._model_in_node = defaultdict(list)
 
         # a registry for -keys of- models which processed with clean_value method
-        # this is required to prevent endless recursive invocation of n-n related models
+        # this is required to prevent endless recursive invocation of n-2-n related models
         self.processed_nodes = kwargs.pop('processed_nodes', [])
 
         self._instantiate_linked_models()
@@ -235,9 +235,9 @@ class Node(object):
 
     def _instantiate_linked_models(self):
         for name, (mdl, o2o) in self._linked_models.items():
-            # setattr(self, name, LinkModelProxy(mdl, name, o2o, self))
+            # TODO: investigate if this really required/needed and remove if not
+            mdl.parent = self.parent or self
             obj = lazy_object_proxy.Proxy(mdl)
-            obj.parent = self.parent or self
             setattr(self, name, obj)
 
     def _instantiate_node(self, name, klass):
@@ -276,6 +276,11 @@ class Node(object):
         return self
 
     def _set_fields_values(self, kwargs):
+        """
+        fill the fields of this node
+        :type kwargs: builtins.dict
+        """
+        # TODO: whe should process possible Meta['cell_filters'] in this phase
 
         for name, _field in self._fields.items():
             if name in kwargs:
@@ -603,7 +608,7 @@ class ListNode(Node):
 
         node_data['from_db'] = self._from_db
         clone = self.__call__(**node_data)
-        clone.parent = self
+        clone.container = self
         clone._is_item = True
         for name in self._nodes:
             _name = un_camel(name)
@@ -708,4 +713,4 @@ class ListNode(Node):
         """
         if not self._is_item:
             raise TypeError("A ListNode cannot be deleted")
-        self.parent.node_stack.remove(self)
+        self.container.node_stack.remove(self)
