@@ -107,16 +107,16 @@ class Registry(object):
         return self.registry
 
 
-_registry = Registry()
+model_registry = Registry()
 
 
 # noinspection PyMissingConstructor
 class ModelMeta(type):
     def __init__(mcs, name, bases, attrs):
         if mcs.__base__.__name__ == 'Model':
-            # add models to _registry
+            # add models to model_registry
             mcs.objects = DBObjects(model_class=mcs)
-            _registry.register_model(mcs)
+            model_registry.register_model(mcs)
 
     def __new__(mcs, name, bases, attrs):
         base_model_class = bases[0]
@@ -410,6 +410,8 @@ class Model(Node):
         'deleted': field.Boolean(default=False, index=True)}
     _SEARCH_INDEX = ''
 
+
+
     def __init__(self, context=None, **kwargs):
         self._riak_object = None
         self._instance_registry.add(weakref.ref(self))
@@ -480,14 +482,14 @@ class Model(Node):
         get reverse linked models from model registry
         :return: [Model]
         """
-        return _registry.link_registry[self.__class__]
+        return model_registry.link_registry[self.__class__]
 
     def _get_forward_links(self):
         """
         get reverse linked models from model registry
         :return: [Model]
         """
-        return _registry.back_link_registry[self.__class__]
+        return model_registry.back_link_registry[self.__class__]
 
     def save(self):
         # FIXME: we should only prevent circular save loop between linking models
@@ -574,10 +576,24 @@ class ListNode(Node):
         self.values = []
         self.node_stack = []
         self._data = []
+        self.node_dict = {}
         # print("KWARGS", kwargs, self)
         super(ListNode, self).__init__(**kwargs)
 
     # ######## Public Methods  #########
+
+    def get(self, key):
+        """
+        this method returns the ListNode item with given "key"
+
+        :param str key: key of the listnode item
+        :return: object
+        """
+        if not self.node_dict:
+            for node in self.node_stack:
+                self.node_dict[node.key] = node
+        return self.node_dict[key]
+
 
     def update_linked_model(self, model_ins):
         for name, (mdl, o2o) in self._linked_models.items():
@@ -623,6 +639,7 @@ class ListNode(Node):
                 ins.key = cache[_name]['key']
                 ins.set_data(cache[_name], self._from_db)
                 setattr(clone, name, ins)
+        self.node_dict[clone.key] = clone
         # self.node_stack.append(clone)
         return clone
 

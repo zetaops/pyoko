@@ -13,6 +13,7 @@ from pyoko.lib.utils import un_camel, to_camel
 
 class ModelForm(object):
     TYPES = {}
+
     def __init__(self, model=None, **kwargs):
         """
         keyword arguments:
@@ -38,10 +39,11 @@ class ModelForm(object):
     def deserialize(self, data):
         """
         returns the model loaded with received form data.
+
         :param dict data: received form data from client
         """
-        #FIXME: we should investigate and integrate necessary security precautions on received data
-        #TODO: add listnode support when format of incoming data for listnodes defined
+        # FIXME: we should investigate and integrate necessary security precautions on received data
+        # TODO: add listnode support when format of incoming data for listnodes defined
         proccessed_data = {}
         for key, val in data.items():
             if '.' in key:
@@ -56,9 +58,10 @@ class ModelForm(object):
 
     def _serialize(self):
         """
-        :return: serialized model fields
+        :return: list of serialized model fields
+        :rtype: list
         """
-        # TODO: to return in consistent order we should iterate over sorted list of keys
+        # TODO: to return in consistent order we should iterate on a sorted list (by keys)
         while 1:
             if 'fields' in self.config:
                 for name, field in self.model._fields.items():
@@ -67,9 +70,11 @@ class ModelForm(object):
                     if value:
                         default = None
                     else:
-                        default = field.default() if callable(field.default) else field.default
+                        default = field.default() if callable(
+                            field.default) else field.default
                     yield {'name': name,
-                           'type': self.customize_types.get(name, field.solr_type),
+                           'type': self.customize_types.get(name,
+                                                            field.solr_type),
                            'value': value,
                            'required': field.required,
                            'title': field.title,
@@ -79,21 +84,27 @@ class ModelForm(object):
                            }
             if 'nodes' in self.config or 'list_nodes' in self.config:
                 for node_name in self.model._nodes:
-                    node_type = getattr(self.model, node_name).__class__.__base__.__name__
+                    node_type = getattr(self.model,
+                                        node_name).__class__.__base__.__name__
                     if (node_type == 'Node' and 'nodes' in self.config) or (
-                        node_type == 'ListNode' and 'list_nodes' in self.config):
+                                    node_type == 'ListNode' and 'list_nodes'
+                            in self.config):
                         instance_node = getattr(self.model, node_name)
                         for name, field in instance_node._fields.items():
                             if name in ['deleted', 'timestamp']: continue
-                            yield {'name': "%s.%s" % (un_camel(node_name), name),
-                                   'type': self.customize_types.get(name, field.solr_type),
-                                   'title': field.title,
-                                   'value': self.model._field_values.get(name, ''),
-                                   'required': field.required,
-                                   'default': field.default() if callable(field.default) else field.default,
-                                   'section': node_name,
-                                   'storage': node_type,
-                                   }
+                            yield {
+                                'name': "%s.%s" % (un_camel(node_name), name),
+                                'type': self.customize_types.get(name,
+                                                                 field.solr_type),
+                                'title': field.title,
+                                'value': self.model._field_values.get(name,
+                                                                      ''),
+                                'required': field.required,
+                                'default': field.default() if callable(
+                                    field.default) else field.default,
+                                'section': node_name,
+                                'storage': node_type,
+                            }
             if 'models' in self.config:
                 for model_attr_name, model in self.model._linked_models.items():
                     yield {'name': "%s_id" % model_attr_name,
@@ -108,11 +119,11 @@ class ModelForm(object):
             break
 
 
-
 class Form(ModelForm):
     """
     base class for a custom form with pyoko.fields
     """
+
     def __init__(self, *args, **kwargs):
         self._nodes = {}
         self._fields = {}
@@ -123,7 +134,6 @@ class Form(ModelForm):
                 val.name = key
                 self._fields[key] = val
         super(Form, self).__init__(*args, **kwargs)
-
 
     def set_data(self, data):
         """

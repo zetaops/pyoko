@@ -45,7 +45,7 @@ class ManagementCommands(object):
         from pyoko.conf import settings
         from importlib import import_module
         import_module(settings.MODELS_MODULE)
-        self.registry = import_module('pyoko.model')._registry
+        self.registry = import_module('pyoko.model').model_registry
 
     def schema_update(self):
         self._get_models()
