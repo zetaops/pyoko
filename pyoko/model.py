@@ -44,16 +44,16 @@ class LinkModel(object):
 # region ModelMeta and Registry
 class Registry(object):
     def __init__(self):
-        self.registry = []
+        self.registry = {}
         self.link_registry = defaultdict(list)
         self.back_link_registry = defaultdict(list)
 
     def register_model(self, klass):
         if klass not in self.registry:
             # register model to base registry
-            self.registry += [klass]
+            self.registry[klass.__name__] = klass
             klass_name = un_camel(klass.__name__)
-            self.process_many_to_many(klass, klass_name)
+            self._process_many_to_many(klass, klass_name)
             for name, (
                     linked_model,
                     is_one_to_one) in klass._linked_models.items():
@@ -67,7 +67,7 @@ class Registry(object):
                 else:
                     self._process_one_to_many(klass, klass_name, linked_model)
 
-    def process_many_to_many(self, klass, klass_name):
+    def _process_many_to_many(self, klass, klass_name):
         for node in klass._nodes.values():
             if node._linked_models:
                 for (model, is_o2o) in node._linked_models.values():
@@ -104,7 +104,10 @@ class Registry(object):
                 mdl._instantiate_node(set_name, listnode)
 
     def get_base_models(self):
-        return self.registry
+        return self.registry.values()
+
+    def get_model(self, model_name):
+        return self.registry[model_name]
 
 
 model_registry = Registry()
@@ -479,30 +482,28 @@ class Model(Node):
 
     def _get_reverse_links(self):
         """
-        get reverse linked models from model registry
+        get models that linked from this models
         :return: [Model]
         """
         return model_registry.link_registry[self.__class__]
 
     def _get_forward_links(self):
         """
-        get reverse linked models from model registry
+        get models that gives a link to to this model
         :return: [Model]
         """
+        # back_link_registry has nearly same content as self._linked_models
+        # TODO: refactor _linked_models to use it instead of back_link_registry
         return model_registry.back_link_registry[self.__class__]
 
     def save(self):
-        # FIXME: we should only prevent circular save loop between linking models
-        # by passing key value of originating model of save action to linked models
-        # current implementation does not update value of the linking model if it has
-        # other model relations
         self.objects.save_model(self)
         self.saved_models.append(self.key)
-        self._save_many_models()
+        self._save_to_many_models()
         self._save_backlinked_models()
         return self
 
-    def _save_many_models(self):
+    def _save_to_many_models(self):
         """
         add/update self on linked models from our list nodes
         """
@@ -520,8 +521,8 @@ class Model(Node):
                     # pass saved_models and processed_nodes registry
                     linked_mdl.saved_models = self.saved_models
                     linked_mdl.processed_nodes = self.processed_nodes
-                    # to prevent wrongly bypassing of a previously processed
-                    # node, we're force removing it from the registry
+                    # to prevent bypassing of a previously processed
+                    # node, we're explicitly removing it from the registry
                     if linked_mdl.key in self.processed_nodes:
                         self.processed_nodes.remove(linked_mdl.key)
                     # traversing on the previously created reverse-list of
@@ -531,9 +532,7 @@ class Model(Node):
                     linked_mdl.save()
 
     def _save_backlinked_models(self):
-        # TODO: when called from a deleted object, instead of
-        # updating we should remove it from target
-
+        # FIXME: when called from a deleted object, we should also remove it from target model's cache
         for name, mdl in self._get_reverse_links():
             for obj in mdl.objects.filter(**{un_camel_id(name): self.key}):
                 if obj.key in self.saved_models:
@@ -542,23 +541,36 @@ class Model(Node):
                 obj.saved_models = self.saved_models
                 obj.save()
         for pointer, name, mdl in self._get_forward_links():
-            obj = mdl.objects.get(getattr(self, pointer).key)
+            cached_obj = getattr(self, pointer)
+            if not cached_obj.is_in_db():
+                continue
+                # This is an undefined linked model slot, we just pass it
+                # Currently we don't have any mechanism to enforce definition of
+                # fields or linked models.
+                # TODO: Add blank=False validation for fields and linked models
+            obj = mdl.objects.get(cached_obj.key)
             back_linking_model = getattr(obj, name, None)
             if obj.key in self.saved_models:
+                # to prevent circular saves, but may cause missed cache updates
+                # we need more tests
                 continue
             if back_linking_model:
-                is_auto_created = getattr(obj, name,
-                                          None)._is_auto_created
+                # this is a 1-to-1 relation
                 setattr(obj, name, self)
                 obj.saved_models = self.saved_models
                 obj.save()
             else:
+                # this is a 1-to-many relation, other side is a ListNode
+                # named like object_set
                 object_set = getattr(obj, '%s_set' % name)
                 object_set.add(**{name: self})
                 obj.saved_models = self.saved_models
                 obj.save()
 
     def delete(self):
+        """
+        this method just flags the object as "deleted" and saves it to db
+        """
         self.deleted = True
         self.save()
 

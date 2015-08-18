@@ -35,8 +35,8 @@ class DBObjects(object):
     def __init__(self, **conf):
 
         self.bucket = riak.RiakBucket
-        self._cfg={'row_size': 100,
-                   'rtype': ReturnType.Model}
+        self._cfg = {'row_size': 100,
+                     'rtype': ReturnType.Model}
         self._cfg.update(conf)
         self.model = None
         self._client = self._cfg.pop('client', client)
@@ -107,7 +107,6 @@ class DBObjects(object):
                 riak_obj = self.bucket.get(doc['_yz_rk'])
                 yield (self._make_model(riak_obj.data, riak_obj)
                        if self._cfg['rtype'] == ReturnType.Model else riak_obj)
-
 
     def __len__(self):
         # print("~~~~!!! __len__ CALLED !!!~~~~")
@@ -190,14 +189,12 @@ class DBObjects(object):
             obj.data = data
             return obj.store()
 
-
-
     def save_model(self, model=None):
         """
         saves the model instance to riak
         :return:
         """
-        if model: # workaround,
+        if model:  # workaround,
             self.model = model
         clean_value = self.model.clean_value()
         if not self.model.key or self.model.key.startswith('TMP_'):
@@ -217,7 +214,8 @@ class DBObjects(object):
                 self._solr_cache['docs'][0]['_yz_rk'])]
 
         if self._cfg['rtype'] == ReturnType.Model:
-            return self._make_model(self._riak_cache[0].data, self._riak_cache[0])
+            return self._make_model(self._riak_cache[0].data,
+                                    self._riak_cache[0])
         elif self._cfg['rtype'] == ReturnType.Object:
             return self._riak_cache[0]
         else:
@@ -232,7 +230,6 @@ class DBObjects(object):
         model = self.model_class()
         model.key = riak_obj.key if riak_obj else data.get('key')
         return model.set_data(data, from_db=True)
-
 
     def __repr__(self):
         try:
@@ -265,6 +262,25 @@ class DBObjects(object):
         exclude = {'-%s' % key: value for key, value in filters.items()}
         return self.filter(**exclude)
 
+    def get_or_create(self, defaults=None, **kwargs):
+        """
+        Looks up an object with the given kwargs, creating one if necessary.
+        Returns a tuple of (object, created), where created is a boolean
+        specifying whether an object was created.
+        """
+        clone = copy.deepcopy(self)
+        existing = clone.filter(**kwargs)
+        if existing:
+            if len(existing) > 1:
+                raise MultipleObjectsReturned(
+                    "%s objects returned for %s" % (len(existing),
+                                                    self.model_class.__name__))
+            return existing[0], False
+        else:
+            data = defaults or {}
+            data.update(kwargs)
+            return self.model_class(**data).save(), True
+
     def get(self, key=None):
         """
         if key param exists, retrieves object from riak,
@@ -278,7 +294,9 @@ class DBObjects(object):
         else:
             clone._exec_query()
             if clone.count() > 1:
-                raise MultipleObjectsReturned()
+                raise MultipleObjectsReturned(
+                    "%s objects returned for %s" % (clone.count(),
+                                                    self.model_class.__name__))
         return clone._get()
 
     def count(self):
@@ -302,7 +320,6 @@ class DBObjects(object):
         add/update solr query parameters
         """
         if self._solr_locked:
-
             raise Exception("Query already executed, no changes can be made."
                             "%s %s %s" % (self._solr_query, self._solr_params)
                             )
@@ -383,14 +400,14 @@ class DBObjects(object):
                 self._solr_params[key] = val.encode(encoding='UTF-8')
         return self._solr_params
 
-
     def _exec_query(self):
         """
         executes solr query if it hasn't already executed.
         :return:
         """
         if not self._solr_cache and self._cfg['rtype'] != ReturnType.Solr:
-            self.set_params(fl='_yz_rk')  # we're going to riak, fetch only keys
+            self.set_params(
+                fl='_yz_rk')  # we're going to riak, fetch only keys
         if not self._solr_locked:
             if not self.compiled_query:
                 self._compile_query()

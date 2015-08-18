@@ -18,7 +18,6 @@ class TestCase:
     cleaned_up = False
     index_checked = False
 
-
     @classmethod
     def prepare_testbed(cls):
         if not cls.cleaned_up:
@@ -29,6 +28,25 @@ class TestCase:
 
     # def test_one_to_one_simple_benchmarked(self, benchmark):
     #     benchmark(self.test_one_to_one_simple)
+
+    def test_get_or_create(self):
+        self.prepare_testbed()
+        defaults = dict(name="Foo", surname="Fee")
+        pno = '123456'
+        st, is_new = Student.objects.get_or_create(defaults=defaults, pno=pno)
+        assert is_new == True
+        assert st.name == defaults['name']
+        assert st.pno == pno
+        sleep(1)
+        st, is_new = Student.objects.get_or_create(defaults=defaults, pno=pno)
+        assert is_new == False
+        assert st.name == defaults['name']
+        assert st.pno == pno
+
+        st, is_new = Student.objects.get_or_create(**defaults)
+        assert is_new == False
+        assert st.name == defaults['name']
+        assert st.pno == pno
 
     def test_update_with_partial_data(self):
         self.prepare_testbed()
@@ -41,6 +59,3 @@ class TestCase:
         updated_db_student = Student.objects.filter().get(db_student.key)
         assert updated_db_student.surname == db_student.surname
         assert updated_db_student.name == student.name
-
-
-

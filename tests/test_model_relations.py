@@ -89,7 +89,11 @@ class TestCase:
         # but this would fail, cause denormalization doesn't reach this far, yet!
         # assert perm.codename == db_user_role_abs_role.Permissions[0].permission.codename
 
-
+    def test_missing_relations_simple(self):
+        self.prepare_testbed()
+        u = User(name="Foo").save()
+        r = Role(usr=u, name="Foo Frighters").save()
+        assert Role.objects.get(r.key).usr.name == u.name
 
 
 

@@ -7,7 +7,9 @@
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 from time import sleep
+import pytest
 from pyoko.conf import settings
+from pyoko.exceptions import MultipleObjectsReturned
 from pyoko.manage import ManagementCommands
 from tests.data.test_data import data, clean_data
 from tests.models import Student
@@ -53,6 +55,14 @@ class TestCase:
         clean_data['timestamp'] = clean_value['timestamp']
         assert clean_data == clean_value
 
+
+
+    def test_get_multiple_objects_exception(self):
+        self.prepare_testbed()
+        s2 = Student(name='Foo').save()
+        sleep(1)
+        with pytest.raises(MultipleObjectsReturned):
+            Student.objects.get()
 
 
     def test_delete_model(self):
