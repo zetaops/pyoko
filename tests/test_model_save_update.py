@@ -19,8 +19,8 @@ class TestCase:
     index_checked = False
 
     @classmethod
-    def prepare_testbed(cls):
-        if not cls.cleaned_up:
+    def prepare_testbed(cls, reset=False):
+        if (not cls.cleaned_up) or reset:
             for model in [Student]:
                 model.objects._clear_bucket()
             sleep(2)
@@ -52,8 +52,7 @@ class TestCase:
         self.prepare_testbed()
         student = Student().set_data(data)
         student.save()
-        sleep(1)
-        db_student = Student.objects.filter().get()
+        db_student = Student.objects.get(student.key)
         db_student.surname = 'Freeman'
         db_student.save()
         updated_db_student = Student.objects.filter().get(db_student.key)

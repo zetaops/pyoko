@@ -24,15 +24,15 @@ class TestCase:
     new_obj = None
 
     @classmethod
-    def clear_bucket(cls):
-        if not cls.cleaned_up:
+    def clear_bucket(cls, reset):
+        if not cls.cleaned_up or reset:
             Student.objects._clear_bucket()
             cls.cleaned_up = True
             sleep(2)
 
     @classmethod
-    def get_or_create_new_obj(cls):
-        if cls.new_obj is None:
+    def get_or_create_new_obj(cls, reset):
+        if cls.new_obj is None or reset:
             cls.new_obj = Student()
             cls.new_obj.set_data(data)
             cls.new_obj.save()
@@ -41,9 +41,9 @@ class TestCase:
 
 
     @classmethod
-    def prepare_testbed(cls):
-        cls.clear_bucket()
-        return cls.get_or_create_new_obj()
+    def prepare_testbed(cls, reset=False):
+        cls.clear_bucket(reset)
+        return cls.get_or_create_new_obj(reset)
 
 
 
@@ -66,7 +66,7 @@ class TestCase:
 
 
     def test_delete_model(self):
-        self.prepare_testbed()
+        self.prepare_testbed(True)
         s2 = Student(name='Foo').save()
         sleep(1)
         assert Student.objects.filter(name='Foo').count() == 1
