@@ -105,6 +105,10 @@ class DBObjects(object):
                 yield doc
             else:
                 riak_obj = self.bucket.get(doc['_yz_rk'])
+                if not riak_obj.data:
+                    # TODO: remove this, if not occur on production
+                    raise riak.RiakError("Empty object returned. "
+                                    "Possibly a Riak-Solr sync delay issue.")
                 yield (self._make_model(riak_obj.data, riak_obj)
                        if self._cfg['rtype'] == ReturnType.Model else riak_obj)
 
@@ -269,11 +273,12 @@ class DBObjects(object):
         specifying whether an object was created.
         """
         clone = copy.deepcopy(self)
-        existing = clone.filter(**kwargs)
-        if existing:
-            if len(existing) > 1:
+        existing = list(clone.filter(**kwargs))
+        count = len(existing)
+        if count:
+            if count > 1:
                 raise MultipleObjectsReturned(
-                    "%s objects returned for %s" % (len(existing),
+                    "%s objects returned for %s" % (count,
                                                     self.model_class.__name__))
             return existing[0], False
         else:
@@ -375,6 +380,7 @@ class DBObjects(object):
         # self.solr_query.add('*:*')  # get/count everything
         # elif len(self.solr_query) > 1 and '*:*' in self.solr_query:
         # self.solr_query.remove('*:*')
+        #TODO: escape following chars: + - && || ! ( ) { } [ ] ^ " ~ * ? : \
         query = []
         if 'deleted' not in self._solr_query:
             query.append('-deleted:True')
@@ -383,7 +389,7 @@ class DBObjects(object):
             if val is None:
                 key = '-%s' % key
                 val = '[* TO *]'
-            query.append("%s:%s" % (key, val))
+            query.append("%s:\"%s\"" % (key, val))
         # if old != self.solr_query:
         # self.solr_query_updated = True
         anded = ' AND '.join(query)
