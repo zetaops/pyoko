@@ -13,9 +13,13 @@ from pyoko.model import Model, ListNode, field, LinkModel
 """
 
 Sorgular
-Bilgisayar mühendisliği 1. sınıfta Math101 dersinin 2. dönem 2. vizesinden 60 - 80 almış öğrencilerin listesi
-Sosyal Bilimler Enstitüsünde 2010 - 2015 yılları arasında kademe cezası almış, kadın personellerin listesi. (kademe cezası önceki yıla göre kademe farklarına göre bulunabilir.)
-Tıp fakültesinde, en az lise mezunu, kadro derecesi 7 den büyük, askerlik engeli bulunmayan personeller.
+Bilgisayar mühendisliği 1. sınıfta Math101 dersinin 2. dönem 2. vizesinden
+60 - 80 almış öğrencilerin listesi
+Sosyal Bilimler Enstitüsünde 2010 - 2015 yılları arasında kademe cezası almış,
+kadın personellerin listesi. (kademe cezası önceki yıla göre kademe farklarına
+göre bulunabilir.)
+Tıp fakültesinde, en az lise mezunu, kadro derecesi 7 den büyük, askerlik
+engeli bulunmayan personeller.
 Bir öğrencinin seçmek istediği bir derse bağlı olan ön şartlı ders notu
 Bir dersin genel sınavına (final) girmeye hak kazanmış öğrencilerin listesi
 Belirli bir tarihe kadar sisteme not girmesi beklenen hocaların listesi. (sınavın yapıldığı tarihi takiben max 15 gün, sonraki sınav tarihinden min 7 gün önce gibi sabit birkaç kural söz konusu.)
@@ -42,6 +46,10 @@ Azami öğretim süresine gelmiş ve mezun olmayacak öğrencilerin listesi
 class Permission(Model):
     name = field.String('Name')
     codename = field.String('Codename')
+
+    #
+    # class abstract_role_set(ListNode):
+    #     abstract_role = AbstractRole()
 
 
 class AbstractRole(Model):
@@ -97,8 +105,5 @@ class Scholar(Model):
         return 'Scholar named %s' % self.name
 
     class TimeTables(ListNode):
-
         timetable = TimeTable()
         confirmed = field.Boolean("Is confirmed", index=True)
-
-

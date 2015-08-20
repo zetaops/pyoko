@@ -70,7 +70,7 @@ class Registry(object):
     def _process_many_to_many(self, klass, klass_name):
         for node in klass._nodes.values():
             if node._linked_models:
-                for (model, is_o2o) in node._linked_models.values():
+                for (model, is_one_to_one) in node._linked_models.values():
                     # klass._many_to_models.append(model)
                     self._process_one_to_many(klass, klass_name, model)
 
@@ -115,12 +115,6 @@ model_registry = Registry()
 
 # noinspection PyMissingConstructor
 class ModelMeta(type):
-    def __init__(mcs, name, bases, attrs):
-        if mcs.__base__.__name__ == 'Model':
-            # add models to model_registry
-            mcs.objects = DBObjects(model_class=mcs)
-            model_registry.register_model(mcs)
-
     def __new__(mcs, name, bases, attrs):
         base_model_class = bases[0]
         class_type = getattr(base_model_class, '_TYPE', None)
@@ -132,6 +126,14 @@ class ModelMeta(type):
         new_class = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
         return new_class
 
+    def __init__(mcs, name, bases, attrs):
+        if mcs.__base__.__name__ == 'Model':
+            # add models to model_registry
+            mcs.objects = DBObjects(model_class=mcs)
+            model_registry.register_model(mcs)
+
+
+
     @staticmethod
     def process_listnode(attrs, base_model):
         attrs['idx'] = field.Id()
@@ -140,15 +142,16 @@ class ModelMeta(type):
     def process_attributes(attrs):
         """
         we're iterating over attributes of the soon to be created class object.
+
         :param dict attrs: attribute dict
         """
         attrs['_nodes'] = {}
         attrs['_linked_models'] = {}  # property_name: (model, is_one_to_one)
         attrs['_fields'] = {}
-        attrs['_many_to_models'] = []
+        # attrs['_many_to_models'] = []
 
         for key, attr in list(attrs.items()):
-            # if it's a class (not instance) and it's type is Node
+            # if it's a class (not instance) and it's type is Node or ListNode
             if hasattr(attr, '__base__') and \
                             getattr(attr.__base__, '_TYPE', '') in [
                         'Node', 'ListNode']:
@@ -532,7 +535,8 @@ class Model(Node):
                     linked_mdl.save()
 
     def _save_backlinked_models(self):
-        # FIXME: when called from a deleted object, we should also remove it from target model's cache
+        # FIXME: when called from a deleted object,
+        # we should also remove it from target model's cache
         for name, mdl in self._get_reverse_links():
             for obj in mdl.objects.filter(**{un_camel_id(name): self.key}):
                 if obj.key in self.saved_models:

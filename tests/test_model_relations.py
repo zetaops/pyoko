@@ -77,7 +77,6 @@ class TestCase:
         user.save()
         role = Role(usr=user, abstract_role=abs_role, active=True)
         role.save()
-        t1 = time()
         user_db = User.objects.get(user.key)
         assert role.key == user_db.role_set[0].role.key
         role_node = user_db.role_set[0]

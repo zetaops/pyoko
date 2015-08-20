@@ -106,9 +106,10 @@ class DBObjects(object):
             else:
                 riak_obj = self.bucket.get(doc['_yz_rk'])
                 if not riak_obj.data:
-                    # TODO: remove this, if not occur on production
-                    raise riak.RiakError("Empty object returned. "
-                                    "Possibly a Riak-Solr sync delay issue.")
+                    # # TODO: remove this, if not occur on production
+                    # raise riak.RiakError("Empty object returned. "
+                    #                 "Possibly a Riak-Solr sync delay issue.")
+                    continue
                 yield (self._make_model(riak_obj.data, riak_obj)
                        if self._cfg['rtype'] == ReturnType.Model else riak_obj)
 
@@ -201,7 +202,7 @@ class DBObjects(object):
         if model:  # workaround,
             self.model = model
         clean_value = self.model.clean_value()
-        if not self.model.key or self.model.key.startswith('TMP_'):
+        if not self.model.is_in_db():
             self.model.key = None
         riak_object = self.save(clean_value, self.model.key)
         self.model.key = riak_object.key
@@ -376,11 +377,9 @@ class DBObjects(object):
         this will support "OR" and maybe other more advanced queries as well
         :return: Solr query string
         """
-        # if not self.solr_query:
-        # self.solr_query.add('*:*')  # get/count everything
-        # elif len(self.solr_query) > 1 and '*:*' in self.solr_query:
-        # self.solr_query.remove('*:*')
-        #TODO: escape following chars: + - && || ! ( ) { } [ ] ^ " ~ * ? : \
+        # https://wiki.apache.org/solr/SolrQuerySyntax
+        # http://lucene.apache.org/core/2_9_4/queryparsersyntax.html
+        # TODO: escape following chars: + - && || ! ( ) { } [ ] ^ " ~ * ? : \
         query = []
         if 'deleted' not in self._solr_query:
             query.append('-deleted:True')

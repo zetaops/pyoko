@@ -35,6 +35,7 @@ class SchemaUpdater(object):
         self.t1 = 0.0  # start time
 
     def run(self):
+        # TODO: Limit thread size to 10-20
         self.t1 = time.time()
         apply_threads = []
         for model in self.registry.get_base_models():
