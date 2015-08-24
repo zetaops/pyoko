@@ -132,10 +132,11 @@ class SchemaUpdater(object):
         # for stale_index in stale_indexes:
         #     self.client.delete_search_index(stale_index)
 
-        new_index_name = "%s_%s" % (bucket_name, randint(1000, 9999999))
+        suffix = 9000000000 - int(time.time())
+        new_index_name = "%s_%s_%s" % (settings.DEFAULT_BUCKET_TYPE, bucket_name, suffix)
         client.create_search_schema(new_index_name, new_schema)
         client.create_search_index(new_index_name, new_index_name, n_val)
         bucket.set_property('search_index', new_index_name)
         # settings.update_index(bucket_name, new_index_name)
         if not silent:
-            print("+ %s " % model.__name__)
+            print("+ %s (%s)" % (model.__name__, new_index_name))

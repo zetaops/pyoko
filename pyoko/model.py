@@ -230,7 +230,7 @@ class Node(object):
 
     @classmethod
     def _get_bucket_name(cls):
-        return cls._META.get('bucket_name', cls.__name__.lower())
+        return cls._META.get('bucket_name', un_camel(cls.__name__))
 
     def _path_of(self, prop):
         """
@@ -314,7 +314,7 @@ class Node(object):
         multi = in_multi or isinstance(self, ListNode)
         for name in self._linked_models:
             # obj = getattr(self, name) ### obj.has_many_values()
-            result.append((un_camel_id(name), 'string', True, True, multi))
+            result.append((un_camel_id(name), 'string', True, False, multi))
 
         for name, field_ins in self._fields.items():
             field_name = self._path_of(name).replace(model_name + '.', '')
