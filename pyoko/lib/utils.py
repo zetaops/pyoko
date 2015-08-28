@@ -6,6 +6,8 @@
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
+import sys
+import os
 import copy
 import json
 import re
@@ -69,3 +71,9 @@ class MyEncoder(json.JSONEncoder):
 
 def random_word(length):
    return ''.join(random.choice('abcdefghijklmnopqrstuvwxyz') for i in range(length))
+
+def getScriptPath():
+    return os.path.dirname(os.path.realpath(sys.argv[0]))
+
+def add_to_path():
+    sys.path.append(os.path.dirname(getScriptPath()))

@@ -12,7 +12,7 @@ from pyoko.lib.utils import un_camel, to_camel
 
 
 class ModelForm(object):
-    TYPES = {}
+    TYPE_OVERRIDES = {}
 
     def __init__(self, model=None, **kwargs):
         """
@@ -33,7 +33,7 @@ class ModelForm(object):
         if 'nodes' not in kwargs or 'models' not in kwargs or 'fields' not in kwargs:
             kwargs['fields'] = True
         self.config = kwargs
-        self.customize_types = kwargs.get('types', self.TYPES)
+        self.customize_types = kwargs.get('types', self.TYPE_OVERRIDES)
         self.title = kwargs.get('title', self.model.__class__.__name__)
 
     def deserialize(self, data):
