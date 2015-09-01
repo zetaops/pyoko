@@ -110,7 +110,7 @@ class ModelForm(object):
                     yield {'name': "%s_id" % model_attr_name,
                            'model_name': model.__name__,
                            'type': 'model',
-                           'title': model.title,
+                           'title': model.__name__,
                            'value': getattr(self.model, model_attr_name).key,
                            'required': None,
                            'default': None,
