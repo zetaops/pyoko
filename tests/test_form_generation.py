@@ -52,7 +52,7 @@ received_data = {
 
 
 class LoginForm(Form):
-    TYPES = {
+    TYPE_OVERRIDES = {
         'password': 'password'
     }
     username = field.String("Username")
