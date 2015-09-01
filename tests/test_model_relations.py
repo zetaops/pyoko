@@ -55,9 +55,8 @@ class TestCase:
         scholar.TimeTables(timetable=tt1, confirmed=True)
         scholar.TimeTables(timetable=tt2, confirmed=False)
         scholar.save()
-        sleep(1)
         db_scholar = Scholar.objects.get(scholar.key)
-        db_tt1 = TimeTable.objects.filter()[0]
+        db_tt1 = TimeTable.objects.get(tt1.key)
         db_sc_tt2 = db_scholar.TimeTables[1].timetable
         db_sc_tt1 = db_scholar.TimeTables[0].timetable
         assert db_tt1.scholar_set[0].scholar.name == db_scholar.name
