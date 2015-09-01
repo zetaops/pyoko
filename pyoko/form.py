@@ -106,7 +106,7 @@ class ModelForm(object):
                                 'storage': node_type,
                             }
             if 'models' in self.config:
-                for model_attr_name, model in self.model._linked_models.items():
+                for model_attr_name, (model, oneToOne) in self.model._linked_models.items():
                     yield {'name': "%s_id" % model_attr_name,
                            'model_name': model.__name__,
                            'type': 'model',
