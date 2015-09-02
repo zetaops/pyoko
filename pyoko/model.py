@@ -94,7 +94,7 @@ class Registry(object):
         listnode = type(set_name,
                         (ListNode,),
                         {klass_name: klass_instance,
-                         'is_auto_created': True})
+                         '_is_auto_created': True})
         listnode._linked_models[klass_name] = (klass, False)
         linked_model._nodes[set_name] = listnode
         # add just created model_set to already initialised instances
@@ -205,7 +205,7 @@ class Node(object):
 
     """
     _TYPE = 'Node'
-
+    _is_auto_created = False
     def __init__(self, **kwargs):
         super(Node, self).__init__()
         self.timer = 0.0
@@ -410,7 +410,7 @@ class Model(Node):
     _META = {
         'bucket_type': settings.DEFAULT_BUCKET_TYPE
     }
-    _is_auto_created = False
+
     _DEFAULT_BASE_FIELDS = {
         'timestamp': field.TimeStamp(),
         'deleted': field.Boolean(default=False, index=True)}

@@ -27,7 +27,7 @@ class ModelForm(object):
         """
         self.model = model or self
         if not kwargs or 'all' in kwargs:
-            kwargs = {'fields': True, 'nodes': True, 'models': True}
+            kwargs.update({'fields': True, 'nodes': True, 'models': True})
             if 'all' in kwargs:
                 kwargs['list_nodes'] = True
         if 'nodes' not in kwargs or 'models' not in kwargs or 'fields' not in kwargs:
@@ -84,34 +84,55 @@ class ModelForm(object):
                            }
             if 'nodes' in self.config or 'list_nodes' in self.config:
                 for node_name in self.model._nodes:
-                    node_type = getattr(self.model,
-                                        node_name).__class__.__base__.__name__
+                    instance_node = getattr(self.model, node_name)
+                    if instance_node._is_auto_created:
+                        continue
+                    node_type = instance_node.__class__.__base__.__name__
                     if (node_type == 'Node' and 'nodes' in self.config) or (
-                                    node_type == 'ListNode' and 'list_nodes'
-                            in self.config):
-                        instance_node = getattr(self.model, node_name)
-                        for name, field in instance_node._fields.items():
-                            if name in ['deleted', 'timestamp']: continue
-                            yield {
-                                'name': "%s.%s" % (un_camel(node_name), name),
-                                'type': self.customize_types.get(name,
-                                                                 field.solr_type),
-                                'title': field.title,
-                                'value': self.model._field_values.get(name,
-                                                                      ''),
-                                'required': field.required,
-                                'default': field.default() if callable(
-                                    field.default) else field.default,
-                                'section': node_name,
-                                'storage': node_type,
-                            }
+                            node_type == 'ListNode' and 'list_nodes' in self.config):
+                        if node_type == 'Node':
+                            nodes = [instance_node]
+                        else:
+                            nodes = instance_node
+                        for real_node in nodes:
+                            for model_attr_name, (model, one_to_one) in \
+                                    real_node._linked_models.items():
+                                model_instance = getattr(real_node, model_attr_name)
+                                yield {'name': "%s_id" % model_attr_name,
+                                       'model_name': model.__name__,
+                                       'type': 'model',
+                                       'title': model.__name__,
+                                       'value': model_instance.key,
+                                       'content': list(self.__class__(model_instance, fields=True,
+                                                                      models=True)._serialize()),
+                                       'required': None,
+                                       'default': None,
+                                       'section': 'main',
+                                       }
+                            for name, field in real_node._fields.items():
+                                if name in ['deleted', 'timestamp']:
+                                    continue
+                                yield {
+                                    'name': "%s.%s" % (un_camel(node_name), name),
+                                    'type': self.customize_types.get(name, field.solr_type),
+                                    'title': field.title,
+                                    'value': real_node._field_values.get(name, ''),
+                                    'required': field.required,
+                                    'default': field.default() if callable(field.default)
+                                    else field.default,
+                                    'section': node_name,
+                                    'storage': node_type,
+                                }
             if 'models' in self.config:
-                for model_attr_name, (model, oneToOne) in self.model._linked_models.items():
+                for model_attr_name, (model, one_to_one) in self.model._linked_models.items():
+                    model_instance = getattr(self.model, model_attr_name)
                     yield {'name': "%s_id" % model_attr_name,
                            'model_name': model.__name__,
                            'type': 'model',
                            'title': model.__name__,
-                           'value': getattr(self.model, model_attr_name).key,
+                           'value': model_instance.key,
+                           'content': list(self.__class__(model_instance,
+                                                          fields=True)._serialize()),
                            'required': None,
                            'default': None,
                            'section': 'main',

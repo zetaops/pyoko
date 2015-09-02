@@ -14,26 +14,29 @@ from tests.data.test_data import data, clean_data
 
 from tests.models import *
 
-raw_form_output = [
-    {'storage': 'Node', 'default': None, 'name': 'auth_info.email', 'section': 'AuthInfo',
-     'required': True, 'value': '', 'type': 'string', 'title': 'Email'},
-    {'storage': 'Node', 'default': None, 'name': 'auth_info.password', 'section': 'AuthInfo',
-     'required': True, 'value': '', 'type': 'string', 'title': 'Password'},
-    {'storage': 'Node', 'default': None, 'name': 'auth_info.username', 'section': 'AuthInfo',
-     'required': True, 'value': '', 'type': 'string', 'title': 'Username'},
-    {'storage': 'main', 'default': None, 'name': 'bio', 'section': 'main', 'required': True,
-     'value': 'Lorem impsum dolar sit amet falan filan', 'type': 'text_general',
-     'title': 'Biography'},
-    {'storage': 'main', 'default': None, 'name': 'join_date', 'section': 'main',
-     'required': True, 'value': datetime.date(2015, 5, 16), 'type': 'date', 'title': 'Join Date'},
-    {'storage': 'main', 'default': None, 'name': 'name', 'section': 'main', 'required': True,
-     'value': 'Jack', 'type': 'text_tr', 'title': 'First Name'},
-    {'storage': 'main', 'default': None, 'name': 'number', 'section': 'main', 'required': True,
-     'value': '20300344', 'type': 'string', 'title': 'Student No'},
-    {'storage': 'main', 'default': None, 'name': 'pno', 'section': 'main', 'required': True,
-     'value': '2343243433', 'type': 'string', 'title': 'TC No'},
-    {'storage': 'main', 'default': None, 'name': 'surname', 'section': 'main', 'required': True,
-     'value': 'Black', 'type': 'text_tr', 'title': 'Last Name'}]
+raw_form_output = [{'name': 'auth_info.email', 'title': 'Email', 'default': None, 'storage': 'Node',
+                    'section': 'AuthInfo', 'required': True, 'type': 'string',
+                    'value': 'suuper@suup.com'},
+                   {'name': 'auth_info.password', 'title': 'Password', 'default': None,
+                    'storage': 'Node', 'section': 'AuthInfo', 'required': True, 'type': 'string',
+                    'value': '123'},
+                   {'name': 'auth_info.username', 'title': 'Username', 'default': None,
+                    'storage': 'Node', 'section': 'AuthInfo', 'required': True, 'type': 'string',
+                    'value': 'foo_user'},
+                   {'name': 'bio', 'title': 'Biography', 'default': None, 'storage': 'main',
+                    'section': 'main', 'required': True, 'type': 'text_general',
+                    'value': 'Lorem impsum dolar sit amet falan filan'},
+                   {'name': 'join_date', 'title': 'Join Date', 'default': None, 'storage': 'main',
+                    'section': 'main', 'required': True, 'type': 'date',
+                    'value': datetime.date(2015, 5, 16)},
+                   {'name': 'name', 'title': 'First Name', 'default': None, 'storage': 'main',
+                    'section': 'main', 'required': True, 'type': 'text_tr', 'value': 'Jack'},
+                   {'name': 'number', 'title': 'Student No', 'default': None, 'storage': 'main',
+                    'section': 'main', 'required': True, 'type': 'string', 'value': '20300344'},
+                   {'name': 'pno', 'title': 'TC No', 'default': None, 'storage': 'main',
+                    'section': 'main', 'required': True, 'type': 'string', 'value': '2343243433'},
+                   {'name': 'surname', 'title': 'Last Name', 'default': None, 'storage': 'main',
+                    'section': 'main', 'required': True, 'type': 'text_tr', 'value': 'Black'}]
 
 received_data = {
     'auth_info.email': 'duuper@suup.com',
@@ -59,7 +62,6 @@ class LoginForm(Form):
     password = field.String("Password")
 
 
-
 serialized_login_form = [
     {'value': '', 'name': 'password', 'storage': 'main',
      'default': None, 'type': 'password', 'section': 'main',
@@ -69,6 +71,28 @@ serialized_login_form = [
      'title': 'Username'}
 ]
 
+output_of_test_list_node_with_linked_model = [
+    {'name': 'name', 'title': 'Name', 'default': None, 'storage': 'main', 'section': 'main',
+     'required': True, 'type': 'string', 'value': u'Employee Manager'},
+    {'content': [
+        {'name': 'codename', 'title': 'Codename', 'default': None, 'storage': 'main',
+         'section': 'main', 'required': True, 'type': 'string', 'value': u'employee.all'},
+        {'name': 'name', 'title': 'Name', 'default': None, 'storage': 'main', 'section': 'main',
+         'required': True, 'type': 'string', 'value': u'Can see employee data'}],
+     'name': 'permission_id',
+     'title': 'Permission',
+     'default': None,
+     'section': 'main',
+     'required': None,
+     'type': 'model',
+     'model_name': 'Permission',
+     'value': u'D3Tu8VE0EqxgZfEGMnLdbJilQuk'},
+    {'name': 'permissions.idx', 'title': '', 'default': None, 'storage': 'ListNode',
+     'section': 'Permissions', 'required': True, 'type': 'string',
+     'value': u'164647af596647cfaa5ad1ab1c84714e'}]
+
+
+# noinspection PyMethodMayBeStatic
 class TestCase:
     cleaned_up = False
 
@@ -106,3 +130,10 @@ class TestCase:
         db_student = Student.objects.filter(auth_info__email=received_data['auth_info.email']).get()
         assert db_student.AuthInfo.email == received_data['auth_info.email']
         assert db_student.bio == received_data['bio']
+
+    def test_list_node_with_linked_model(self):
+        arole = AbstractRole.objects.filter()[0]
+        serialized_model = sorted(ModelForm(arole, all=True)._serialize(), key=lambda d: d['name'])
+        output_of_test_list_node_with_linked_model[1]['value'] = serialized_model[1]['value']
+        output_of_test_list_node_with_linked_model[2]['value'] = serialized_model[2]['value']
+        assert serialized_model == output_of_test_list_node_with_linked_model
