@@ -15,6 +15,7 @@ import datetime
 import random
 from time import mktime
 from uuid import uuid4
+import importlib
 
 UN_CAMEL_RE = re.compile('((?<=[a-z0-9])[A-Z]|(?!^)[A-Z](?=[a-z]))')
 
@@ -77,3 +78,10 @@ def getScriptPath():
 
 def add_to_path():
     sys.path.append(os.path.dirname(getScriptPath()))
+
+def get_object_from_path(path):
+    path = path.split('.')
+    module_path = '.'.join(path[:-1])
+    class_name = path[-1]
+    module = importlib.import_module(module_path)
+    return getattr(module, class_name)
