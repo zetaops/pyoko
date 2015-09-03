@@ -164,8 +164,8 @@ class TestCase:
         student.set_data(clean_data)
         student.save()
         serialized_model = sorted(ModelForm(student)._serialize(), key=lambda d: d['name'])
-        print("============================")
-        pprint(serialized_model)
+        # print("============================")
+        # pprint(serialized_model)
         assert raw_form_output == serialized_model
 
     def test_plain_form(self):
