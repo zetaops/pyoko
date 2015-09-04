@@ -82,6 +82,8 @@ class ModelForm(object):
             if node_type == 'Node':
                 nodes = [instance_node]
             else:
+                if len(instance_node) == 0:
+                    instance_node()
                 nodes = instance_node
             result.append({'name': node_name,
                            'type': node_type,
