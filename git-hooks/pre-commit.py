@@ -65,7 +65,7 @@ def main():
 
     print('========== Checking PEP8 conformance ==========')
     for filename in staged_files:
-        proc = subprocess.Popen(('pep8', '--max-line length', '99', filename),
+        proc = subprocess.Popen(('pep8', '--max-line-length', '99', filename),
                                 stdout=subprocess.PIPE)
         output, _ = proc.communicate()
         # If pep8 still reports problems then abort this commit.
