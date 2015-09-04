@@ -92,7 +92,7 @@ class Registry(object):
         klass_instance = klass()
         klass_instance._is_auto_created = True
         listnode = type(set_name,
-                        (ListNode,),
+                        (ListNode, ),
                         {klass_name: klass_instance,
                          '_is_auto_created': True})
         listnode._linked_models[klass_name] = (klass, False)
@@ -108,7 +108,6 @@ class Registry(object):
 
     def get_model(self, model_name):
         return self.registry[model_name]
-
 
 model_registry = Registry()
 
@@ -132,8 +131,6 @@ class ModelMeta(type):
             mcs.objects = DBObjects(model_class=mcs)
             model_registry.register_model(mcs)
 
-
-
     @staticmethod
     def process_listnode(attrs, base_model):
         attrs['idx'] = field.Id()
@@ -152,9 +149,8 @@ class ModelMeta(type):
 
         for key, attr in list(attrs.items()):
             # if it's a class (not instance) and it's type is Node or ListNode
-            if hasattr(attr, '__base__') and \
-                            getattr(attr.__base__, '_TYPE', '') in [
-                        'Node', 'ListNode']:
+            if hasattr(attr, '__base__') and getattr(attr.__base__, '_TYPE', '') in ['Node',
+                                                                                     'ListNode']:
                 attrs['_nodes'][key] = attrs.pop(key)
             else:  # otherwise it should be a field or linked model
                 attr_type = getattr(attr, '_TYPE', '')
@@ -181,11 +177,7 @@ class ModelMeta(type):
         copy_of_base_meta.update(meta)
         attrs['META'] = copy_of_base_meta
 
-
 # endregion
-
-
-
 
 
 @add_metaclass(ModelMeta)
@@ -206,6 +198,7 @@ class Node(object):
     """
     _TYPE = 'Node'
     _is_auto_created = False
+
     def __init__(self, **kwargs):
         super(Node, self).__init__()
         self.timer = 0.0
@@ -416,8 +409,6 @@ class Model(Node):
         'deleted': field.Boolean(default=False, index=True)}
     _SEARCH_INDEX = ''
 
-
-
     def __init__(self, context=None, **kwargs):
         self._riak_object = None
         self._instance_registry.add(weakref.ref(self))
@@ -595,7 +586,6 @@ class ListNode(Node):
         self.node_dict = {}
         # print("KWARGS", kwargs, self)
         super(ListNode, self).__init__(**kwargs)
-
     # ######## Public Methods  #########
 
     def get(self, key):
@@ -609,7 +599,6 @@ class ListNode(Node):
             for node in self.node_stack:
                 self.node_dict[node.key] = node
         return self.node_dict[key]
-
 
     def update_linked_model(self, model_ins):
         for name, (mdl, o2o) in self._linked_models.items():
@@ -685,7 +674,6 @@ class ListNode(Node):
             except (UnicodeEncodeError, UnicodeDecodeError):
                 u = '[Bad Unicode data]'
             return six.text_type('<%s: %s>' % (self.__class__.__name__, u))
-
     # def __hash__(self):
     #     if self.HASH_BY:
     #         return hash(getattr(self, self.HASH_BY))
