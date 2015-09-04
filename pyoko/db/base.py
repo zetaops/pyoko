@@ -50,7 +50,8 @@ class DBObjects(object):
         self._data_type = None  # we convert new object data according to
         # bucket datatype, eg: Dictomaping for 'map' type
         self.compiled_query = ''
-        self._solr_query = {}  # query parts, will be compiled before execution
+        # self._solr_query = {}  # query parts, will be compiled before execution
+        self._solr_query = []  # query parts, will be compiled before execution
         self._solr_params = {}  # search parameters. eg: rows, fl, start, sort etc.
         self._solr_locked = False
         self._solr_cache = {}
@@ -253,7 +254,7 @@ class DBObjects(object):
         :return: DBObjects
         """
         clone = copy.deepcopy(self)
-        clone._solr_query.update(filters.copy())
+        clone._solr_query.extend(filters.items())
         return clone
 
     def exclude(self, **filters):
@@ -380,20 +381,22 @@ class DBObjects(object):
         # http://lucene.apache.org/core/2_9_4/queryparsersyntax.html
         # TODO: escape following chars: + - && || ! ( ) { } [ ] ^ " ~ * ? : \
         query = []
-        if 'deleted' not in self._solr_query:
-            query.append('-deleted:True')
-        for key, val in self._solr_query.items():
+        want_deleted = False
+
+        for key, val in self._solr_query:
             key = key.replace('__', '.')
+            if key == 'deleted':
+                want_deleted = True
+
             if val is None:
                 key = '-%s' % key
                 val = '[* TO *]'
             val = str(val)
             if ' ' in val:
-                query.append("%s:\"%s\"" % (key, val))
-            else:
-                query.append("%s:%s" % (key, val))
-        # if old != self.solr_query:
-        # self.solr_query_updated = True
+                val = '"' + val + '"'
+            query.append("%s:%s" % (key, val))
+        if not want_deleted:
+            query.append('-deleted:True')
         anded = ' AND '.join(query)
         joined_query = anded
         if joined_query == '':
@@ -419,6 +422,7 @@ class DBObjects(object):
         if not self._solr_locked:
             if not self.compiled_query:
                 self._compile_query()
+            # print(self.compiled_query)
             self._solr_cache = self.bucket.search(self.compiled_query,
                                                   self.model_class.get_search_index(),
                                                   **self._process_params())

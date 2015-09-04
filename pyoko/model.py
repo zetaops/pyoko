@@ -412,8 +412,8 @@ class Model(Node):
     def __init__(self, context=None, **kwargs):
         self._riak_object = None
         self._instance_registry.add(weakref.ref(self))
-        self.context = context or {}
-        self.row_level_access()
+        if context:
+            self.row_level_access(context)
         # self._prepare_linked_models()
         self._is_one_to_one = kwargs.pop('one_to_one', False)
         self.title = kwargs.pop('title', self.__class__.__name__)
@@ -457,12 +457,12 @@ class Model(Node):
                     mdl.set_data(cache[_name], from_db)
         return self
 
-    def row_level_access(self):
+    def row_level_access(self, context):
         """
         Define your query filters in here to enforce row level access control
-        self._config should contain required user attributes and permissions
+        context should contain required user attributes and permissions
         eg:
-            self.objects = self.objects.filter(user_in=self._config.user['id'])
+            self.objects = self.objects.filter(user=context.user.key)
         """
         pass
 
