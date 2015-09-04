@@ -35,7 +35,6 @@ class ModelForm(object):
         self.config = kwargs
         self.customize_types = kwargs.get('types', self.TYPE_OVERRIDES)
         self.title = kwargs.get('title', self.model.__class__.__name__)
-        print("FORM_SERIALIZER_CONF %s" % self.config)
 
     def deserialize(self, data):
         """
@@ -43,8 +42,9 @@ class ModelForm(object):
 
         :param dict data: received form data from client
         """
-        # FIXME: we should investigate and integrate necessary security precautions on received data
-        # TODO: add listnode support when format of incoming data for listnodes defined
+        # TODO: investigate and integrate necessary security precautions on received data
+        # TODO: Add listnode support
+
         proccessed_data = {}
         for key, val in data.items():
             if '.' in key:
@@ -113,7 +113,8 @@ class ModelForm(object):
 
     def get_fields(self, result):
         for name, field in self.model._fields.items():
-            if name in ['deleted', 'timestamp']: continue
+            if name in ['deleted', 'timestamp']:
+                continue
             value = self.model._field_values.get(name, '')
             if value:
                 default = None

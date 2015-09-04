@@ -15,7 +15,7 @@ from six import add_metaclass
 
 
 class CommandRegistry(type):
-    registry  = {}
+    registry = {}
 
     @classmethod
     def add_command(cls, command_model):
@@ -44,10 +44,12 @@ class Command(object):
     def run(self):
         raise NotImplemented("You should override this method in your command class")
 
+
 class SchemaUpdate(Command):
     CMD_NAME = 'update_schema'
     PARAMS = [('bucket', True, 'Bucket name(s) to be updated'),
               ('silent', False, 'Silent operation')]
+    HELP = 'Creates/Updates SOLR schemas for given model(s)'
 
     def run(self):
         from pyoko.db.schema_update import SchemaUpdater
@@ -58,6 +60,29 @@ class SchemaUpdate(Command):
         updater = SchemaUpdater(registry, self.manager.args.bucket, self.manager.args.silent)
         updater.run()
         return updater.create_report()
+
+
+class FlushDB(Command):
+    CMD_NAME = 'flush_model'
+    HELP = 'REALLY DELETES the contents of buckets'
+    PARAMS = [('model', True, 'Models name(s) to be cleared. Say "all" to clear all models'),
+              ]
+
+    def run(self):
+        from pyoko.db.schema_update import SchemaUpdater
+        from pyoko.conf import settings
+        from importlib import import_module
+        import_module(settings.MODELS_MODULE)
+        registry = import_module('pyoko.model').model_registry
+        model_name = self.manager.args.model
+        if model_name != 'all':
+            models = [registry.get_model(model_name)]
+        else:
+            models = registry.get_base_models()
+        for mdl in models:
+            num_of_records = mdl.objects._clear_bucket()
+            print("%s succesfully cleared. %s " % (mdl.__name__, num_of_records))
+
 
 class ManagementCommands(object):
     """
@@ -74,6 +99,7 @@ class ManagementCommands(object):
             import os
             self.manager.report = os.popen('ls -lah').read()
     """
+
     def __init__(self, args=None):
         self.report = ""
         # self.commands = [SchemaUpdate]
@@ -85,16 +111,13 @@ class ManagementCommands(object):
         self.parse_args(input)
         print(self.args.command() or '\nProcess completed')
 
-
     def parse_args(self, args):
         import argparse
         parser = argparse.ArgumentParser()
-        subparsers = parser.add_subparsers(title='subcommands',
-                                           description='valid subcommands',
-                                           help='additional help')
+        subparsers = parser.add_subparsers(title='Possible commands')
         for cmd_class in self.commands:
             cmd = cmd_class(self)
-            parser_create = subparsers.add_parser(cmd.CMD_NAME)
+            parser_create = subparsers.add_parser(cmd.CMD_NAME, help=getattr(cmd, 'HELP', None))
             parser_create.set_defaults(command=cmd.run)
             if hasattr(cmd, 'PARAMS'):
                 for param, required, help in cmd.PARAMS:
