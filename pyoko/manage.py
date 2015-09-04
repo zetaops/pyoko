@@ -83,7 +83,7 @@ class ManagementCommands(object):
         else:
             input = argv[1:]
         self.parse_args(input)
-        print(self.args.command())
+        print(self.args.command() or '\nProcess completed')
 
 
     def parse_args(self, args):
