@@ -22,7 +22,6 @@ from pyoko.lib.utils import grayed
 # TODO: Add OR support
 
 
-
 ReturnType = Enum('ReturnType', 'Solr Object Model')
 
 
@@ -388,7 +387,11 @@ class DBObjects(object):
             if val is None:
                 key = '-%s' % key
                 val = '[* TO *]'
-            query.append("%s:\"%s\"" % (key, val))
+            val = str(val)
+            if ' ' in val:
+                query.append("%s:\"%s\"" % (key, val))
+            else:
+                query.append("%s:%s" % (key, val))
         # if old != self.solr_query:
         # self.solr_query_updated = True
         anded = ' AND '.join(query)
