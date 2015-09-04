@@ -11,7 +11,27 @@ command line management interface
 
 from os import environ
 from sys import argv
+from six import add_metaclass
 
+
+class CommandRegistry(type):
+    registry  = {}
+
+    @classmethod
+    def add_command(cls, command_model):
+        name = command_model.__name__
+        if name not in cls.registry and name != 'Command':
+            cls.registry[command_model.__name__] = command_model
+
+    def __init__(mcs, name, bases, attrs):
+        CommandRegistry.add_command(mcs)
+
+    @classmethod
+    def get_commands(cls):
+        return cls.registry.values()
+
+
+@add_metaclass(CommandRegistry)
 class Command(object):
     # name of your command
     # CMD_NAME = ''
@@ -37,7 +57,7 @@ class SchemaUpdate(Command):
         registry = import_module('pyoko.model').model_registry
         updater = SchemaUpdater(registry, self.manager.args.bucket, self.manager.args.silent)
         updater.run()
-        self.manager.report = updater.create_report()
+        return updater.create_report()
 
 class ManagementCommands(object):
     """
@@ -45,32 +65,26 @@ class ManagementCommands(object):
 
     You can add your own Command objects in your manage.py file:
 
-    myapp/manage.py:
+    from pyoko.manage import Command
+    class MyCmd(Command):
+        CMD_NAME = 'mycommand'
+        PARAMS = [('my_param', True, 'Example description')]
 
-        from pyoko.manage import *
-
-        class MyCmd(Command):
-            CMD_NAME = 'mycommand'
-            PARAMS = [('my_param', True, 'Example description')]
-
-            def run(self):
-                import os
-                self.manager.report = os.popen('ls -lah').read()
-
-        environ.setdefault('PYOKO_SETTINGS', 'myapp.settings')
-
-        ManagementCommands(argv[1:], commands=[MyCmd])
-
+        def run(self):
+            import os
+            self.manager.report = os.popen('ls -lah').read()
     """
-    def __init__(self, args=None, commands=None):
+    def __init__(self, args=None):
         self.report = ""
-        self.commands = [SchemaUpdate]
-        if commands:
-            self.commands.extend(commands)
+        # self.commands = [SchemaUpdate]
+        self.commands = CommandRegistry.get_commands()
         if args:
-            self.parse_args(args)
-            self.args.command()
-        print(self.report)
+            input = args
+        else:
+            input = argv[1:]
+        self.parse_args(input)
+        print(self.args.command())
+
 
     def parse_args(self, args):
         import argparse
