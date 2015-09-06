@@ -8,6 +8,7 @@
 # (GPLv3).  See LICENSE.txt for details.
 from collections import defaultdict
 from datetime import datetime
+import logging
 from uuid import uuid4
 from six import add_metaclass
 import six
@@ -18,6 +19,11 @@ from pyoko.lib.utils import un_camel, un_camel_id, lazy_property
 import weakref
 import lazy_object_proxy
 
+log = logging.getLogger(__name__)
+fh = logging.FileHandler(filename="/tmp/pyoko.log", mode="w")
+fh.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+log.addHandler(fh)
+log.setLevel(logging.INFO)
 
 class LinkModel(object):
     _TYPE = 'Proxy'
@@ -173,9 +179,21 @@ class ModelMeta(type):
         attrs.update(base_model_class._DEFAULT_BASE_FIELDS)
         attrs['_instance_registry'] = set()
         meta = attrs.get('META', {})
+        # if 'filters' in meta:
+        #     ModelMeta.process_cell_filters(meta)
         copy_of_base_meta = base_model_class._META.copy()
         copy_of_base_meta.update(meta)
         attrs['META'] = copy_of_base_meta
+
+    # @staticmethod
+    # def process_cell_filters(meta):
+    #     meta['cell_permissions'] = defaultdict(list)
+    #     for perm, fields in meta['cell_filters'].items():
+    #         for field in fields:
+    #             meta['cell_permissions'][field].append(perm)
+
+
+
 
 # endregion
 
@@ -206,6 +224,10 @@ class Node(object):
         self.set_tmp_key()
         self.parent = kwargs.pop('parent', None)
         self._field_values = {}
+
+        # if model has cell_filters that applies to current user,
+        # filtered values will be kept in _secured_data dict
+        self._secured_data = {}
 
         # linked models registry for finding the list_nodes that contains a link to us
         self._model_in_node = defaultdict(list)
@@ -284,6 +306,11 @@ class Node(object):
         for name, _field in self._fields.items():
             if name in kwargs:
                 val = kwargs.get(name, self._field_values.get(name))
+                path_name = self._path_of(name)
+                root = self.parent or self
+                if path_name in root.unpermitted_fields:
+                    self._secured_data[path_name] = val
+                    continue
                 if not kwargs.get('from_db'):
                     setattr(self, name, val)
                 else:
@@ -356,8 +383,12 @@ class Node(object):
     def _clean_field_value(self, dct):
         # get values of fields
         for name, field_ins in self._fields.items():
-            dct[un_camel(name)] = field_ins.clean_value(
-                self._field_values.get(name))
+            path_name = self._path_of(name)
+            if path_name in self._secured_data:
+                dct[un_camel(name)] = self._secured_data[path_name]
+            else:
+                dct[un_camel(name)] = field_ins.clean_value(
+                    self._field_values.get(name))
         return dct
 
     def _clean_linked_model_value(self, dct):
@@ -401,7 +432,8 @@ class Model(Node):
     objects = DBObjects
     _TYPE = 'Model'
     _META = {
-        'bucket_type': settings.DEFAULT_BUCKET_TYPE
+        'bucket_type': settings.DEFAULT_BUCKET_TYPE,
+        'field_permissions': {}
     }
 
     _DEFAULT_BASE_FIELDS = {
@@ -412,8 +444,9 @@ class Model(Node):
     def __init__(self, context=None, **kwargs):
         self._riak_object = None
         self._instance_registry.add(weakref.ref(self))
-        if context:
-            self.row_level_access(context)
+        self.unpermitted_fields = []
+        self.row_level_access(context)
+        self.apply_cell_filters(context)
         # self._prepare_linked_models()
         self._is_one_to_one = kwargs.pop('one_to_one', False)
         self.title = kwargs.pop('title', self.__class__.__name__)
@@ -456,6 +489,12 @@ class Model(Node):
                     mdl.key = cache[_name]['key']
                     mdl.set_data(cache[_name], from_db)
         return self
+
+    def apply_cell_filters(self, context):
+        for perm, fields in self.META['field_permissions'].items():
+            if not context.has_permission(perm):
+                self.unpermitted_fields.extend(fields)
+
 
     def row_level_access(self, context):
         """
@@ -693,7 +732,9 @@ class ListNode(Node):
         :param kwargs:
         :return:
         """
+        kwargs['parent'] = self.parent
         clone = self.__class__(**kwargs)
+        # clone.parent = self.parent
         clone._is_item = True
         clone.processed_nodes = self.parent.processed_nodes
         self.node_stack.append(clone)

@@ -42,7 +42,6 @@ Azami öğretim süresine gelmiş ve mezun olmayacak öğrencilerin listesi
 
 """
 
-
 class Permission(Model):
     name = field.String('Name')
     codename = field.String('Codename')
@@ -61,7 +60,6 @@ class AbstractRole(Model):
 
 class User(Model):
     name = field.String('Full Name', index=True)
-
     def __unicode__(self):
         return "User %s" % self.name
 

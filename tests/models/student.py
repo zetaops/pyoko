@@ -20,15 +20,6 @@ class Student(Model):
     # def row_level_access(self):
     #     self.objects = self.objects.filter(user_in=self._context.user['id'],)
 
-    META = {
-        'store' : True,
-        'cell_filters': {
-            # fields will be filtered out if self._context.perms does not
-            # contain the given permission.
-            # permission            : ['field','list']
-            'can_view_student_phone': ['phone']
-        },
-    }
 
     number = field.String("Student No", index=True)
     pno = field.String("TC No", index=True)
