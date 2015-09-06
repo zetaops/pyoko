@@ -36,15 +36,15 @@ class LinkModel(object):
 
 # class LinkModelProxy(object):
 #     # TODO: this isn't nice, brake's introspection in ipython etc
-#     def __init__(self, model, name, o2o, parent):
+#     def __init__(self, model, name, o2o, root):
 #         self.model = model
 #         self.name = name
 #         self.o2o = o2o
-#         self.parent = parent
+#         self.root = root
 #
 #     def __getattr__(self, item):
 #         model = self.model(self.o2o)
-#         setattr(self.parent, self.name, model)
+#         setattr(self.root, self.name, model)
 #         return getattr(model, item)
 
 # region ModelMeta and Registry
@@ -222,7 +222,7 @@ class Node(object):
         self.timer = 0.0
         self.path = []
         self.set_tmp_key()
-        self.parent = kwargs.pop('parent', None)
+        self.root = kwargs.pop('root', None)
         self._field_values = {}
 
         # if model has cell_filters that applies to current user,
@@ -251,21 +251,22 @@ class Node(object):
         """
         returns the dotted path of the given model attribute
         """
-        root = self.parent or self
+        root = self.root or self
         return ('.'.join(list(self.path + [un_camel(self.__class__.__name__),
                                           prop]))).replace(root._get_bucket_name() + '.', '')
 
     def _instantiate_linked_models(self):
         for name, (mdl, o2o) in self._linked_models.items():
             # TODO: investigate if this really required/needed and remove if not
-            mdl.parent = self.parent or self
-            obj = lazy_object_proxy.Proxy(mdl)
+            # mdl.root = self.root or self
+            root=self.root or self
+            obj = lazy_object_proxy.Proxy(lambda: mdl(root.context, root=root))
             setattr(self, name, obj)
 
     def _instantiate_node(self, name, klass):
-        # instantiate given node, pass path and parent info
+        # instantiate given node, pass path and root info
         ins = klass(**{'processed_nodes': self.processed_nodes,
-                       'parent': self.parent or self})
+                       'root': self.root or self})
         ins.path = self.path + [self.__class__.__name__.lower()]
         for (mdl, o2o) in klass._linked_models.values():
             self._model_in_node[mdl].append(ins)
@@ -308,7 +309,7 @@ class Node(object):
                 if name in kwargs:
                     val = kwargs.get(name, self._field_values.get(name))
                     path_name = self._path_of(name)
-                    root = self.parent or self
+                    root = self.root or self
                     if path_name in root.unpermitted_fields:
                         self._secured_data[path_name] = val
                         continue
@@ -444,6 +445,7 @@ class Model(Node):
         self._riak_object = None
         self._instance_registry.add(weakref.ref(self))
         self.unpermitted_fields = []
+        self.context = context
         self.row_level_access(context)
         self.apply_cell_filters(context)
         # self._prepare_linked_models()
@@ -732,11 +734,11 @@ class ListNode(Node):
         :param kwargs:
         :return:
         """
-        kwargs['parent'] = self.parent
+        kwargs['root'] = self.root
         clone = self.__class__(**kwargs)
-        # clone.parent = self.parent
+        # clone.root = self.root
         clone._is_item = True
-        clone.processed_nodes = self.parent.processed_nodes
+        clone.processed_nodes = self.root.processed_nodes
         self.node_stack.append(clone)
         return clone
 
