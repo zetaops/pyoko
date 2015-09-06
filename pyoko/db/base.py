@@ -154,7 +154,7 @@ class DBObjects(object):
                 obj.__dict__[k] = []
             elif k == '_solr_cache':
                 obj.__dict__[k] = {}
-            elif k.endswith(('bucket', '_client', 'model', 'model_class')):
+            elif k.endswith(('current_context', 'bucket', '_client', 'model', 'model_class')):
                 obj.__dict__[k] = v
             else:
                 obj.__dict__[k] = copy.deepcopy(v, memo)
