@@ -32,7 +32,7 @@ class DBObjects(object):
     """
 
     def __init__(self, **conf):
-
+        self.current_context = None
         self.bucket = riak.RiakBucket
         self._cfg = {'row_size': 100,
                      'rtype': ReturnType.Model}
@@ -232,7 +232,7 @@ class DBObjects(object):
         :param dict data: model data returned from db (riak or redis)
         :return: pyoko.Model
         """
-        model = self.model_class()
+        model = self.model_class(self.current_context)
         model.key = riak_obj.key if riak_obj else data.get('key')
         return model.set_data(data, from_db=True)
 

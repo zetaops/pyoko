@@ -9,9 +9,9 @@
 from pyoko.model import Model, ListNode, field, LinkModel
 
 class Person(Model):
-    name = field.String()
-    section = field.String()
-    phone = field.String()
+    name = field.String(index=True)
+    section = field.String(index=True)
+    phone = field.String(index=True)
 
 
     def row_level_access(self, current):

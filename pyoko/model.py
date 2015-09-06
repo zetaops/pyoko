@@ -251,8 +251,9 @@ class Node(object):
         """
         returns the dotted path of the given model attribute
         """
-        return '.'.join(list(self.path + [un_camel(self.__class__.__name__),
-                                          prop]))
+        root = self.parent or self
+        return ('.'.join(list(self.path + [un_camel(self.__class__.__name__),
+                                          prop]))).replace(root._get_bucket_name() + '.', '')
 
     def _instantiate_linked_models(self):
         for name, (mdl, o2o) in self._linked_models.items():
@@ -321,7 +322,7 @@ class Node(object):
             if linked_model:
                 setattr(self, name, linked_model)
 
-    def _collect_index_fields(self, model_name=None, in_multi=False):
+    def _collect_index_fields(self, in_multi=False):
         """
         collects fields which will be indexed
         :param str model_name: base Model's name
@@ -329,15 +330,15 @@ class Node(object):
         :return: [(field_name, solr_type, is_indexed, is_stored, is_multi]
         """
         result = []
-        if not model_name:
-            model_name = self._get_bucket_name()
+        # if not model_name:
+        #     model_name = self._get_bucket_name()
         multi = in_multi or isinstance(self, ListNode)
         for name in self._linked_models:
             # obj = getattr(self, name) ### obj.has_many_values()
             result.append((un_camel_id(name), 'string', True, False, multi))
 
         for name, field_ins in self._fields.items():
-            field_name = self._path_of(name).replace(model_name + '.', '')
+            field_name = self._path_of(name)
             result.append((field_name,
                            field_ins.solr_type,
                            field_ins.index,
@@ -345,8 +346,7 @@ class Node(object):
                            multi))
         for mdl_ins in self._nodes:
             result.extend(
-                getattr(self, mdl_ins)._collect_index_fields(model_name,
-                                                             multi))
+                getattr(self, mdl_ins)._collect_index_fields(multi))
         return result
 
     def _load_data(self, data, from_db=False):
@@ -452,6 +452,7 @@ class Model(Node):
         self.title = kwargs.pop('title', self.__class__.__name__)
         super(Model, self).__init__(**kwargs)
         self.objects.model = self
+        self.objects.current_context = context
         self.objects.model_class = self.__class__
         self.saved_models = []
 

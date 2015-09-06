@@ -16,6 +16,9 @@ from pyoko.db.connection import client
 import os, inspect
 from pyoko.lib.utils import un_camel, random_word
 
+class FakeContext(object):
+    def has_permission(self, perm):
+        return True
 
 class SchemaUpdater(object):
     """
@@ -41,7 +44,7 @@ class SchemaUpdater(object):
         for model in self.registry.get_base_models():
             if self.bucket_names[
                 0] == 'all' or model.__name__.lower() in self.bucket_names:
-                ins = model()
+                ins = model(FakeContext())
                 fields = self.get_schema_fields(ins._collect_index_fields())
                 new_schema = self.compile_schema(fields)
 
