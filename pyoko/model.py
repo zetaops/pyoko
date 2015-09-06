@@ -303,24 +303,23 @@ class Node(object):
         :type kwargs: builtins.dict
         """
         # TODO: whe should process possible Meta['cell_filters'] in this phase
-
-        for name, _field in self._fields.items():
-            if name in kwargs:
-                val = kwargs.get(name, self._field_values.get(name))
-                path_name = self._path_of(name)
-                root = self.parent or self
-                if path_name in root.unpermitted_fields:
-                    self._secured_data[path_name] = val
-                    continue
-                if not kwargs.get('from_db'):
-                    setattr(self, name, val)
-                else:
-                    _field._load_data(self, val)
-
-        for name in self._linked_models:
-            linked_model = kwargs.get(name)
-            if linked_model:
-                setattr(self, name, linked_model)
+        if kwargs:
+            for name, _field in self._fields.items():
+                if name in kwargs:
+                    val = kwargs.get(name, self._field_values.get(name))
+                    path_name = self._path_of(name)
+                    root = self.parent or self
+                    if path_name in root.unpermitted_fields:
+                        self._secured_data[path_name] = val
+                        continue
+                    if not kwargs.get('from_db'):
+                        setattr(self, name, val)
+                    else:
+                        _field._load_data(self, val)
+            for name in self._linked_models:
+                linked_model = kwargs.get(name)
+                if linked_model:
+                    setattr(self, name, linked_model)
 
     def _collect_index_fields(self, in_multi=False):
         """
