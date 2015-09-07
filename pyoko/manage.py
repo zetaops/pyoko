@@ -20,7 +20,7 @@ class CommandRegistry(type):
     @classmethod
     def add_command(cls, command_model):
         name = command_model.__name__
-        if name not in cls.registry and name != 'Command':
+        if name != 'Command':
             cls.registry[command_model.__name__] = command_model
 
     def __init__(mcs, name, bases, attrs):
@@ -46,9 +46,11 @@ class Command(object):
 
 
 class SchemaUpdate(Command):
-    CMD_NAME = 'update_schema'
-    PARAMS = [('bucket', True, 'Bucket name(s) to be updated'),
-              ('silent', False, 'Silent operation')]
+    CMD_NAME = 'migrate'
+    PARAMS = [{'name': 'model', 'required':True, 'help': 'Models name(s) to be updated'
+                                                         'Say "all" to update all models'},
+              {'name': 'silent', 'help': 'Silent operation'},
+              ]
     HELP = 'Creates/Updates SOLR schemas for given model(s)'
 
     def run(self):
@@ -57,7 +59,7 @@ class SchemaUpdate(Command):
         from importlib import import_module
         import_module(settings.MODELS_MODULE)
         registry = import_module('pyoko.model').model_registry
-        updater = SchemaUpdater(registry, self.manager.args.bucket, self.manager.args.silent)
+        updater = SchemaUpdater(registry, self.manager.args.model, self.manager.args.silent)
         updater.run()
         return updater.create_report()
 
@@ -65,7 +67,8 @@ class SchemaUpdate(Command):
 class FlushDB(Command):
     CMD_NAME = 'flush_model'
     HELP = 'REALLY DELETES the contents of buckets'
-    PARAMS = [('model', True, 'Models name(s) to be cleared. Say "all" to clear all models'),
+    PARAMS = [{'name': 'model','required': True,
+               'help': 'Models name(s) to be cleared. Say "all" to clear all models'},
               ]
 
     def run(self):
@@ -81,23 +84,13 @@ class FlushDB(Command):
             models = registry.get_base_models()
         for mdl in models:
             num_of_records = mdl.objects._clear_bucket()
-            print("%s succesfully cleared. %s " % (mdl.__name__, num_of_records))
+            print("%s records deleted from %s " % (num_of_records, mdl.__name__))
 
 
 class ManagementCommands(object):
     """
-    all CLI commands executed by this class.
-
-    You can add your own Command objects in your manage.py file:
-
-    from pyoko.manage import Command
-    class MyCmd(Command):
-        CMD_NAME = 'mycommand'
-        PARAMS = [('my_param', True, 'Example description')]
-
-        def run(self):
-            import os
-            self.manager.report = os.popen('ls -lah').read()
+    All CLI commands executed by this class.
+    You can create your own commands by extending Command class
     """
 
     def __init__(self, args=None):
@@ -108,6 +101,8 @@ class ManagementCommands(object):
             input = args
         else:
             input = argv[1:]
+        if not input:
+            input = ['-h']
         self.parse_args(input)
         print(self.args.command() or '\nProcess completed')
 
@@ -117,9 +112,14 @@ class ManagementCommands(object):
         subparsers = parser.add_subparsers(title='Possible commands')
         for cmd_class in self.commands:
             cmd = cmd_class(self)
-            parser_create = subparsers.add_parser(cmd.CMD_NAME, help=getattr(cmd, 'HELP', None))
-            parser_create.set_defaults(command=cmd.run)
+            # print(cmd.CMD_NAME)
+            sub_parser = subparsers.add_parser(cmd.CMD_NAME, help=getattr(cmd, 'HELP', None))
+            sub_parser.set_defaults(command=cmd.run)
             if hasattr(cmd, 'PARAMS'):
-                for param, required, help in cmd.PARAMS:
-                    parser_create.add_argument('--%s' % param, required=required, help=help)
+                for params in cmd.PARAMS:
+                    name = "--%s" % params.pop("name")
+                    # params['des']
+                    if 'action' not in params:
+                        params['nargs'] = '?'
+                    sub_parser.add_argument(name, **params)
         self.args = parser.parse_args(args)

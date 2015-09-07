@@ -55,13 +55,13 @@ class SchemaUpdater(object):
                                                           model, self.silent)))
         if not self.silent:
             print(
-            "Schema creation started for %s model" % len(apply_threads))
+            "Schema creation started for %s model(s)\n" % len(apply_threads))
         for t in apply_threads:
             t.start()
         for t in apply_threads:
             t.join()
         if apply_threads:
-            self.report = "Schema and index definitions successfully " \
+            self.report = "\nSchema and index definitions successfully " \
                           "applied for the models listed above."
 
 
