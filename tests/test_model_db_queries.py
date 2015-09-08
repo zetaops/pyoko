@@ -12,7 +12,7 @@ from pyoko.conf import settings
 from pyoko.exceptions import MultipleObjectsReturned
 from pyoko.manage import ManagementCommands
 from tests.data.test_data import data, clean_data
-from tests.models import Student
+from tests.models import Student, TimeTable
 
 
 class TestCase:
@@ -26,9 +26,12 @@ class TestCase:
     @classmethod
     def clear_bucket(cls, reset):
         if not cls.cleaned_up or reset:
-            Student.objects._clear_bucket()
+            something_deleted = 0
+            for mdl in [Student, TimeTable]:
+                something_deleted += mdl.objects._clear_bucket()
             cls.cleaned_up = True
-            sleep(2)
+            if something_deleted:
+                sleep(2)
 
     @classmethod
     def get_or_create_new_obj(cls, reset):
@@ -139,3 +142,13 @@ class TestCase:
                     '_yz_rk': st.key}
         assert solr_doc == st2_doc
 
+
+    def test_lte_gte(self):
+        self.prepare_testbed()
+        TimeTable(week_day=4, hours=2).save()
+        TimeTable(week_day=2, hours=4).save()
+        TimeTable(week_day=5, hours=1).save()
+        TimeTable(week_day=3, hours=6).save()
+        sleep(1)
+        assert TimeTable.objects.filter(hours_gte=4).count() == 2
+        assert TimeTable.objects.filter(hours_lte=4).count() == 3

@@ -10,11 +10,14 @@ this module contains a base class for other db access classes
 import copy
 
 # noinspection PyCompatibility
+from datetime import date
+from datetime import datetime
 from enum import Enum
 from pyoko.conf import settings
 from pyoko.db.connection import client
 import riak
 from pyoko.exceptions import MultipleObjectsReturned
+from pyoko.field import DATE_FORMAT, DATE_TIME_FORMAT
 from pyoko.lib.py2map import Dictomap
 from pyoko.lib.utils import grayed
 
@@ -385,16 +388,38 @@ class DBObjects(object):
 
         for key, val in self._solr_query:
             key = key.replace('__', '.')
-            if key == 'deleted':
-                want_deleted = True
+            # quering on a linked model by model instance
+            # it should be a Model, not a Node!
+            if hasattr(val, '_TYPE'):
+                val = val.key
+                key += "_id"
+            elif isinstance(val, date):
+                val = val.strftime(DATE_FORMAT)
+            elif isinstance(val, datetime):
+                val = val.strftime(DATE_TIME_FORMAT)
+            # if it's not one of the expected objects, it should be a string
+            # solr wants quotes when query has spaces
+            elif ' ' in str(val):
+                val = '"' + val + '"'
 
-            if val is None:
+            # lower than or equal
+            if key.endswith('_lte'):
+                key = key[:-4]
+                val = '[* TO %s]' % val
+            # greater than or equal
+            elif key.endswith('_gte'):
+                key = key[:-4]
+                val = '[%s TO *]' % val
+            # as long as not explicity asked for,
+            # we filter out records with deleted flag
+            elif key == 'deleted':
+                want_deleted = True
+            # filter out records that contain any value for this field
+            elif val is None:
                 key = '-%s' % key
                 val = '[* TO *]'
-            val = str(val)
-            if ' ' in val:
-                val = '"' + val + '"'
             query.append("%s:%s" % (key, val))
+
         if not want_deleted:
             query.append('-deleted:True')
         anded = ' AND '.join(query)
