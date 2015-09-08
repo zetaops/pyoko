@@ -25,27 +25,6 @@ fh.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(me
 log.addHandler(fh)
 log.setLevel(logging.INFO)
 
-class LinkModel(object):
-    _TYPE = 'Proxy'
-
-    def __init__(self, model, one_to_one=False, **kwargs):
-        self.model = model
-        self.is_one_to_one = one_to_one
-        self.kwargs = kwargs
-
-
-# class LinkModelProxy(object):
-#     # TODO: this isn't nice, brake's introspection in ipython etc
-#     def __init__(self, model, name, o2o, root):
-#         self.model = model
-#         self.name = name
-#         self.o2o = o2o
-#         self.root = root
-#
-#     def __getattr__(self, item):
-#         model = self.model(self.o2o)
-#         setattr(self.root, self.name, model)
-#         return getattr(model, item)
 
 # region ModelMeta and Registry
 class Registry(object):
@@ -97,10 +76,8 @@ class Registry(object):
         # create a new class which extends ListNode
         klass_instance = klass()
         klass_instance._is_auto_created = True
-        listnode = type(set_name,
-                        (ListNode, ),
-                        {klass_name: klass_instance,
-                         '_is_auto_created': True})
+        listnode = type(set_name, (ListNode,),
+                        {klass_name: klass_instance, '_is_auto_created': True})
         listnode._linked_models[klass_name] = (klass, False)
         linked_model._nodes[set_name] = listnode
         # add just created model_set to already initialised instances
@@ -114,6 +91,7 @@ class Registry(object):
 
     def get_model(self, model_name):
         return self.registry[model_name]
+
 
 model_registry = Registry()
 
@@ -185,15 +163,6 @@ class ModelMeta(type):
         copy_of_base_meta.update(meta)
         attrs['META'] = copy_of_base_meta
 
-    # @staticmethod
-    # def process_cell_filters(meta):
-    #     meta['cell_permissions'] = defaultdict(list)
-    #     for perm, fields in meta['cell_filters'].items():
-    #         for field in fields:
-    #             meta['cell_permissions'][field].append(perm)
-
-
-
 
 # endregion
 
@@ -207,11 +176,11 @@ class Node(object):
     Likewise we store linked models in _linked_models[]
 
     Since fields are defined as descriptors,
-    they can access to instance they called from but
-    we can't access to their methods and attributes from model instance.
-    I've kinda solved it by copying fields in to _fields[] attribute of
-    model instance at ModelMeta. So, we get values of fields from _field_values[]
-    and access to fields themselves from _fields[]
+    they can access to instance they called from but to
+    access their methods and attributes,
+    we're copying fields themself into self._fields[] attribute.
+    So, we get values of fields from self._field_values[]
+    and access to fields themselves from self._fields[]
 
     """
     _TYPE = 'Node'
@@ -253,13 +222,13 @@ class Node(object):
         """
         root = self.root or self
         return ('.'.join(list(self.path + [un_camel(self.__class__.__name__),
-                                          prop]))).replace(root._get_bucket_name() + '.', '')
+                                           prop]))).replace(root._get_bucket_name() + '.', '')
 
     def _instantiate_linked_models(self):
         for name, (mdl, o2o) in self._linked_models.items():
             # TODO: investigate if this really required/needed and remove if not
             # mdl.root = self.root or self
-            root=self.root or self
+            root = self.root or self
             obj = lazy_object_proxy.Proxy(lambda: mdl(root.context, root=root))
             setattr(self, name, obj)
 
@@ -497,7 +466,6 @@ class Model(Node):
             if not context.has_permission(perm):
                 self.unpermitted_fields.extend(fields)
 
-
     def row_level_access(self, context):
         """
         Define your query filters in here to enforce row level access control
@@ -627,6 +595,7 @@ class ListNode(Node):
         self.node_dict = {}
         # print("KWARGS", kwargs, self)
         super(ListNode, self).__init__(**kwargs)
+
     # ######## Public Methods  #########
 
     def get(self, key):
@@ -715,6 +684,7 @@ class ListNode(Node):
             except (UnicodeEncodeError, UnicodeDecodeError):
                 u = '[Bad Unicode data]'
             return six.text_type('<%s: %s>' % (self.__class__.__name__, u))
+
     # def __hash__(self):
     #     if self.HASH_BY:
     #         return hash(getattr(self, self.HASH_BY))

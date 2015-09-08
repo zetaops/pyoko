@@ -6,13 +6,13 @@
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
-from pyoko.model import Model, ListNode, field, LinkModel
+from pyoko import Model, field
+
 
 class Person(Model):
     name = field.String(index=True)
     section = field.String(index=True)
     phone = field.String(index=True)
-
 
     def row_level_access(self, current):
         if not current.has_permission("access_to_other_sections"):
@@ -26,6 +26,7 @@ class Person(Model):
         },
     }
 
+
 class MockContext(object):
     def __init__(self, **kwargs):
         self.perms = {
@@ -33,9 +34,8 @@ class MockContext(object):
             'access_to_other_sections': True,
         }
         self.perms.update(kwargs)
-        self.user = type('',(),{})
+        self.user = type('', (), {})
         self.user.section = 'Section_A'
-
 
     def has_permission(self, perm):
         return self.perms[perm]
@@ -45,5 +45,3 @@ class MockContext(object):
 
     def restrict(self, perm):
         self.perms[perm] = False
-
-
