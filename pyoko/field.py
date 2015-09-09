@@ -87,7 +87,7 @@ class Id(BaseField):
 
     def clean_value(self, val):
         try:
-            if val is not None:
+            if val:
                 return str(val)
             else:
                 return str(self.default() if self.default else uuid.uuid4().hex)
