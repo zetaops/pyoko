@@ -1,6 +1,7 @@
 # -*-  coding: utf-8 -*-
 """
-this module holds classes that responsible for form generation both from models or standalone
+this module holds methods that responsible for form generation
+both from models or standalone forms
 """
 
 # Copyright (C) 2015 ZetaOps Inc.
@@ -88,12 +89,9 @@ class ModelForm(object):
             result.append({'name': node_name,
                            'type': node_type,
                            'title': node_name,
-                           'value': "!",
+                           'value': self.serialize_node_models_fields(nodes, node_name),
                            'required': None,
                            'default': None,
-                           # 'section': 'main',
-                           'models': self.serialize_node_models(nodes, node_name),
-                           'fields': self.serialize_node_fields(nodes, node_name),
                            })
 
     def get_models(self, result):
@@ -108,7 +106,6 @@ class ModelForm(object):
                                                           fields=True)._serialize()),
                            'required': None,
                            'default': None,
-                           # 'section': 'main',
                            })
 
     def get_fields(self, result):
@@ -128,42 +125,36 @@ class ModelForm(object):
                            'required': field.required,
                            'title': field.title,
                            'default': default,
-                           # 'section': 'main',
-                           # 'storage': 'main',
                            })
 
-    def serialize_node_models(self, nodes, parent_name):
+    def serialize_node_models_fields(self, nodes, parent_name):
         result = []
         for real_node in nodes:
+            node_data = {'models': [], 'fields': []}
             for model_attr_name in real_node._linked_models:
                 model_instance = getattr(real_node, model_attr_name)
-                result.append({'name': "%s_id" % model_attr_name,
-                               'model_name': model_instance.__class__.__name__,
-                               'type': 'model',
-                               'title': model_instance.__class__.__name__,
-                               'value': model_instance.key,
-                               'content': list(self.__class__(model_instance, fields=True,
-                                                              models=True)._serialize()),
-                               'required': None,
-                               'default': None,
-                               # 'section': parent_name,
-                               })
-        return result
-
-    def serialize_node_fields(self, nodes, parent_name):
-        result = []
-        for real_node in nodes:
+                node_data['models'].append({'name': "%s_id" % model_attr_name,
+                                            'model_name': model_instance.__class__.__name__,
+                                            'type': 'model',
+                                            'title': model_instance.__class__.__name__,
+                                            'value': model_instance.key,
+                                            'content': list(
+                                                self.__class__(model_instance, fields=True,
+                                                               models=True)._serialize()),
+                                            'required': None,
+                                            'default': None,
+                                            })
             for name, field in real_node._fields.items():
-                result.append({
-                    'name': "%s.%s" % (un_camel(parent_name), name),
+                node_data['fields'].append({
+                    'name': name,
                     'type': self.customize_types.get(name, field.solr_type),
                     'title': field.title,
                     'value': real_node._field_values.get(name, ''),
                     'required': field.required,
                     'default': field.default() if callable(field.default)
                     else field.default,
-                    # 'section': parent_name,
                 })
+            result.append(node_data)
         return result
 
 
