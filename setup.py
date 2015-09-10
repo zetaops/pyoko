@@ -13,4 +13,7 @@ setup(
     author_email='info@zetaops.io',
     url='https://github.com/zetaops/pyoko',
     packages=find_packages(exclude=['tests', 'tests.*']),
+    package_data = {
+        'pyoko': ['db/*.xml'],
+    }
 )
