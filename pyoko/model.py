@@ -352,8 +352,7 @@ class Node(object):
             if path_name in self._secured_data:
                 dct[un_camel(name)] = self._secured_data[path_name]
             else:
-                dct[un_camel(name)] = field_ins.clean_value(
-                    self._field_values.get(name))
+                dct[un_camel(name)] = field_ins.clean_value(self._field_values.get(name))
         return dct
 
     def _clean_linked_model_value(self, dct):
@@ -370,6 +369,10 @@ class Node(object):
             else:
                 dct['_cache'][_name] = {}
             dct['_cache'][_name]['key'] = link_mdl.key
+
+    def clean_field_values(self):
+        return dict((un_camel(name), field_ins.clean_value(self._field_values.get(name)))
+                     for name, field_ins in self._fields.items())
 
     def clean_value(self):
         """
