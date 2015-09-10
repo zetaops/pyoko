@@ -19,11 +19,11 @@ from pyoko.lib.utils import un_camel, un_camel_id, lazy_property
 import weakref
 import lazy_object_proxy
 
-log = logging.getLogger(__name__)
-fh = logging.FileHandler(filename="/tmp/pyoko.log", mode="w")
-fh.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-log.addHandler(fh)
-log.setLevel(logging.INFO)
+# log = logging.getLogger(__name__)
+# fh = logging.FileHandler(filename="/tmp/pyoko.log", mode="w")
+# fh.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+# log.addHandler(fh)
+# log.setLevel(logging.INFO)
 
 
 class Registry(object):
@@ -619,7 +619,8 @@ class ListNode(Node):
 
     def _load_data(self, data, from_db=False):
         """
-        just stores the data at self._data, actual object creation done at _generate_instances()
+        just stores the data at self._data,
+        actual object creation done at _generate_instances()
         """
         self._data = data
         self.data = data[:]
