@@ -26,7 +26,6 @@ log.addHandler(fh)
 log.setLevel(logging.INFO)
 
 
-# region ModelMeta and Registry
 class Registry(object):
     def __init__(self):
         self.registry = {}
@@ -162,9 +161,6 @@ class ModelMeta(type):
         copy_of_base_meta = base_model_class._META.copy()
         copy_of_base_meta.update(meta)
         attrs['META'] = copy_of_base_meta
-
-
-# endregion
 
 
 @add_metaclass(ModelMeta)
