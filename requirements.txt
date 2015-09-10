@@ -1,4 +1,4 @@
--e git://github.com/basho/riak-python-client.git#egg=riak
+git+https://github.com/basho/riak-python-client.git#egg=riak
 lazy_object_proxy
 enum34
 six
