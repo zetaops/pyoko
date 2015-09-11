@@ -4,23 +4,22 @@
 ### A Django-esque ORM for Riak KV  ###
 
 #### Supported Features ####
-- Supports Riak 2.1.1
+- Supports latest Riak (2.1.1)
 - Nested class based data models (schemas).
 - AND queries by using filter() and exclude() methods.
 - Query chaining and caching.
 - Automatic Solr schema creation / update (one way migration).
-- One-To-One, ManyToMany and ManyToOne relations with auto denormalization
+- One-To-One, ManyToMany and ManyToOne relations with auto denormalization (aka reactive joins / write-time joins)
+- Row level access control, permission based cell filtering.
 
 #### Work in progress ####
-- Row level access control, permission based cell filtering.
+- More pythonic APIs for Solr's extensive query features. (OR queries, searching in list of values)
 - Self referencing model relations.
 
 #### Planned ####
-- More pythonic APIs for Solr's extensive query features.
-- Custom and backwards migrations.
-- Auto retry of failed writes (on strongly consistent buckets).  
+- Auto retry of failed writes (on strongly consistent buckets).
 - Automatic versioning on write-once buckets.
-- Picklable models.
+- Custom migrations with migration history.
 - CRDT based models.
 
 ---
@@ -48,7 +47,7 @@ Base file structure of a Pyoko based project;
     RIAK_SERVER = 'localhost'
     RIAK_PROTOCOL = 'http'
     RIAK_PORT = '8098'
-    
+
     # if not defined, will be searched within same directory as settings.py
     # MODELS_MODULE = '<PYTHON.PATH.OF.MODELS.MODULE>'
 
@@ -64,7 +63,7 @@ Base file structure of a Pyoko based project;
     class User(Model):
         name = field.String(index=True)
 
-        
+
         class AuthInfo(Node):
             username = field.String(index=True)
             email = field.String(index=True)
@@ -83,7 +82,7 @@ See tests for more usage examples.
 ```python
 
         from my_project.models import User, Employee
-        
+
         user = User(name='John').save()
         employee = Employee(role='Coder', usr=user).save()
         emp_from_db = Employee.objects.get(employee.key)
@@ -114,7 +113,7 @@ Create a bucket type named "pyoko_models" and activate it with following command
 ./bin/riak-admin bucket-type activate pyoko_models
 
 ```
-You need to define the following environmental variable to run tests. 
+You need to define the following environmental variable to run tests.
 
 `PYOKO_SETTINGS='tests.settings'`
 
@@ -123,7 +122,7 @@ to create or update schemas run the following command:
 ` python manage.py update_schema --bucket \<model_name\>,\<model_name\> `
 
 or
- 
+
 ` python manage.py update_schema --bucket all `
 
 **py.test** command runs all the tests from tests directory.
