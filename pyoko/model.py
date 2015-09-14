@@ -80,6 +80,7 @@ class Registry(object):
         listnode._linked_models[klass_name] = (klass, False)
         linked_model._nodes[set_name] = listnode
         # add just created model_set to already initialised instances
+        # to models that initialized inside of another model as linked model
         for instance_ref in linked_model._instance_registry:
             mdl = instance_ref()
             if mdl:  # if not yet garbage collected
@@ -414,8 +415,11 @@ class Model(Node):
         self._instance_registry.add(weakref.ref(self))
         self.unpermitted_fields = []
         self.context = context
-        self.row_level_access(context)
-        self.apply_cell_filters(context)
+        self._pass_perm_checks = kwargs.pop('_pass_perm_checks', False)
+        if not self._pass_perm_checks:
+            self.row_level_access(context)
+            self.apply_cell_filters(context)
+        self.objects._pass_perm_checks = self._pass_perm_checks
         # self._prepare_linked_models()
         self._is_one_to_one = kwargs.pop('one_to_one', False)
         self.title = kwargs.pop('title', self.__class__.__name__)
@@ -472,6 +476,8 @@ class Model(Node):
         eg:
             self.objects = self.objects.filter(user=context.user.key)
         """
+        # FIXME: Row level access control should be enforced on cached related objects
+        #  currently it's only work on direct queries
         pass
 
     @lazy_property
@@ -537,7 +543,7 @@ class Model(Node):
         # FIXME: when called from a deleted object,
         # we should also remove it from target model's cache
         for name, mdl in self._get_reverse_links():
-            for obj in mdl.objects.filter(**{un_camel_id(name): self.key}):
+            for obj in mdl(_pass_perm_checks=True).objects.filter(**{un_camel_id(name): self.key}):
                 if obj.key in self.saved_models:
                     continue
                 setattr(obj, name, self)
@@ -551,7 +557,7 @@ class Model(Node):
                 # Currently we don't have any mechanism to enforce definition of
                 # fields or linked models.
                 # TODO: Add blank=False validation for fields and linked models
-            obj = mdl.objects.get(cached_obj.key)
+            obj = mdl(_pass_perm_checks=True).objects.get(cached_obj.key)
             back_linking_model = getattr(obj, name, None)
             if obj.key in self.saved_models:
                 # to prevent circular saves, but may cause missed cache updates
