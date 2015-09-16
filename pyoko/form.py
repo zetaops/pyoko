@@ -130,10 +130,11 @@ class ModelForm(object):
     def serialize_node_models_fields(self, nodes, parent_name):
         result = []
         for real_node in nodes:
-            node_data = {'models': [], 'fields': []}
+            # node_data = {'models': [], 'fields': []}
             for model_attr_name in real_node._linked_models:
                 model_instance = getattr(real_node, model_attr_name)
-                node_data['models'].append({'name': "%s_id" % model_attr_name,
+                result.append({'name': "%s_id" % model_attr_name,
+
                                             'model_name': model_instance.__class__.__name__,
                                             'type': 'model',
                                             'title': model_instance.__class__.__name__,
@@ -145,7 +146,7 @@ class ModelForm(object):
                                             'default': None,
                                             })
             for name, field in real_node._fields.items():
-                node_data['fields'].append({
+                result.append({
                     'name': name,
                     'type': self.customize_types.get(name, field.solr_type),
                     'title': field.title,
@@ -154,7 +155,6 @@ class ModelForm(object):
                     'default': field.default() if callable(field.default)
                     else field.default,
                 })
-            result.append(node_data)
         return result
 
 
