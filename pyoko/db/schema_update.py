@@ -101,7 +101,7 @@ class SchemaUpdater(object):
         :return: compiled schema
         :rtype: byte
         """
-        path = os.path.realpath(__file__)
+        path = os.path.dirname(os.path.realpath(__file__))
         # path = os.path.dirname(
         #     os.path.abspath(inspect.getfile(inspect.currentframe())))
         with codecs.open("%s/solr_schema_template.xml" % path, 'r',
