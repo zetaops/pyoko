@@ -14,7 +14,7 @@ from pyoko.exceptions import ValidationError
 
 DATE_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 DATE_FORMAT = "%Y-%m-%dT00:00:00Z"
-
+EMPTY_DATETIME = '0000-00-00T00:00:00Z'
 
 # W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W#W
 #
@@ -132,8 +132,9 @@ class DateTime(BaseField):
         self.format = kwargs.pop('format', DATE_TIME_FORMAT)
         super(DateTime, self).__init__(*args, **kwargs)
         if self.default is None:
-            self.default = lambda: datetime.datetime.now().strftime(
-                DATE_TIME_FORMAT)
+            self.default = EMPTY_DATETIME
+        elif self.default == 'now':
+            self.default = lambda: datetime.datetime.now().strftime(DATE_TIME_FORMAT)
 
     def clean_value(self, val):
         if val is None:
@@ -147,8 +148,11 @@ class DateTime(BaseField):
         instance._field_values[self.name] = value
 
     def _load_data(self, instance, value):
-        instance._field_values[self.name] = datetime.datetime.strptime(value,
-                                                                       DATE_TIME_FORMAT)
+        if value == EMPTY_DATETIME:
+            value = None
+        else:
+            value = datetime.datetime.strptime(value, DATE_TIME_FORMAT)
+        instance._field_values[self.name] = value
 
 
 class Date(BaseField):
@@ -158,8 +162,9 @@ class Date(BaseField):
         self.format = kwargs.pop('format', DATE_FORMAT)
         super(Date, self).__init__(*args, **kwargs)
         if self.default is None:
-            self.default = lambda: datetime.datetime.now().strftime(
-                DATE_FORMAT)
+            self.default = '0000-00-00T00:00:00Z'
+        elif self.default == 'now':
+            self.default = lambda: datetime.datetime.now().strftime(DATE_FORMAT)
 
     def __set__(self, instance, value):
         if isinstance(value, six.string_types):
@@ -173,8 +178,11 @@ class Date(BaseField):
             return val.strftime(DATE_FORMAT)
 
     def _load_data(self, instance, value):
-        instance._field_values[self.name] = datetime.datetime.strptime(value,
-                                                                       DATE_FORMAT).date()
+        if value == EMPTY_DATETIME:
+            value = None
+        else:
+            value = datetime.datetime.strptime(value, DATE_FORMAT).date()
+        instance._field_values[self.name] = value
 
 
 class Integer(BaseField):
