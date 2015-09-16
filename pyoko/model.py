@@ -176,7 +176,9 @@ class ModelMeta(type):
         if 'Meta' not in attrs:
             attrs['Meta'] = type('Meta', (object,), DEFAULT_META)
         else:
-            attrs['Meta'].__dict__.update(DEFAULT_META)
+            for k, v in DEFAULT_META.items():
+                if k not in attrs['Meta'].__dict__:
+                    attrs['Meta'].__dict__[k] = v
 
 
 

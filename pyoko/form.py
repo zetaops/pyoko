@@ -139,7 +139,7 @@ class ModelForm(object):
             result.append({'name': "%s_id" % model_attr_name,
                            'model_name': model_instance.__class__.__name__,
                            'type': 'model',
-                           'title': model_instance.META.verbose_name,
+                           'title': model_instance.Meta.verbose_name,
                            'required': None, })
         for name, field in node._fields.items():
             result.append({

@@ -14,67 +14,6 @@ from tests.data.test_data import data, clean_data
 
 from tests.models import *
 
-raw_form_output = [{'default': None,
-                    'name': 'AuthInfo',
-                    'required': None,
-                    'title': 'AuthInfo',
-                    'type': 'Node',
-                    'value': [{'fields': [{'default': None,
-                                           'name': 'username',
-                                           'required': True,
-                                           'title': 'Username',
-                                           'type': 'string',
-                                           'value': 'foo_user'},
-                                          {'default': None,
-                                           'name': 'password',
-                                           'required': True,
-                                           'title': 'Password',
-                                           'type': 'string',
-                                           'value': '123'},
-                                          {'default': None,
-                                           'name': 'email',
-                                           'required': True,
-                                           'title': 'Email',
-                                           'type': 'string',
-                                           'value': 'suuper@suup.com'}],
-                               'models': []}]},
-                   {'default': None,
-                    'name': 'bio',
-                    'required': True,
-                    'title': 'Biography',
-                    'type': 'text_general',
-                    'value': 'Lorem impsum dolar sit amet falan filan'},
-                   {'default': None,
-                    'name': 'join_date',
-                    'required': True,
-                    'title': 'Join Date',
-                    'type': 'date',
-                    'value': datetime.date(2015, 5, 16)},
-                   {'default': None,
-                    'name': 'name',
-                    'required': True,
-                    'title': 'First Name',
-                    'type': 'text_tr',
-                    'value': 'Jack'},
-                   {'default': None,
-                    'name': 'number',
-                    'required': True,
-                    'title': 'Student No',
-                    'type': 'string',
-                    'value': '20300344'},
-                   {'default': None,
-                    'name': 'pno',
-                    'required': True,
-                    'title': 'TC No',
-                    'type': 'string',
-                    'value': '2343243433'},
-                   {'default': None,
-                    'name': 'surname',
-                    'required': True,
-                    'title': 'Last Name',
-                    'type': 'text_tr',
-                    'value': 'Black'}]
-
 received_data = {
     'auth_info.email': 'duuper@suup.com',
     'auth_info.password': '1111',
@@ -106,44 +45,6 @@ serialized_login_form = [
      'type': 'string', 'required': True, 'title': 'Username'}
 ]
 
-linked_model_out = [{'default': None,
-                     'fields': [{'default': None,
-                                 'name': 'permissions.idx',
-                                 'required': True,
-                                 'title': '',
-                                 'type': 'string',
-                                 'value': u'164647af596647cfaa5ad1ab1c84714e'}],
-                     'models': [{'content': [{'default': None,
-                                              'name': 'codename',
-                                              'required': True,
-                                              'title': 'Codename',
-                                              'type': 'string',
-                                              'value': u'employee.all'},
-                                             {'default': None,
-                                              'name': 'name',
-                                              'required': True,
-                                              'title': 'Name',
-                                              'type': 'string',
-                                              'value': u'Can see employee data'}],
-                                 'default': None,
-                                 'model_name': 'Permission',
-                                 'name': 'permission_id',
-                                 'required': None,
-                                 'title': 'permission',
-                                 'type': 'model',
-                                 'value': u'D3Tu8VE0EqxgZfEGMnLdbJilQuk'}],
-                     'name': 'Permissions',
-                     'required': None,
-                     'title': 'Permissions',
-                     'type': 'ListNode',
-                     'value': '!'},
-                    {'default': None,
-                     'name': 'name',
-                     'required': True,
-                     'title': 'Name',
-                     'type': 'string',
-                     'value': u'Employee Manager'}]
-
 
 # noinspection PyMethodMayBeStatic
 class TestCase:
@@ -165,7 +66,9 @@ class TestCase:
         serialized_model = sorted(ModelForm(student)._serialize(), key=lambda d: d['name'])
         # print("============================")
         # pprint(serialized_model)
-        assert raw_form_output == serialized_model
+        assert serialized_model[0]['name'] == 'AuthInfo'
+        assert len(serialized_model[0]['schema']) == 3
+        assert serialized_model[0]['value']['password'] == '123'
 
     def test_plain_form(self):
         serialized_model = sorted(LoginForm()._serialize(), key=lambda d: d['name'])
@@ -182,7 +85,8 @@ class TestCase:
         student = ModelForm(Student()).deserialize(received_data)
         student.save()
         sleep(2)
-        db_student = Student.objects.filter(auth_info__email=received_data['auth_info.email']).get()
+        db_student = Student.objects.filter(
+            auth_info__email=received_data['auth_info.email']).get()
         assert db_student.AuthInfo.email == received_data['auth_info.email']
         assert db_student.bio == received_data['bio']
 
@@ -191,9 +95,8 @@ class TestCase:
         abs_role = AbstractRole(name="Employee Manager").save()
         arole = AbstractRole.objects.get(abs_role.key)
         serialized_model = sorted(ModelForm(arole, all=True)._serialize(), key=lambda d: d['name'])
-        print("=====================================")
-        pprint(serialized_model)
-        print("=====================================")
-        assert serialized_model[0]['value']['content'][0]['name'] == 'codename'
-
-        assert serialized_model[1]['value'] == 'Employee Manager'
+        # print("=====================================")
+        # pprint(serialized_model)
+        # print("=====================================")
+        assert serialized_model[0]['schema'][0]['model_name'] == 'Permission'
+        assert serialized_model[1]['title'] == 'Name'
