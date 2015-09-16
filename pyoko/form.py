@@ -8,6 +8,7 @@ both from models or standalone forms
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
+import six
 from pyoko.field import BaseField
 from pyoko.lib.utils import un_camel, to_camel
 
@@ -48,16 +49,23 @@ class ModelForm(object):
         # TODO: investigate and integrate necessary security precautions on received data
         # TODO: Add listnode support
 
-        proccessed_data = {}
+        field_data = {}
+        node_data = {}
+        listnode_data = {}
         for key, val in data.items():
-            if '.' in key:
-                keys = key.split('.')
-                if keys[0] not in proccessed_data:
-                    proccessed_data[keys[0]] = {}
-                proccessed_data[keys[0]][keys[1]] = val
-            else:
-                proccessed_data[key] = val
-        self.model.set_data(proccessed_data)
+            if isinstance(val, six.string_types):
+                field_data[key] = val
+            elif isinstance(val, dict):
+                node_data[key] = val
+            elif isinstance(val, list):
+                listnode_data[key] = val
+        self.model.set_data(field_data)
+        for k in node_data:
+            getattr(self.model, k)(node_data[k])
+        for k in listnode_data:
+            list_node = getattr(self.model, k)
+            for node_item in listnode_data[k]:
+                list_node(node_item)
         return self.model
 
     def _serialize(self):
