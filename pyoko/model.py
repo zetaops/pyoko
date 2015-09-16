@@ -19,6 +19,7 @@ from pyoko.lib.utils import un_camel, un_camel_id, lazy_property
 import weakref
 import lazy_object_proxy
 
+
 # log = logging.getLogger(__name__)
 # fh = logging.FileHandler(filename="/tmp/pyoko.log", mode="w")
 # fh.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
@@ -275,7 +276,7 @@ class Node(object):
                     val = kwargs.get(name, self._field_values.get(name))
                     path_name = self._path_of(name)
                     root = self.root or self
-                    if path_name in root.unpermitted_fields:
+                    if path_name in root.get_unpermitted_fields():
                         self._secured_data[path_name] = val
                         continue
                     if not kwargs.get('from_db'):
@@ -372,7 +373,7 @@ class Node(object):
 
     def clean_field_values(self):
         return dict((un_camel(name), field_ins.clean_value(self._field_values.get(name)))
-                     for name, field_ins in self._fields.items())
+                    for name, field_ins in self._fields.items())
 
     def clean_value(self):
         """
@@ -413,19 +414,18 @@ class Model(Node):
         self._riak_object = None
         self._instance_registry.add(weakref.ref(self))
         self.unpermitted_fields = []
+        self.unpermitted_fields_set = False
         self.context = context
         self._pass_perm_checks = kwargs.pop('_pass_perm_checks', False)
-        if not self._pass_perm_checks:
-            self.row_level_access(context)
-            self.apply_cell_filters(context)
+        # if not self._pass_perm_checks:
+        #     self.row_level_access(context)
+        #     self.apply_cell_filters(context)
         self.objects._pass_perm_checks = self._pass_perm_checks
         # self._prepare_linked_models()
         self._is_one_to_one = kwargs.pop('one_to_one', False)
         self.title = kwargs.pop('title', self.__class__.__name__)
         super(Model, self).__init__(**kwargs)
-        self.objects.model = self
-        self.objects.current_context = context
-        self.objects.model_class = self.__class__
+        self.objects.set_model(model=self)
         self.saved_models = []
 
     def is_in_db(self):
@@ -464,11 +464,19 @@ class Model(Node):
         return self
 
     def apply_cell_filters(self, context):
+        self.unpermitted_fields_set = True
         for perm, fields in self.META['field_permissions'].items():
             if not context.has_permission(perm):
                 self.unpermitted_fields.extend(fields)
+        return self.unpermitted_fields
 
-    def row_level_access(self, context):
+    def get_unpermitted_fields(self):
+        return (self.unpermitted_fields if self.unpermitted_fields_set else
+                self.apply_cell_filters(self.context))
+
+
+    @staticmethod
+    def row_level_access(context, objects):
         """
         Define your query filters in here to enforce row level access control
         context should contain required user attributes and permissions

@@ -43,11 +43,11 @@ class DBObjects(object):
         self._cfg.update(conf)
         self.model = None
         self._client = self._cfg.pop('client', client)
+
         if 'model' in conf:
-            self.model = conf['model']
-            self.model_class = self.model.__class__
+            self.set_model(model=conf['model'])
         elif 'model_class' in conf:
-            self.model_class = conf['model_class']
+            self.set_model(model_class=conf['model_class'])
 
         self.set_bucket(self.model_class._META['bucket_type'],
                         self.model_class._get_bucket_name())
@@ -63,6 +63,18 @@ class DBObjects(object):
         # for repeating iterations on same query
 
     # ######## Development Methods  #########
+
+    def set_model(self, model=None, model_class=None):
+        if model:
+            self.model = model
+            self.model_class = model.__class__
+            self.current_context = self.model.context
+        elif model_class:
+            self.model = None
+            self.model_class = model_class
+            self.current_context = None
+        else:
+            raise Exception("DBObjects should be called with a model instance or class")
 
     def w(self, brief=True):
         """
@@ -386,7 +398,9 @@ class DBObjects(object):
         # TODO: escape following chars: + - && || ! ( ) { } [ ] ^ " ~ * ? : \
         query = []
         want_deleted = False
-
+        filtered_query = self.model_class.row_level_access(self.current_context, self)
+        if filtered_query is not None:
+            self._solr_query += filtered_query._solr_query
         for key, val in self._solr_query:
             key = key.replace('__', '.')
             # quering on a linked model by model instance
