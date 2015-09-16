@@ -269,7 +269,6 @@ class Node(object):
         fill the fields of this node
         :type kwargs: builtins.dict
         """
-        # TODO: whe should process possible Meta['cell_filters'] in this phase
         if kwargs:
             for name, _field in self._fields.items():
                 if name in kwargs:

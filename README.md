@@ -54,20 +54,22 @@ Base file structure of a Pyoko based project;
 ```
 
 
-- models.py (or models module)
+- models.py (or models package)
 
 ```python
 
-    from pyoko import Model, Node, ListNode, field
+    from pyoko import Model, Node, field
 
     class User(Model):
-        name = field.String(index=True)
+        first_name = field.String("Name", index=True)
+        last_name = field.String("Surname", index=True)
 
 
-        class AuthInfo(Node):
-            username = field.String(index=True)
-            email = field.String(index=True)
-            password = field.String()
+        class ContactInfo(Node):
+            address = field.String("Address", index=True, null=True, blank=True)
+            city = field.String("City", index=True)
+            phone = field.String("Phone", index=True)
+            email = field.String("Email", index=True)
 
     class Employee(Model):
         usr = User()
@@ -83,11 +85,14 @@ See tests for more usage examples.
 
         from my_project.models import User, Employee
 
-        user = User(name='John').save()
+        user = User(name='John')
+        user_cont_info = user.ContactInfo(email="foo@foo.com", city="Izmir")
+        user_cont_info.phone = "902327055555"
+        user.save()
         employee = Employee(role='Coder', usr=user).save()
         emp_from_db = Employee.objects.get(employee.key)
         for emp in Employee.objects.filter(role='Coder'):
-            print(emp.usr.name)
+            print(emp.usr.name, emp.usr.ContactInfo.email)
 
 ```
 
