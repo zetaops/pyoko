@@ -187,12 +187,13 @@ class TestCase:
         assert db_student.bio == received_data['bio']
 
     def test_list_node_with_linked_model(self):
+        self.clean()
         abs_role = AbstractRole(name="Employee Manager").save()
         arole = AbstractRole.objects.get(abs_role.key)
         serialized_model = sorted(ModelForm(arole, all=True)._serialize(), key=lambda d: d['name'])
-        # print("=====================================")
-        # pprint(serialized_model)
-        # print("=====================================")
-        assert linked_model_out[0]['models'][0]['content'][0]['name'] == 'codename'
+        print("=====================================")
+        pprint(serialized_model)
+        print("=====================================")
+        assert serialized_model[0]['value']['content'][0]['name'] == 'codename'
 
         assert serialized_model[1]['value'] == 'Employee Manager'

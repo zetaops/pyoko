@@ -111,14 +111,29 @@ class ModelMeta(type):
         return new_class
 
     def __init__(mcs, name, bases, attrs):
+        if mcs.__name__ not in ('Model', 'Node', 'ListNode'):
+           ModelMeta.process_objects(mcs)
         if mcs.__base__.__name__ == 'Model':
             # add models to model_registry
             mcs.objects = DBObjects(model_class=mcs)
             model_registry.register_model(mcs)
+            if 'bucket_name' not in mcs.Meta.__dict__:
+                mcs.Meta.bucket_name = un_camel(mcs.__name__)
 
     @staticmethod
     def process_listnode(attrs, base_model):
         attrs['idx'] = field.Id()
+
+    @staticmethod
+    def process_objects(kls):
+        # first add a Meta object if not exists
+        if 'Meta' not in kls.__dict__:
+            kls.Meta = type('Meta', (object,), {})
+        # set verbose_name(s) if not already set
+        if 'verbose_name' not in kls.Meta.__dict__:
+            kls.Meta.verbose_name = kls.__name__
+        if 'verbose_name_plural' not in kls.Meta.__dict__:
+            kls.Meta.verbose_name_plural = kls.Meta.verbose_name + 's'
 
     @staticmethod
     def process_attributes(attrs):
@@ -157,12 +172,12 @@ class ModelMeta(type):
         """
         attrs.update(base_model_class._DEFAULT_BASE_FIELDS)
         attrs['_instance_registry'] = set()
-        meta = attrs.get('META', {})
-        # if 'filters' in meta:
-        #     ModelMeta.process_cell_filters(meta)
-        copy_of_base_meta = base_model_class._META.copy()
-        copy_of_base_meta.update(meta)
-        attrs['META'] = copy_of_base_meta
+        DEFAULT_META = {'bucket_type': settings.DEFAULT_BUCKET_TYPE, 'field_permissions': {}}
+        if 'Meta' not in attrs:
+            attrs['Meta'] = type('Meta', (object,), DEFAULT_META)
+        else:
+            attrs['Meta'].__dict__.update(DEFAULT_META)
+
 
 
 @add_metaclass(ModelMeta)
@@ -212,7 +227,7 @@ class Node(object):
 
     @classmethod
     def _get_bucket_name(cls):
-        return cls._META.get('bucket_name', un_camel(cls.__name__))
+        return getattr(cls.Meta, 'bucket_name', un_camel(cls.__name__))
 
     def _path_of(self, prop):
         """
@@ -400,10 +415,6 @@ class Node(object):
 class Model(Node):
     objects = DBObjects
     _TYPE = 'Model'
-    _META = {
-        'bucket_type': settings.DEFAULT_BUCKET_TYPE,
-        'field_permissions': {}
-    }
 
     _DEFAULT_BASE_FIELDS = {
         'timestamp': field.TimeStamp(),
@@ -465,7 +476,7 @@ class Model(Node):
 
     def apply_cell_filters(self, context):
         self.unpermitted_fields_set = True
-        for perm, fields in self.META['field_permissions'].items():
+        for perm, fields in self.Meta.field_permissions.items():
             if not context.has_permission(perm):
                 self.unpermitted_fields.extend(fields)
         return self.unpermitted_fields

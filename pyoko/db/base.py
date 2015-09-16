@@ -49,7 +49,7 @@ class DBObjects(object):
         elif 'model_class' in conf:
             self.set_model(model_class=conf['model_class'])
 
-        self.set_bucket(self.model_class._META['bucket_type'],
+        self.set_bucket(self.model_class.Meta.bucket_type,
                         self.model_class._get_bucket_name())
         self._data_type = None  # we convert new object data according to
         # bucket datatype, eg: Dictomaping for 'map' type

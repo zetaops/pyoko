@@ -19,13 +19,12 @@ class Person(Model):
         if not current.has_permission("access_to_other_sections"):
             return objects.filter(section=current.user.section)
 
-    META = {
-        'field_permissions': {
+    class Meta:
+        field_permissions = {
             # fields will be filtered out if current user
             # doesnt have the required permissions.
             'can_see_phone_number': ['phone']
-        },
-    }
+        }
 
 
 class MockContext(object):
