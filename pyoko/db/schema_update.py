@@ -140,6 +140,7 @@ class SchemaUpdater(object):
         new_index_name = "%s_%s_%s" % (settings.DEFAULT_BUCKET_TYPE, bucket_name, suffix)
         client.create_search_schema(new_index_name, new_schema)
         client.create_search_index(new_index_name, new_index_name, n_val)
+        time.sleep(1)
         bucket.set_property('search_index', new_index_name)
         # settings.update_index(bucket_name, new_index_name)
         if not silent:
