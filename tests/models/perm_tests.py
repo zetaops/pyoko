@@ -25,7 +25,8 @@ class Person(Model):
             # doesnt have the required permissions.
             'can_see_phone_number': ['phone']
         }
-
+    def __unicode__(self):
+        return "Person named %s" % self.name
 
 class MockContext(object):
     def __init__(self, **kwargs):

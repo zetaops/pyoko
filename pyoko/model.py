@@ -25,7 +25,15 @@ import lazy_object_proxy
 # fh.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 # log.addHandler(fh)
 # log.setLevel(logging.INFO)
+class FakeContext(object):
+    """
+    this fake context object can be used to use
+    ACL limited models from shell
+    """
+    def has_permission(self, perm):
+        return True
 
+super_context = FakeContext()
 
 class Registry(object):
     def __init__(self):
