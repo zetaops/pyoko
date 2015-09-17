@@ -148,7 +148,7 @@ class DateTime(BaseField):
         instance._field_values[self.name] = value
 
     def _load_data(self, instance, value):
-        if value == EMPTY_DATETIME:
+        if value is None or value == EMPTY_DATETIME:
             value = ''
         else:
             value = datetime.datetime.strptime(value, DATE_TIME_FORMAT)
@@ -178,7 +178,7 @@ class Date(BaseField):
             return val.strftime(DATE_FORMAT)
 
     def _load_data(self, instance, value):
-        if value == EMPTY_DATETIME:
+        if value is None or value == EMPTY_DATETIME:
             value = ''
         else:
             value = datetime.datetime.strptime(value, DATE_FORMAT).date()

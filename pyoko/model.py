@@ -180,7 +180,9 @@ class ModelMeta(type):
         """
         attrs.update(base_model_class._DEFAULT_BASE_FIELDS)
         attrs['_instance_registry'] = set()
-        DEFAULT_META = {'bucket_type': settings.DEFAULT_BUCKET_TYPE, 'field_permissions': {}}
+        DEFAULT_META = {'bucket_type': settings.DEFAULT_BUCKET_TYPE,
+                        'field_permissions': {},
+                        'list_fields': []}
         if 'Meta' not in attrs:
             attrs['Meta'] = type('Meta', (object,), DEFAULT_META)
         else:

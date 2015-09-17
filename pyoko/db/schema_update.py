@@ -20,6 +20,8 @@ class FakeContext(object):
     def has_permission(self, perm):
         return True
 
+fake_context = FakeContext()
+
 class SchemaUpdater(object):
     """
     traverses trough all models, collects fields marked for index or store in solr
@@ -41,21 +43,29 @@ class SchemaUpdater(object):
         # TODO: Limit thread size to 10-20
         self.t1 = time.time()
         apply_threads = []
+        thread_count = 6
+        models =[]
         for model in self.registry.get_base_models():
-            if self.bucket_names[
-                0] == 'all' or model.__name__.lower() in self.bucket_names:
-                ins = model(FakeContext())
+            if self.bucket_names[0] == 'all' or model.__name__.lower() in self.bucket_names:
+                models.append(model)
+        num_models = len(models)
+        pack_size = num_models / thread_count or 1
+        reminder = num_models % thread_count
+        start = 0
+        for i in range(0, num_models, pack_size):
+            job_pack = []
+            if reminder and i + reminder == num_models:
+                i += reminder
+            for model in models[start:i]:
+                ins = model(fake_context)
                 fields = self.get_schema_fields(ins._collect_index_fields())
                 new_schema = self.compile_schema(fields)
-
-                apply_threads.append(threading.Thread(target=self.apply_schema,
-                                                      args=(
-                                                          self.client,
-                                                          new_schema,
-                                                          model, self.silent)))
+                job_pack.append((new_schema, model))
+            apply_threads.append(threading.Thread(target=self.apply_schema, args=(self.client, job_pack)))
+            start = int(i)
         if not self.silent:
-            print(
-            "Schema creation started for %s model(s)\n" % len(apply_threads))
+            print("Schema creation started for %s model(s) with %s threads\n" % (
+                num_models, thread_count))
         for t in apply_threads:
             t.start()
         for t in apply_threads:
@@ -109,7 +119,7 @@ class SchemaUpdater(object):
         return schema_template.format('\n'.join(fields)).encode('utf-8')
 
     @staticmethod
-    def apply_schema(client, new_schema, model, silent=False):
+    def apply_schema(client, job_pack):
         """
         riak doesn't support schema/index updates ( http://git.io/vLOTS )
 
@@ -123,30 +133,30 @@ class SchemaUpdater(object):
         :return: True or False
         :rtype: bool
         """
-        try:
-            bucket_name = model._get_bucket_name()
-            bucket_type = client.bucket_type(settings.DEFAULT_BUCKET_TYPE)
-            bucket = bucket_type.bucket(bucket_name)
-            n_val = bucket_type.get_property('n_val')
-            # delete stale indexes
-            # inuse_indexes = [b.get_properties().get('search_index') for b in
-            #                  bucket_type.get_buckets()]
-            # stale_indexes = [si['name'] for si in self.client.list_search_indexes()
-            #                     if si['name'] not in inuse_indexes]
-            # for stale_index in stale_indexes:
-            #     self.client.delete_search_index(stale_index)
+        for new_schema, model in job_pack:
+            try:
+                bucket_name = model._get_bucket_name()
+                bucket_type = client.bucket_type(settings.DEFAULT_BUCKET_TYPE)
+                bucket = bucket_type.bucket(bucket_name)
+                n_val = bucket_type.get_property('n_val')
+                # delete stale indexes
+                # inuse_indexes = [b.get_properties().get('search_index') for b in
+                #                  bucket_type.get_buckets()]
+                # stale_indexes = [si['name'] for si in self.client.list_search_indexes()
+                #                     if si['name'] not in inuse_indexes]
+                # for stale_index in stale_indexes:
+                #     self.client.delete_search_index(stale_index)
 
-            suffix = 9000000000 - int(time.time())
-            new_index_name = "%s_%s_%s" % (settings.DEFAULT_BUCKET_TYPE, bucket_name, suffix)
-            client.create_search_schema(new_index_name, new_schema)
-            client.create_search_index(new_index_name, new_index_name, n_val)
-            time.sleep(1)
-            bucket.set_property('search_index', new_index_name)
-            # settings.update_index(bucket_name, new_index_name)
-            if not silent:
+                suffix = 9000000000 - int(time.time())
+                new_index_name = "%s_%s_%s" % (settings.DEFAULT_BUCKET_TYPE, bucket_name, suffix)
+                client.create_search_schema(new_index_name, new_schema)
+                client.create_search_index(new_index_name, new_index_name, n_val)
+                time.sleep(1)
+                bucket.set_property('search_index', new_index_name)
+                # settings.update_index(bucket_name, new_index_name)
                 print("+ %s (%s)" % (model.__name__, new_index_name))
-        except:
-            import traceback
-            print(traceback.format_exc())
-            print("bucket_name: %s" % bucket_name)
-            print("bucket_type: %s" % bucket_type)
+            except:
+                import traceback
+                print(traceback.format_exc())
+                print("bucket_name: %s" % bucket_name)
+                print("bucket_type: %s" % bucket_type)
