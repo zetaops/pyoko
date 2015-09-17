@@ -123,24 +123,30 @@ class SchemaUpdater(object):
         :return: True or False
         :rtype: bool
         """
-        bucket_name = model._get_bucket_name()
-        bucket_type = client.bucket_type(settings.DEFAULT_BUCKET_TYPE)
-        bucket = bucket_type.bucket(bucket_name)
-        n_val = bucket_type.get_property('n_val')
-        # delete stale indexes
-        # inuse_indexes = [b.get_properties().get('search_index') for b in
-        #                  bucket_type.get_buckets()]
-        # stale_indexes = [si['name'] for si in self.client.list_search_indexes()
-        #                     if si['name'] not in inuse_indexes]
-        # for stale_index in stale_indexes:
-        #     self.client.delete_search_index(stale_index)
+        try:
+            bucket_name = model._get_bucket_name()
+            bucket_type = client.bucket_type(settings.DEFAULT_BUCKET_TYPE)
+            bucket = bucket_type.bucket(bucket_name)
+            n_val = bucket_type.get_property('n_val')
+            # delete stale indexes
+            # inuse_indexes = [b.get_properties().get('search_index') for b in
+            #                  bucket_type.get_buckets()]
+            # stale_indexes = [si['name'] for si in self.client.list_search_indexes()
+            #                     if si['name'] not in inuse_indexes]
+            # for stale_index in stale_indexes:
+            #     self.client.delete_search_index(stale_index)
 
-        suffix = 9000000000 - int(time.time())
-        new_index_name = "%s_%s_%s" % (settings.DEFAULT_BUCKET_TYPE, bucket_name, suffix)
-        client.create_search_schema(new_index_name, new_schema)
-        client.create_search_index(new_index_name, new_index_name, n_val)
-        time.sleep(1)
-        bucket.set_property('search_index', new_index_name)
-        # settings.update_index(bucket_name, new_index_name)
-        if not silent:
-            print("+ %s (%s)" % (model.__name__, new_index_name))
+            suffix = 9000000000 - int(time.time())
+            new_index_name = "%s_%s_%s" % (settings.DEFAULT_BUCKET_TYPE, bucket_name, suffix)
+            client.create_search_schema(new_index_name, new_schema)
+            client.create_search_index(new_index_name, new_index_name, n_val)
+            time.sleep(1)
+            bucket.set_property('search_index', new_index_name)
+            # settings.update_index(bucket_name, new_index_name)
+            if not silent:
+                print("+ %s (%s)" % (model.__name__, new_index_name))
+        except:
+            import traceback
+            print(traceback.format_exc())
+            print("bucket_name: %s" % bucket_name)
+            print("bucket_type: %s" % bucket_type)
