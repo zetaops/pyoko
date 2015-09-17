@@ -15,9 +15,10 @@ from tests.data.test_data import data, clean_data
 from tests.models import *
 
 received_data = {
-    'auth_info.email': 'duuper@suup.com',
-    'auth_info.password': '1111',
-    'auth_info.username': 'poser',
+    'AuthInfo': {
+        'email': 'duuper@suup.com',
+        'password': '1111',
+        'username': 'poser'},
     'bio': "You think water moves fast? You should see ice. It moves like it has a mind. "
            "Like it knows it killed the world once and got a taste for murder. "
            "After the avalanche, it took us a week to climb out.",
@@ -86,8 +87,8 @@ class TestCase:
         student.save()
         sleep(2)
         db_student = Student.objects.filter(
-            auth_info__email=received_data['auth_info.email']).get()
-        assert db_student.AuthInfo.email == received_data['auth_info.email']
+            auth_info__email=received_data['AuthInfo']['email']).get()
+        assert db_student.AuthInfo.email == received_data['AuthInfo']['email']
         assert db_student.bio == received_data['bio']
 
     def test_list_node_with_linked_model(self):

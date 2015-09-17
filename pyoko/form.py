@@ -59,7 +59,7 @@ class ModelForm(object):
             elif isinstance(val, six.string_types):  # field
                 _data[key] = val
             elif isinstance(val, dict):  # Node
-                _data[key] = val
+                _data[un_camel(key)] = val
             elif isinstance(val, list):  # ListNode
                 list_node = getattr(self.model, key)
                 _data[key] = []
@@ -212,7 +212,8 @@ class ModelForm(object):
 
 class Form(ModelForm):
     """
-    base class for a custom form with pyoko.fields
+    A base class for a custom form with pyoko.fields.
+    Has some fake dicts to simulate model object
     """
 
     def __init__(self, *args, **kwargs):
@@ -220,6 +221,8 @@ class Form(ModelForm):
         self._fields = {}
         self._linked_models = {}
         self._field_values = {}
+        self.context = None
+        self.key = None
         for key, val in self.__class__.__dict__.items():
             if isinstance(val, BaseField):
                 val.name = key
