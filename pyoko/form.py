@@ -62,7 +62,8 @@ class ModelForm(object):
                 _data[un_camel(key)] = val
             elif isinstance(val, list):  # ListNode
                 list_node = getattr(self.model, key)
-                _data[key] = []
+                _key = un_camel(key)
+                _data[_key] = []
                 for listnode_item_data in val[:]:
                     listnode_item_data['_cache'] = {}
                     for k, v in listnode_item_data.items():
@@ -70,7 +71,7 @@ class ModelForm(object):
                             name = k[:-3]
                             listnode_item_data['_cache'][name] = getattr(list_node, name).__class__(self.model.context).objects.data().get(val).data
                             listnode_item_data['_cache'][name]['key'] = val
-                    _data[key].append(listnode_item_data.copy())
+                    _data[_key].append(listnode_item_data.copy())
         new_instance.set_data(_data)
         return new_instance
 
