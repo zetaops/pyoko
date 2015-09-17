@@ -143,7 +143,7 @@ class DateTime(BaseField):
             return val.strftime(DATE_TIME_FORMAT)
 
     def __set__(self, instance, value):
-        if isinstance(value, six.string_types):
+        if isinstance(value, six.string_types) and value:
             value = datetime.datetime.strptime(value, self.format)
         instance._field_values[self.name] = value
 
@@ -167,12 +167,12 @@ class Date(BaseField):
             self.default = lambda: datetime.datetime.now().strftime(DATE_FORMAT)
 
     def __set__(self, instance, value):
-        if isinstance(value, six.string_types):
+        if isinstance(value, six.string_types) and value:
             value = datetime.datetime.strptime(value, self.format).date()
         instance._field_values[self.name] = value
 
     def clean_value(self, val):
-        if val is None:
+        if not val:
             return self.default() if callable(self.default) else self.default
         else:
             return val.strftime(DATE_FORMAT)
