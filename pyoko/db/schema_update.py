@@ -16,11 +16,14 @@ from pyoko.db.connection import client
 import os, inspect
 from pyoko.lib.utils import un_camel, random_word
 
+
 class FakeContext(object):
     def has_permission(self, perm):
         return True
 
+
 fake_context = FakeContext()
+
 
 class SchemaUpdater(object):
     """
@@ -31,11 +34,11 @@ class SchemaUpdater(object):
     FIELD_TEMPLATE = '<field type="{type}" name="{name}"  indexed="{index}" ' \
                      'stored="{store}" multiValued="{multi}" />'
 
-    def __init__(self, registry, bucket_names, silent=None):
+    def __init__(self, registry, bucket_names, threads):
         self.report = []
         self.registry = registry
         self.client = client
-        self.silent = silent
+        self.threads = int(threads)
         self.bucket_names = [b.lower() for b in bucket_names.split(',')]
         self.t1 = 0.0  # start time
 
@@ -43,29 +46,27 @@ class SchemaUpdater(object):
         # TODO: Limit thread size to 10-20
         self.t1 = time.time()
         apply_threads = []
-        thread_count = 6
-        models =[]
-        for model in self.registry.get_base_models():
-            if self.bucket_names[0] == 'all' or model.__name__.lower() in self.bucket_names:
-                models.append(model)
+        models = [model for model in self.registry.get_base_models()
+                  if self.bucket_names[0] == 'all' or
+                  model.__name__.lower() in self.bucket_names]
+
         num_models = len(models)
-        pack_size = num_models / thread_count or 1
-        reminder = num_models % thread_count
+        pack_size = num_models / self.threads or 1
+        # reminder = num_models % self.threads
         start = 0
         for i in range(0, num_models, pack_size):
             job_pack = []
-            if reminder and i + reminder == num_models:
-                i += reminder
-            for model in models[start:i]:
+            for model in models[i:i+pack_size]:
                 ins = model(fake_context)
                 fields = self.get_schema_fields(ins._collect_index_fields())
                 new_schema = self.compile_schema(fields)
                 job_pack.append((new_schema, model))
-            apply_threads.append(threading.Thread(target=self.apply_schema, args=(self.client, job_pack)))
+            apply_threads.append(
+                threading.Thread(target=self.apply_schema, args=(self.client, job_pack)))
             start = int(i)
-        if not self.silent:
-            print("Schema creation started for %s model(s) with %s threads\n" % (
-                num_models, thread_count))
+
+        print("Schema creation started for %s model(s) with %s threads\n" % (
+            num_models, self.threads))
         for t in apply_threads:
             t.start()
         for t in apply_threads:
@@ -73,7 +74,6 @@ class SchemaUpdater(object):
         if apply_threads:
             self.report = "\nSchema and index definitions successfully " \
                           "applied for the models listed above."
-
 
     def create_report(self):
         """
