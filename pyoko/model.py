@@ -684,7 +684,7 @@ class ListNode(Node):
             _name = un_camel(name)
             if _name in cache:
                 ins = model()
-                ins(**cache[_name])
+                ins(from_db=self._from_db, **cache[_name])
                 ins.key = cache[_name]['key']
                 ins.set_data(cache[_name], self._from_db)
                 setattr(clone, name, ins)

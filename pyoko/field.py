@@ -149,7 +149,7 @@ class DateTime(BaseField):
 
     def _load_data(self, instance, value):
         if value == EMPTY_DATETIME:
-            value = None
+            value = ''
         else:
             value = datetime.datetime.strptime(value, DATE_TIME_FORMAT)
         instance._field_values[self.name] = value
@@ -162,7 +162,7 @@ class Date(BaseField):
         self.format = kwargs.pop('format', DATE_FORMAT)
         super(Date, self).__init__(*args, **kwargs)
         if self.default is None:
-            self.default = '0000-00-00T00:00:00Z'
+            self.default = EMPTY_DATETIME
         elif self.default == 'now':
             self.default = lambda: datetime.datetime.now().strftime(DATE_FORMAT)
 
@@ -179,7 +179,7 @@ class Date(BaseField):
 
     def _load_data(self, instance, value):
         if value == EMPTY_DATETIME:
-            value = None
+            value = ''
         else:
             value = datetime.datetime.strptime(value, DATE_FORMAT).date()
         instance._field_values[self.name] = value
