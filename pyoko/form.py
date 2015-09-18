@@ -48,34 +48,59 @@ class ModelForm(object):
         """
         # TODO: investigate and integrate necessary security precautions on received data
         # TODO: Add listnode support
-        _data = {'_cache': {}}
         new_instance = self.model.__class__(self.model.context)
         new_instance.key = self.model.key
         for key, val in data.items():
             if key.endswith('_id'):  # linked model
                 name = key[:-3]
-                _data['_cache'][name] = self.model._linked_models[name][0](
-                    self.model.context).objects.data().get(val).data
-                _data['_cache'][name]['key'] = val
+                linked_model = self.model._linked_models[name][0](self.model.context).objects.get(val)
+                setattr(new_instance, name, linked_model)
             elif isinstance(val, six.string_types):  # field
-                _data[key] = val
+                setattr(new_instance, key, val)
             elif isinstance(val, dict):  # Node
-                _data[un_camel(key)] = val
+                node = getattr(new_instance, key)
+                for k in val:
+                    setattr(node, k, val[k])
             elif isinstance(val, list):  # ListNode
-                list_node = getattr(self.model, key)
-                _key = un_camel(key)
-                _data[_key] = []
-                for listnode_item_data in val[:]:
-                    listnode_item_data['_cache'] = {}
-                    for k, v in listnode_item_data.items():
+                list_node = getattr(new_instance, key)
+                for ln_item_data in val:
+                    kwargs = {}
+                    for k in ln_item_data:
                         if k.endswith('_id'):  # linked model in a ListNode
                             name = k[:-3]
-                            listnode_item_data['_cache'][name] = getattr(list_node, name).__class__(
-                                self.model.context).objects.data().get(v).data
-                            listnode_item_data['_cache'][name]['key'] = v
-                    _data[_key].append(listnode_item_data.copy())
-        new_instance.set_data(_data)
+                            kwargs[name] = getattr(list_node, name).__class__(self.model.context).objects.get(ln_item_data[k])
+                        else:
+                            kwargs[name] = ln_item_data[k]
+                    list_node(**kwargs)
         return new_instance
+        # _data = {'_cache': {}}
+        # new_instance = self.model.__class__(self.model.context)
+        # new_instance.key = self.model.key
+        # for key, val in data.items():
+        #     if key.endswith('_id'):  # linked model
+        #         name = key[:-3]
+        #         _data['_cache'][name] = self.model._linked_models[name][0](
+        #             self.model.context).objects.data().get(val).data
+        #         _data['_cache'][name]['key'] = val
+        #     elif isinstance(val, six.string_types):  # field
+        #         _data[key] = val
+        #     elif isinstance(val, dict):  # Node
+        #         _data[un_camel(key)] = val
+        #     elif isinstance(val, list):  # ListNode
+        #         list_node = getattr(self.model, key)
+        #         _key = un_camel(key)
+        #         _data[_key] = []
+        #         for listnode_item_data in val[:]:
+        #             listnode_item_data['_cache'] = {}
+        #             for k, v in listnode_item_data.items():
+        #                 if k.endswith('_id'):  # linked model in a ListNode
+        #                     name = k[:-3]
+        #                     listnode_item_data['_cache'][name] = getattr(list_node, name).__class__(
+        #                         self.model.context).objects.data().get(v).data
+        #                     listnode_item_data['_cache'][name]['key'] = v
+        #             _data[_key].append(listnode_item_data.copy())
+        # new_instance.set_data(_data)
+        # return new_instance
 
         #
         # field_data = {}
