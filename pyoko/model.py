@@ -549,10 +549,10 @@ class Model(Node):
         return model_registry.back_link_registry[self.__class__]
 
     def save(self):
-        self.objects.save_model(self)
+        self.objects.save_model()
         self.saved_models.append(self.key)
         self._save_to_many_models()
-        self._save_backlinked_models()
+        # self._save_backlinked_models()
         return self
 
     def _save_to_many_models(self):
