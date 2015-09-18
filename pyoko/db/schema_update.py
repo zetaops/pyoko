@@ -34,9 +34,10 @@ class SchemaUpdater(object):
     FIELD_TEMPLATE = '<field type="{type}" name="{name}"  indexed="{index}" ' \
                      'stored="{store}" multiValued="{multi}" />'
 
-    def __init__(self, registry, bucket_names, threads):
+    def __init__(self, registry, bucket_names, threads, reindex):
         self.report = []
         self.registry = registry
+        self.reindex = reindex
         self.client = client
         self.threads = int(threads)
         self.bucket_names = [b.lower() for b in bucket_names.split(',')]
@@ -62,7 +63,9 @@ class SchemaUpdater(object):
                 new_schema = self.compile_schema(fields)
                 job_pack.append((new_schema, model))
             apply_threads.append(
-                threading.Thread(target=self.apply_schema, args=(self.client, job_pack)))
+                threading.Thread(target=self.apply_schema, args=(self.client,
+                                                                 self.reindex,
+                                                                 job_pack)))
             start = int(i)
 
         print("Schema creation started for %s model(s) with %s threads\n" % (
@@ -119,7 +122,7 @@ class SchemaUpdater(object):
         return schema_template.format('\n'.join(fields)).encode('utf-8')
 
     @staticmethod
-    def apply_schema(client, job_pack):
+    def apply_schema(client, reindex, job_pack):
         """
         riak doesn't support schema/index updates ( http://git.io/vLOTS )
 
@@ -151,10 +154,21 @@ class SchemaUpdater(object):
                 new_index_name = "%s_%s_%s" % (settings.DEFAULT_BUCKET_TYPE, bucket_name, suffix)
                 client.create_search_schema(new_index_name, new_schema)
                 client.create_search_index(new_index_name, new_index_name, n_val)
-                time.sleep(1)
+                # time.sleep(1)
                 bucket.set_property('search_index', new_index_name)
                 # settings.update_index(bucket_name, new_index_name)
                 print("+ %s (%s)" % (model.__name__, new_index_name))
+                if reindex:
+                    print("Reindexing %s" % model.__name__)
+                    stream = bucket.stream_keys()
+                    i = 0
+                    for key_list in stream:
+                        for key in key_list:
+                            i += 1
+                            bucket.get(key).store()
+                    stream.close()
+                    print("Reindexed %s records" % i)
+
             except:
                 import traceback
                 print(traceback.format_exc())

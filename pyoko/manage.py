@@ -49,7 +49,8 @@ class SchemaUpdate(Command):
     CMD_NAME = 'migrate'
     PARAMS = [{'name': 'model', 'required':True, 'help': 'Models name(s) to be updated'
                                                          'Say "all" to update all models'},
-              {'name': 'threads', 'default':6, 'help': 'Number of threads. Default: 6'},
+              {'name': 'threads', 'default': 6, 'help': 'Number of threads. Default: 6'},
+              {'name': 'reindex', 'action': 'store_true', 'help': 'Reindex all records'},
               ]
     HELP = 'Creates/Updates SOLR schemas for given model(s)'
 
@@ -59,7 +60,11 @@ class SchemaUpdate(Command):
         from importlib import import_module
         import_module(settings.MODELS_MODULE)
         registry = import_module('pyoko.model').model_registry
-        updater = SchemaUpdater(registry, self.manager.args.model, self.manager.args.threads)
+        updater = SchemaUpdater(registry,
+                                self.manager.args.model,
+                                self.manager.args.threads,
+                                self.manager.args.reindex,
+                                )
         updater.run()
         return updater.create_report()
 
