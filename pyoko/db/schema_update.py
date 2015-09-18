@@ -50,11 +50,8 @@ class SchemaUpdater(object):
         models = [model for model in self.registry.get_base_models()
                   if self.bucket_names[0] == 'all' or
                   model.__name__.lower() in self.bucket_names]
-
         num_models = len(models)
         pack_size = num_models / self.threads or 1
-        # reminder = num_models % self.threads
-        start = 0
         for i in range(0, num_models, pack_size):
             job_pack = []
             for model in models[i:i+pack_size]:
@@ -66,7 +63,6 @@ class SchemaUpdater(object):
                 threading.Thread(target=self.apply_schema, args=(self.client,
                                                                  self.reindex,
                                                                  job_pack)))
-            start = int(i)
 
         print("Schema creation started for %s model(s) with %s threads\n" % (
             num_models, self.threads))
