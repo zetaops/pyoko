@@ -59,6 +59,7 @@ class DBObjects(object):
         self._solr_params = {}  # search parameters. eg: rows, fl, start, sort etc.
         self._solr_locked = False
         self._solr_cache = {}
+        self.key = None
         self._riak_cache = []  # caching riak result,
         # for repeating iterations on same query
 
@@ -174,7 +175,8 @@ class DBObjects(object):
                 obj.__dict__[k] = v
             else:
                 obj.__dict__[k] = copy.deepcopy(v, memo)
-        self.compiled_query = ''
+        obj.compiled_query = ''
+        obj.key = None
         return obj
 
     def set_bucket(self, type, name):
@@ -215,7 +217,7 @@ class DBObjects(object):
         saves the model instance to riak
         :return:
         """
-        if model:  # workaround,
+        if model:
             self.model = model
         clean_value = self.model.clean_value()
         if not self.model.is_in_db():
@@ -248,6 +250,11 @@ class DBObjects(object):
         :param dict data: model data returned from db (riak or redis)
         :return: pyoko.Model
         """
+        if not data:
+            raise Exception("Returned empty data from Riak\n" +
+                            "Query: %s" % self.compiled_query +
+                            "GET Key: %s" % self.key
+                            )
         model = self.model_class(self.current_context, _pass_perm_checks=self._pass_perm_checks)
         model.key = riak_obj.key if riak_obj else data.get('key')
         return model.set_data(data, from_db=True)
@@ -312,6 +319,7 @@ class DBObjects(object):
         """
         clone = copy.deepcopy(self)
         if key:
+            self.key = key
             clone._riak_cache = [self.bucket.get(key)]
         else:
             clone._exec_query()
