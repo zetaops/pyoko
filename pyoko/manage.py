@@ -84,7 +84,7 @@ class FlushDB(Command):
         registry = import_module('pyoko.model').model_registry
         model_name = self.manager.args.model
         if model_name != 'all':
-            models = [registry.get_model(model_name)]
+            models = [registry.get_model(name) for name in model_name.split(',')]
         else:
             models = registry.get_base_models()
         for mdl in models:
