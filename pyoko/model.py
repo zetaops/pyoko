@@ -38,6 +38,7 @@ super_context = FakeContext()
 class Registry(object):
     def __init__(self):
         self.registry = {}
+        self.app_registry = defaultdict(dict)
         self.link_registry = defaultdict(list)
         self.back_link_registry = defaultdict(list)
 
@@ -45,6 +46,7 @@ class Registry(object):
         if klass not in self.registry:
             # register model to base registry
             self.registry[klass.__name__] = klass
+            self.app_registry[klass.Meta.app][klass.__name__] = klass
             klass_name = un_camel(klass.__name__)
             self._process_many_to_many(klass, klass_name)
             for name, (
@@ -98,8 +100,18 @@ class Registry(object):
     def get_base_models(self):
         return self.registry.values()
 
+    def get_apps(self):
+        return self.app_registry.keys()
+
+    def get_models_by_apps(self):
+        return [(app_names, model_dict.values())
+                for app_names, model_dict in self.app_registry.items()]
+
     def get_model(self, model_name):
         return self.registry[model_name]
+
+    def get_models_of_app(self, app_name):
+        return self.app_registry[app_name].values()
 
 
 model_registry = Registry()
@@ -182,6 +194,7 @@ class ModelMeta(type):
         attrs['_instance_registry'] = set()
         DEFAULT_META = {'bucket_type': settings.DEFAULT_BUCKET_TYPE,
                         'field_permissions': {},
+                        'app': 'main',
                         'list_fields': []}
         if 'Meta' not in attrs:
             attrs['Meta'] = type('Meta', (object,), DEFAULT_META)
@@ -450,6 +463,7 @@ class Model(Node):
         super(Model, self).__init__(**kwargs)
         self.objects.set_model(model=self)
         self.saved_models = []
+
 
     def is_in_db(self):
         """
