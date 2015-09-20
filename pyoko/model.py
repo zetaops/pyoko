@@ -49,14 +49,11 @@ class Registry(object):
             self.app_registry[klass.Meta.app][klass.__name__] = klass
             klass_name = un_camel(klass.__name__)
             self._process_many_to_many(klass, klass_name)
-            for name, (
-                    linked_model,
-                    is_one_to_one) in klass._linked_models.items():
+            for name, (linked_model, is_one_to_one) in klass._linked_models.items():
                 # register models that linked from this model
                 self.link_registry[linked_model].append((name, klass))
                 # register models that gives (back)links to this model
-                self.back_link_registry[klass].append((name, klass_name,
-                                                       linked_model))
+                self.back_link_registry[klass].append((name, klass_name, linked_model))
                 if is_one_to_one:
                     self._process_one_to_one(klass, klass_name, linked_model)
                 else:
@@ -90,8 +87,8 @@ class Registry(object):
                         {klass_name: klass_instance, '_is_auto_created': True})
         listnode._linked_models[klass_name] = (klass, False)
         linked_model._nodes[set_name] = listnode
-        # add just created model_set to already initialised instances
-        # to models that initialized inside of another model as linked model
+        # add just created model_set to model instances that
+        # initialized inside of another model as linked model
         for instance_ref in linked_model._instance_registry:
             mdl = instance_ref()
             if mdl:  # if not yet garbage collected
@@ -450,7 +447,7 @@ class Model(Node):
         self._riak_object = None
         self._instance_registry.add(weakref.ref(self))
         self.unpermitted_fields = []
-        self.unpermitted_fields_set = False
+        self.is_unpermitted_fields_set = False
         self.context = context
         self._pass_perm_checks = kwargs.pop('_pass_perm_checks', False)
         # if not self._pass_perm_checks:
@@ -501,14 +498,14 @@ class Model(Node):
         return self
 
     def apply_cell_filters(self, context):
-        self.unpermitted_fields_set = True
+        self.is_unpermitted_fields_set = True
         for perm, fields in self.Meta.field_permissions.items():
             if not context.has_permission(perm):
                 self.unpermitted_fields.extend(fields)
         return self.unpermitted_fields
 
     def get_unpermitted_fields(self):
-        return (self.unpermitted_fields if self.unpermitted_fields_set else
+        return (self.unpermitted_fields if self.is_unpermitted_fields_set else
                 self.apply_cell_filters(self.context))
 
 
@@ -578,7 +575,7 @@ class Model(Node):
                     if linked_mdl.key in self.processed_nodes:
                         self.processed_nodes.remove(linked_mdl.key)
                     # traversing on the previously created reverse-list of
-                    # listnodes which contains a link to "us" (aka: self)
+                    # list nodes which contains a link to "us" (aka: self)
                     for mdl_set in linked_mdl._model_in_node[self.__class__]:
                         mdl_set.update_linked_model(self)
                     linked_mdl.save()
