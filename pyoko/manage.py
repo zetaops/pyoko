@@ -70,7 +70,7 @@ class SchemaUpdate(Command):
 
 
 class FlushDB(Command):
-    CMD_NAME = 'flush_model'
+    CMD_NAME = 'flush_db'
     HELP = 'REALLY DELETES the contents of buckets'
     PARAMS = [{'name': 'model','required': True,
                'help': 'Models name(s) to be cleared. Say "all" to clear all models'},
