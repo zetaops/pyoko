@@ -175,7 +175,7 @@ class DBObjects(object):
                 obj.__dict__[k] = v
             else:
                 obj.__dict__[k] = copy.deepcopy(v, memo)
-        obj.compiled_query = ''
+        # obj.compiled_query = ''
         obj.key = None
         return obj
 
@@ -220,9 +220,8 @@ class DBObjects(object):
         if model:
             self.model = model
         clean_value = self.model.clean_value()
-        if not self.model.is_in_db():
-            self.model.key = None
-        riak_object = self.save(clean_value, self.model.key)
+        key = self.model.key if self.model.is_in_db() else None
+        riak_object = self.save(clean_value, key)
         self.model.key = riak_object.key
 
     def _get(self):

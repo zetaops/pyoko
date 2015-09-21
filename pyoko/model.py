@@ -226,8 +226,11 @@ class Node(object):
         self.timer = 0.0
         self.path = []
         self.set_tmp_key()
-        self.root = kwargs.pop('root', None)
+        # self.root = kwargs.pop('root', None)
+        self.root = kwargs.pop('root', self)
         self._field_values = {}
+
+
 
         # if model has cell_filters that applies to current user,
         # filtered values will be kept in _secured_data dict
@@ -255,22 +258,22 @@ class Node(object):
         """
         returns the dotted path of the given model attribute
         """
-        root = self.root or self
+        # root = self.root or self
         return ('.'.join(list(self.path + [un_camel(self.__class__.__name__),
-                                           prop]))).replace(root._get_bucket_name() + '.', '')
+                                           prop]))).replace(self.root._get_bucket_name() + '.', '')
 
     def _instantiate_linked_models(self):
         for name, (mdl, o2o) in self._linked_models.items():
             # TODO: investigate if this really required/needed and remove if not
             # mdl.root = self.root or self
-            root = self.root or self
-            obj = lazy_object_proxy.Proxy(lambda: mdl(root.context, root=root))
+            # root = self.root or self
+            obj = lazy_object_proxy.Proxy(lambda: mdl(self.root.context, root=self.root))
             setattr(self, name, obj)
 
     def _instantiate_node(self, name, klass):
         # instantiate given node, pass path and root info
         ins = klass(**{'processed_nodes': self.processed_nodes,
-                       'root': self.root or self})
+                       'root': self.root})
         ins.path = self.path + [self.__class__.__name__.lower()]
         for (mdl, o2o) in klass._linked_models.values():
             self._model_in_node[mdl].append(ins)
@@ -312,8 +315,8 @@ class Node(object):
                 if name in kwargs:
                     val = kwargs.get(name, self._field_values.get(name))
                     path_name = self._path_of(name)
-                    root = self.root or self
-                    if path_name in root.get_unpermitted_fields():
+                    # root = self.root or self
+                    if path_name in self.root.get_unpermitted_fields():
                         self._secured_data[path_name] = val
                         continue
                     if not kwargs.get('from_db'):
@@ -375,6 +378,14 @@ class Node(object):
         self._set_fields_values(self._data)
         return self
 
+
+    def clean_field_values(self):
+        """
+        :return: all fields with values as a dict.
+        """
+        return dict((un_camel(name), field_ins.clean_value(self._field_values.get(name)))
+                    for name, field_ins in self._fields.items())
+
     def _clean_node_value(self, dct):
         # get values of nodes
         for name in self._nodes:
@@ -408,9 +419,6 @@ class Node(object):
                 dct['_cache'][_name] = {}
             dct['_cache'][_name]['key'] = link_mdl.key
 
-    def clean_field_values(self):
-        return dict((un_camel(name), field_ins.clean_value(self._field_values.get(name)))
-                    for name, field_ins in self._fields.items())
 
     def clean_value(self):
         """
@@ -449,6 +457,7 @@ class Model(Node):
         self.unpermitted_fields = []
         self.is_unpermitted_fields_set = False
         self.context = context
+        self._mdl_cache = {}
         self._pass_perm_checks = kwargs.pop('_pass_perm_checks', False)
         # if not self._pass_perm_checks:
         #     self.row_level_access(context)
@@ -460,7 +469,6 @@ class Model(Node):
         super(Model, self).__init__(**kwargs)
         self.objects.set_model(model=self)
         self.saved_models = []
-
 
     def is_in_db(self):
         """
@@ -549,7 +557,7 @@ class Model(Node):
         self.objects.save_model()
         self.saved_models.append(self.key)
         self._save_to_many_models()
-        # self._save_backlinked_models()
+        self._save_backlinked_models()
         return self
 
     def _save_to_many_models(self):
@@ -753,7 +761,6 @@ class ListNode(Node):
         """
         kwargs['root'] = self.root
         clone = self.__class__(**kwargs)
-        # clone.root = self.root
         clone._is_item = True
         clone.processed_nodes = self.root.processed_nodes
         self.node_stack.append(clone)
