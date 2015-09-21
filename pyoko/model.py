@@ -15,7 +15,7 @@ import six
 from pyoko import field
 from pyoko.conf import settings
 from pyoko.db.base import DBObjects
-from pyoko.lib.utils import un_camel, un_camel_id, lazy_property
+from pyoko.lib.utils import un_camel, lazy_property, pprnt
 import weakref
 import lazy_object_proxy
 
@@ -30,10 +30,13 @@ class FakeContext(object):
     this fake context object can be used to use
     ACL limited models from shell
     """
+
     def has_permission(self, perm):
         return True
 
+
 super_context = FakeContext()
+
 
 class Registry(object):
     def __init__(self):
@@ -129,7 +132,7 @@ class ModelMeta(type):
 
     def __init__(mcs, name, bases, attrs):
         if mcs.__name__ not in ('Model', 'Node', 'ListNode'):
-           ModelMeta.process_objects(mcs)
+            ModelMeta.process_objects(mcs)
         if mcs.__base__.__name__ == 'Model':
             # add models to model_registry
             mcs.objects = DBObjects(model_class=mcs)
@@ -201,7 +204,6 @@ class ModelMeta(type):
                     attrs['Meta'].__dict__[k] = v
 
 
-
 @add_metaclass(ModelMeta)
 class Node(object):
     """
@@ -229,21 +231,14 @@ class Node(object):
         # self.root = kwargs.pop('root', None)
         self.root = kwargs.pop('root', self)
         self._field_values = {}
-
-
-
         # if model has cell_filters that applies to current user,
         # filtered values will be kept in _secured_data dict
         self._secured_data = {}
-
         # linked models registry for finding the list_nodes that contains a link to us
         self._model_in_node = defaultdict(list)
-
         # a registry for -keys of- models which processed with clean_value method
         # this is required to prevent endless recursive invocation of n-2-n related models
-        self.processed_nodes = kwargs.pop('processed_nodes', [])
-
-        self._instantiate_linked_models()
+        self._instantiate_linked_models(kwargs)
         self._instantiate_nodes()
         self._set_fields_values(kwargs)
 
@@ -262,18 +257,25 @@ class Node(object):
         return ('.'.join(list(self.path + [un_camel(self.__class__.__name__),
                                            prop]))).replace(self.root._get_bucket_name() + '.', '')
 
-    def _instantiate_linked_models(self):
+    def _instantiate_linked_models(self, data=None):
         for name, (mdl, o2o) in self._linked_models.items():
             # TODO: investigate if this really required/needed and remove if not
             # mdl.root = self.root or self
             # root = self.root or self
-            obj = lazy_object_proxy.Proxy(lambda: mdl(self.root.context, root=self.root))
+            if data is not None and name in data:
+                if isinstance(data[name], Model):
+                    obj = data[name]
+                elif isinstance(data[name], dict):
+                    obj = lazy_object_proxy.Proxy(lambda: mdl(self.root.context, root=self.root, **data[name]))
+                else:
+                    raise Exception("Unsupported data type for linked model")
+            else:
+                obj = lazy_object_proxy.Proxy(lambda: mdl(self.root.context, root=self.root))
             setattr(self, name, obj)
 
     def _instantiate_node(self, name, klass):
         # instantiate given node, pass path and root info
-        ins = klass(**{'processed_nodes': self.processed_nodes,
-                       'root': self.root})
+        ins = klass(**{'root': self.root})
         ins.path = self.path + [self.__class__.__name__.lower()]
         for (mdl, o2o) in klass._linked_models.values():
             self._model_in_node[mdl].append(ins)
@@ -323,10 +325,10 @@ class Node(object):
                         setattr(self, name, val)
                     else:
                         _field._load_data(self, val)
-            for name in self._linked_models:
-                linked_model = kwargs.get(name)
-                if linked_model:
-                    setattr(self, name, linked_model)
+            # for name in self._linked_models:
+            #     linked_model = kwargs.get(name)
+            #     if linked_model:
+            #         setattr(self, name, linked_model)
 
     def _collect_index_fields(self, in_multi=False):
         """
@@ -341,7 +343,7 @@ class Node(object):
         multi = in_multi or isinstance(self, ListNode)
         for name in self._linked_models:
             # obj = getattr(self, name) ### obj.has_many_values()
-            result.append((un_camel_id(name), 'string', True, False, multi))
+            result.append((un_camel(name), 'string', True, False, multi))
 
         for name, field_ins in self._fields.items():
             field_name = self._path_of(name)
@@ -369,15 +371,13 @@ class Node(object):
         for name in self._nodes:
             _name = un_camel(name)
             if _name in self._data:
-                new = self._instantiate_node(name,
-                                             getattr(self, name).__class__)
+                new = self._instantiate_node(name, getattr(self, name).__class__)
                 # new = getattr(self, name).__class__(**{})
                 new._load_data(self._data[_name], from_db)
                 # setattr(self, name, new)
         self._data['from_db'] = from_db
         self._set_fields_values(self._data)
         return self
-
 
     def clean_field_values(self):
         """
@@ -390,7 +390,6 @@ class Node(object):
         # get values of nodes
         for name in self._nodes:
             node = getattr(self, name)
-            node.processed_nodes = self.processed_nodes
             dct[un_camel(name)] = node.clean_value()
         return dct
 
@@ -406,18 +405,15 @@ class Node(object):
 
     def _clean_linked_model_value(self, dct):
         # get vales of linked models
-        dct['_cache'] = {}
         for name in self._linked_models:
             link_mdl = getattr(self, name)
-            # print("LM: ", link_mdl)
-            link_mdl.processed_nodes = self.processed_nodes
-            _name = un_camel(name)
-            dct[un_camel_id(name)] = link_mdl.key or ''
-            if link_mdl.is_in_db() and not link_mdl._is_auto_created:
-                dct['_cache'][_name] = link_mdl.clean_value()
+            # print(link_mdl, link_mdl.key)
+            if link_mdl.is_in_db():
+                if link_mdl.key not in self.root.model_cache:
+                    self.root.model_cache[link_mdl.key] = link_mdl.clean_value()
+                dct[name] = link_mdl.key
             else:
-                dct['_cache'][_name] = {}
-            dct['_cache'][_name]['key'] = link_mdl.key
+                dct[name] = ""
 
 
     def clean_value(self):
@@ -430,15 +426,11 @@ class Node(object):
         dct = {}
         self._clean_field_value(dct)
         self._clean_node_value(dct)
-
-        if self.key in self.processed_nodes:
-            return dct
-        else:
-            self.processed_nodes.append(self.key)
-
         if self._linked_models:
             self._clean_linked_model_value(dct)
 
+        if self.root == self:
+            dct['model_cache'] = self.model_cache
         return dct
 
 
@@ -457,7 +449,7 @@ class Model(Node):
         self.unpermitted_fields = []
         self.is_unpermitted_fields_set = False
         self.context = context
-        self._mdl_cache = {}
+        self.model_cache = {}
         self._pass_perm_checks = kwargs.pop('_pass_perm_checks', False)
         # if not self._pass_perm_checks:
         #     self.row_level_access(context)
@@ -468,7 +460,11 @@ class Model(Node):
         self.title = kwargs.pop('title', self.__class__.__name__)
         super(Model, self).__init__(**kwargs)
         self.objects.set_model(model=self)
-        self.saved_models = []
+        self._data = {}
+        # self.saved_models = []
+
+    def prnt(self):
+        pprnt(self._data)
 
     def is_in_db(self):
         """
@@ -495,14 +491,13 @@ class Model(Node):
         :return:
         """
         self._load_data(data, from_db)
-        cache = data.get('_cache', {})
-        if cache:
-            for name in self._linked_models:
-                _name = un_camel(name)
-                if _name in cache:
-                    mdl = getattr(self, name)
-                    mdl.key = cache[_name]['key']
-                    mdl.set_data(cache[_name], from_db)
+        # cache = data.get('_cache')
+        for name in self._linked_models:
+            # _name = un_camel(name)
+            mdl = getattr(self, name)
+            mdl.key = data[name]
+            if data[name] in data['model_cache']:
+                mdl.set_data(data['model_cache'][data[name]], from_db)
         return self
 
     def apply_cell_filters(self, context):
@@ -515,7 +510,6 @@ class Model(Node):
     def get_unpermitted_fields(self):
         return (self.unpermitted_fields if self.is_unpermitted_fields_set else
                 self.apply_cell_filters(self.context))
-
 
     @staticmethod
     def row_level_access(context, objects):
@@ -555,9 +549,9 @@ class Model(Node):
 
     def save(self):
         self.objects.save_model()
-        self.saved_models.append(self.key)
+        # self.saved_models.append(self.key)
         self._save_to_many_models()
-        self._save_backlinked_models()
+        # self._save_backlinked_models()
         return self
 
     def _save_to_many_models(self):
@@ -573,15 +567,10 @@ class Model(Node):
                 for item in list_node:
                     linked_mdl = getattr(item, lnk_mdl_name)
                     # do nothing if linked_model instance is already updated
-                    if linked_mdl.key in self.saved_models:
-                        continue
-                    # pass saved_models and processed_nodes registry
-                    linked_mdl.saved_models = self.saved_models
-                    linked_mdl.processed_nodes = self.processed_nodes
-                    # to prevent bypassing of a previously processed
-                    # node, we're explicitly removing it from the registry
-                    if linked_mdl.key in self.processed_nodes:
-                        self.processed_nodes.remove(linked_mdl.key)
+                    # if linked_mdl.key in self.saved_models:
+                    #     continue
+                    # pass saved_models registry
+                    # linked_mdl.saved_models = self.saved_models
                     # traversing on the previously created reverse-list of
                     # list nodes which contains a link to "us" (aka: self)
                     for mdl_set in linked_mdl._model_in_node[self.__class__]:
@@ -592,12 +581,12 @@ class Model(Node):
         # FIXME: when called from a deleted object,
         # we should also remove it from target model's cache
         for name, mdl in self._get_reverse_links():
-            for obj in mdl(_pass_perm_checks=True).objects.filter(**{un_camel_id(name): self.key}):
-                if obj.key in self.saved_models:
-                    continue
+            for obj in mdl(_pass_perm_checks=True).objects.filter(**{un_camel(name): self.key}):
+                # if obj.key in self.saved_models:
+                #     continue
                 setattr(obj, name, self)
-                obj.saved_models = self.saved_models
-                obj.save()
+                # obj.saved_models = self.saved_models
+                # obj.save()
         for pointer, name, mdl in self._get_forward_links():
             cached_obj = getattr(self, pointer)
             if not cached_obj.is_in_db():
@@ -608,21 +597,20 @@ class Model(Node):
                 # TODO: Add blank=False validation for fields and linked models
             obj = mdl(_pass_perm_checks=True).objects.get(cached_obj.key)
             back_linking_model = getattr(obj, name, None)
-            if obj.key in self.saved_models:
+            # if obj.key in self.saved_models:
                 # to prevent circular saves, but may cause missed cache updates
                 # we need more tests
-                continue
+                # continue
             if back_linking_model:
                 # this is a 1-to-1 relation
                 setattr(obj, name, self)
-                obj.saved_models = self.saved_models
                 obj.save()
             else:
                 # this is a 1-to-many relation, other side is a ListNode
                 # named like object_set
                 object_set = getattr(obj, '%s_set' % name)
                 object_set.add(**{name: self})
-                obj.saved_models = self.saved_models
+                # obj.saved_models = self.saved_models
                 obj.save()
 
     def delete(self):
@@ -720,7 +708,6 @@ class ListNode(Node):
         """
         result = []
         for mdl in self:
-            # mdl.processed_nodes = self.processed_nodes
             result.append(super(ListNode, mdl).clean_value())
         return result
 
@@ -762,7 +749,6 @@ class ListNode(Node):
         kwargs['root'] = self.root
         clone = self.__class__(**kwargs)
         clone._is_item = True
-        clone.processed_nodes = self.root.processed_nodes
         self.node_stack.append(clone)
         return clone
 
