@@ -70,7 +70,7 @@ class ModelForm(object):
                             name = k[:-3]
                             kwargs[name] = getattr(list_node, name).__class__(self.model.context).objects.get(ln_item_data[k])
                         else:
-                            kwargs[name] = ln_item_data[k]
+                            kwargs[k] = ln_item_data[k]
                     list_node(**kwargs)
         return new_instance
         # _data = {'_cache': {}}
