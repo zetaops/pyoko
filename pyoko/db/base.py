@@ -16,7 +16,7 @@ from enum import Enum
 from pyoko.conf import settings
 from pyoko.db.connection import client
 import riak
-from pyoko.exceptions import MultipleObjectsReturned
+from pyoko.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 from pyoko.field import DATE_FORMAT, DATE_TIME_FORMAT
 from pyoko.lib.py2map import Dictomap
 from pyoko.lib.utils import grayed
@@ -233,8 +233,9 @@ class DBObjects(object):
         """
         self._exec_query()
         if not self._riak_cache and self._cfg['rtype'] != ReturnType.Solr:
-            self._riak_cache = [self.bucket.get(
-                self._solr_cache['docs'][0]['_yz_rk'])]
+            if not self._solr_cache['docs']:
+                raise ObjectDoesNotExist()
+            self._riak_cache = [self.bucket.get(self._solr_cache['docs'][0]['_yz_rk'])]
 
         if self._cfg['rtype'] == ReturnType.Model:
             return self._make_model(self._riak_cache[0].data,
