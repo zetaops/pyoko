@@ -474,6 +474,13 @@ class Model(Node):
         self._data = {}
         self.saved_models = []
 
+
+    def is_saved(self, mdl):
+        return mdl.key in self.saved_models
+
+    def add_to_saved(self, mdl):
+        self.saved_models.append(mdl.key)
+
     def prnt(self):
         pprnt(self._data or self.clean_value())
 
@@ -563,7 +570,7 @@ class Model(Node):
         # if root:
         #     self.saved_models = root.saved_models
         self.objects.save_model()
-        self.root.saved_models.append(self.key)
+        self.add_to_saved(self.key)
         self._save_to_many_models()
         self._save_backlinked_models()
         return self
@@ -581,16 +588,10 @@ class Model(Node):
         for item in list_node:
             linked_mdl = getattr(item, lnk_mdl_name)
             # do nothing if linked_model instance is already updated
-            print("self: %s, saved: %s" % (self, self.saved_models))
-            if linked_mdl.key in self.saved_models:
-                continue
-            # pass saved_models registry
-            # linked_mdl.saved_models = self.saved_models
-            # print("MODEL IN NODE", self)
-            # print(linked_mdl._model_in_node[self.__class__])
-            for mdl_set in linked_mdl._model_in_node[self.__class__]:
-                mdl_set.update_linked_model(self)
-            linked_mdl.save()
+            if not self.is_saved(linked_mdl):
+                for mdl_set in linked_mdl._model_in_node[self.__class__]:
+                    mdl_set.update_linked_model(self)
+                linked_mdl.save()
 
     def _save_to_many_models(self):
         """
