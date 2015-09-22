@@ -53,7 +53,8 @@ class ModelForm(object):
         for key, val in data.items():
             if key.endswith('_id'):  # linked model
                 name = key[:-3]
-                linked_model = self.model._linked_models[name][0](self.model.context).objects.get(val)
+                linked_model = self.model._linked_models[name][0](self.model.context).objects.get(
+                    val)
                 setattr(new_instance, name, linked_model)
             elif isinstance(val, six.string_types):  # field
                 setattr(new_instance, key, val)
@@ -68,7 +69,8 @@ class ModelForm(object):
                     for k in ln_item_data:
                         if k.endswith('_id'):  # linked model in a ListNode
                             name = k[:-3]
-                            kwargs[name] = getattr(list_node, name).__class__(self.model.context).objects.get(ln_item_data[k])
+                            kwargs[name] = getattr(list_node, name).__class__(
+                                self.model.context).objects.get(ln_item_data[k])
                         else:
                             kwargs[k] = ln_item_data[k]
                     list_node(**kwargs)
@@ -167,7 +169,8 @@ class ModelForm(object):
                            'type': node_type,
                            'title': instance_node.Meta.verbose_name,
                            'schema': schema,
-                           'value': node_data,
+                           'value': node_data if not node_data or node_type == 'ListNode'
+                                    else node_data[0],
                            'required': None,
                            'default': None,
                            })
@@ -180,8 +183,9 @@ class ModelForm(object):
                            'type': 'model',
                            'title': model.Meta.verbose_name,
                            'value': model_instance.key,
-                           'content': list(self.__class__(model_instance,
-                                                          fields=True)._serialize()) if self.model.is_in_db() else None,
+                           'content': (list(self.__class__(model_instance,
+                                                           fields=True)._serialize())
+                                       if self.model.is_in_db() else None),
                            'required': None,
                            'default': None,
                            })
@@ -223,8 +227,9 @@ class ModelForm(object):
 
     def node_data(self, nodes, parent_name):
         # FIXME: Permission checks
-        result = {}
+        results = []
         for real_node in nodes:
+            result = {}
             # node_data = {'models': [], 'fields': []}
             for model_attr_name in real_node._linked_models:
                 model_instance = getattr(real_node, model_attr_name)
@@ -232,10 +237,8 @@ class ModelForm(object):
                                                      'verbose_name': unicode(model_instance)}
             for name, field in real_node._fields.items():
                 result[name] = real_node._field_values.get(name, '')
-                if not result[name]:
-                    result[name] = field.default() if callable(field.default) else field.default
-
-        return result
+            results.append(result)
+        return results
 
 
 class Form(ModelForm):
