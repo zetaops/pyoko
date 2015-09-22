@@ -8,6 +8,7 @@
 # (GPLv3).  See LICENSE.txt for details.
 from pprint import pprint
 from time import sleep, time
+from pyoko.lib.utils import pprnt
 from tests.models import *
 
 
@@ -51,14 +52,19 @@ class TestCase:
 
         tt1 = TimeTable(lecture='rock101', week_day=2, hours=2).save()
         tt2 = TimeTable(lecture='math101', week_day=4, hours=4).save()
+        print("\n--------- SCHOLAR -------------\n")
         scholar = Scholar(name='Munu')
         scholar.TimeTables(timetable=tt1, confirmed=True)
         scholar.TimeTables(timetable=tt2, confirmed=False)
         scholar.save()
+        print("\n\n-------------------\n\n")
+        # pprnt(Scholar.objects.data().get(scholar.key).data)
         db_scholar = Scholar.objects.get(scholar.key)
         db_tt1 = TimeTable.objects.get(tt1.key)
         db_sc_tt2 = db_scholar.TimeTables[1].timetable
         db_sc_tt1 = db_scholar.TimeTables[0].timetable
+        db_tt1.prnt()
+        # scholar.prnt()
         assert db_tt1.scholar_set[0].scholar.name == db_scholar.name
         assert db_sc_tt2.lecture != db_sc_tt1.lecture
         assert tt1.lecture == db_tt1.lecture

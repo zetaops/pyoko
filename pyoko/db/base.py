@@ -212,16 +212,14 @@ class DBObjects(object):
             obj.data = data
             return obj.store()
 
-    def save_model(self, model=None):
+    def save_model(self):
         """
         saves the model instance to riak
         :return:
         """
-        if model:
-            self.model = model
-        clean_value = self.model.clean_value()
+        model_data = self.model.clean_value()
         key = self.model.key if self.model.is_in_db() else None
-        riak_object = self.save(clean_value, key)
+        riak_object = self.save(model_data, key)
         self.model.key = riak_object.key
 
     def _get(self):
