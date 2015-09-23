@@ -232,9 +232,10 @@ class Node(object):
         super(Node, self).__init__()
         self.timer = 0.0
         self.path = []
-        self.set_tmp_key(kwargs)
-        # self.root = kwargs.pop('root', None)
+        self.set_key(kwargs)
+        self.parent = kwargs.pop('parent', self)
         self.root = kwargs.pop('root', self)
+
         self._field_values = {}
         # if model has cell_filters that applies to current user,
         # filtered values will be kept in _secured_data dict
@@ -247,7 +248,7 @@ class Node(object):
         self._instantiate_nodes()
         self._set_fields_values(kwargs)
 
-    def set_tmp_key(self, kwargs):
+    def set_key(self, kwargs):
         self.key = kwargs.get('key', "TMP_%s_%s" % (self.__class__.__name__, uuid4().hex[:10]))
 
     @classmethod
@@ -258,37 +259,35 @@ class Node(object):
         """
         returns the dotted path of the given model attribute
         """
-        # root = self.root or self
         return ('.'.join(list(self.path + [un_camel(self.__class__.__name__),
-                                           prop]))).replace(self.root._get_bucket_name() + '.', '')
+                                           prop]))).replace(self.parent._get_bucket_name() + '.',
+                                                            '')
 
     def _instantiate_linked_models(self, data=None):
         for name, (mdl, o2o) in self._linked_models.items():
             # TODO: investigate if this really required/needed and remove if not
-            # mdl.root = self.root or self
-            # root = self.root or self
             if data is not None and name in data:
                 if isinstance(data[name], Model):
                     obj = data[name]
-                    # obj.saved_models=self.root.saved_models
+                    obj.root = self.root
                 elif isinstance(data[name], dict):
                     obj = lazy_object_proxy.Proxy(
-                        lambda: mdl(self.root.context, **data[name]))
+                        lambda: mdl(self.parent.context, root=self.root, **data[name]))
                 # then it should be key of the object
                 elif isinstance(data[name], six.string_types):
                     obj = lazy_object_proxy.Proxy(
-                        lambda: mdl(self.root.context, key=data[name]))
+                        lambda: mdl(self.parent.context, root=self.root, key=data[name]))
                 else:
                     raise Exception("Unsupported data type for linked model: %s: %s" %
                                     (name, data[name]))
             else:
-                obj = lazy_object_proxy.Proxy(lambda: mdl(self.root.context))
+                obj = lazy_object_proxy.Proxy(lambda: mdl(self.parent.context, root=self.root))
             setattr(self, name, obj)
 
     def _instantiate_node(self, name, klass):
-        # instantiate given node, pass path and root info
-        ins = klass(**{'root': self.root})
-        ins.root = self.root
+        # instantiate given node, pass path and parent info
+        ins = klass(**{'parent': self.parent})
+        ins.parent = self.parent
         ins.path = self.path + [self.__class__.__name__.lower()]
         for (mdl, o2o) in klass._linked_models.values():
             self._model_in_node[mdl].append(ins)
@@ -330,11 +329,11 @@ class Node(object):
                 if name in kwargs:
                     val = kwargs.get(name, self._field_values.get(name))
                     path_name = self._path_of(name)
-                    # root = self.root or self
-                    if path_name in self.root.get_unpermitted_fields():
+                    # parent = self.parent or self
+                    if path_name in self.parent.get_unpermitted_fields():
                         self._secured_data[path_name] = val
                         continue
-                    if not kwargs.get('from_db'):
+                    if 'from_db' not in kwargs:
                         setattr(self, name, val)
                     else:
                         _field._load_data(self, val)
@@ -422,9 +421,9 @@ class Node(object):
             link_mdl = getattr(self, name)
             # print(link_mdl, link_mdl.key)
             if link_mdl.is_in_db():
-                # link_mdl.root = self.root
-                if link_mdl.key not in self.root.model_cache:
-                    self.root.model_cache[link_mdl.key] = link_mdl._clean_value()
+                # link_mdl.parent = self.parent
+                if link_mdl.key not in self.parent.model_cache:
+                    self.parent.model_cache[link_mdl.key] = link_mdl._clean_value()
                 dct[name] = link_mdl.key
             else:
                 dct[name] = ""
@@ -443,7 +442,6 @@ class Node(object):
         :rtype: dict
         :return: riak ready python dict
         """
-        self.root = self
         dct = self._clean_value()
         dct['model_cache'] = self.model_cache
         return dct
@@ -474,7 +472,6 @@ class Model(Node):
         self._data = {}
         self.saved_models = []
 
-
     def is_saved(self, mdl):
         return mdl.key in self.saved_models
 
@@ -500,23 +497,26 @@ class Model(Node):
 
     def set_data(self, data, from_db=False):
         """
-        first calls supers load_data
-        then fills linked models
-
         :param from_db: if data coming from db then we will
         use related field type's _load_data method
         :param data: data
         :return:
         """
         self._load_data(data, from_db)
-        # cache = data.get('_cache')
+        self._fill_linked_models(data, from_db)
+        return self
+
+    def _fill_linked_models(self, data, from_db):
         for name in self._linked_models:
-            # _name = un_camel(name)
             mdl = getattr(self, name)
             mdl.key = data[name]
-            if data[name] in data['model_cache']:
-                mdl.set_data(data['model_cache'][data[name]], from_db)
-        return self
+            if 'model_cache' in data:
+                model_cache = data['model_cache']
+            else:
+                model_cache = self.root._data['model_cache']
+            if data[name] in model_cache:
+                mdl.set_data(model_cache[mdl.key], from_db)
+
 
     def apply_cell_filters(self, context):
         self.is_unpermitted_fields_set = True
@@ -566,11 +566,9 @@ class Model(Node):
         return model_registry.back_link_registry[self.__class__]
 
     def save(self, root=None):
-        # print(self, self.root != self)
-        # if root:
-        #     self.saved_models = root.saved_models
-        self.objects.save_model()
-        self.add_to_saved(self.key)
+        self.root = root or self
+        self.objects.save_model(self)
+        self.add_to_saved(self)
         self._save_to_many_models()
         self._save_backlinked_models()
         return self
@@ -591,7 +589,8 @@ class Model(Node):
             if not self.is_saved(linked_mdl):
                 for mdl_set in linked_mdl._model_in_node[self.__class__]:
                     mdl_set.update_linked_model(self)
-                linked_mdl.save()
+                linked_mdl.add_to_saved(self)
+                linked_mdl.save(root=self.root)
 
     def _save_to_many_models(self):
         """
@@ -608,11 +607,10 @@ class Model(Node):
         # we should also remove it from target model's cache
         for name, mdl in self._get_reverse_links():
             for obj in mdl(_pass_perm_checks=True).objects.filter(**{un_camel(name): self.key}):
-                if obj.key in self.saved_models:
+                if self.is_saved(obj):
                     continue
                 setattr(obj, name, self)
-                # obj.saved_models = self.saved_models
-                # obj.save()
+                # obj.save(root=self.root)
         for pointer, name, mdl in self._get_forward_links():
             cached_obj = getattr(self, pointer)
             if not cached_obj.is_in_db():
@@ -630,14 +628,13 @@ class Model(Node):
             if back_linking_model:
                 # this is a 1-to-1 relation
                 setattr(obj, name, self)
-                obj.save()
+                obj.save(root=self.root)
             else:
                 # this is a 1-to-many relation, other side is a ListNode
                 # named like object_set
                 object_set = getattr(obj, '%s_set' % name)
                 object_set.add(**{name: self})
-                # obj.saved_models = self.saved_models
-                obj.save()
+                obj.save(root=self.root)
 
     def delete(self):
         """
@@ -679,7 +676,6 @@ class ListNode(Node):
         return self.node_dict[key]
 
     def update_linked_model(self, model_ins):
-        # self.root = model_ins.root
         for name, (mdl, o2o) in self._linked_models.items():
             if model_ins.__class__ == mdl:
                 for item in self:
@@ -716,14 +712,14 @@ class ListNode(Node):
             _name = un_camel(name)
             if _name in node_data:  # check for partial data
                 getattr(clone, name)._load_data(node_data[_name])
-        cache = node_data.get('_cache', {})
+        cache = self.parent._data['model_cache']
         for name, (model, is_one_to_one) in self._linked_models.items():
-            _name = un_camel(name)
-            if _name in cache:
+            if name in node_data:
+                key = node_data[name]
                 ins = model()
-                ins(from_db=self._from_db, **cache[_name])
-                ins.key = cache[_name]['key']
-                ins.set_data(cache[_name], self._from_db)
+                # ins._set_fields_values(from_db=self._from_db, **cache[name])
+                ins.key = key
+                ins.set_data(cache[key], self._from_db)
                 setattr(clone, name, ins)
         self.node_dict[clone.key] = clone
         # self.node_stack.append(clone)
@@ -736,7 +732,7 @@ class ListNode(Node):
         :return:
         """
 
-        kwargs['root'] = self.root
+        kwargs['parent'] = self.parent
         clone = self.__class__(**kwargs)
         clone._is_item = True
         self.node_stack.append(clone)
@@ -786,7 +782,7 @@ class ListNode(Node):
         clear outs the list node
         """
         if self._is_item:
-            raise TypeError("This an item of the parent ListNode")
+            raise TypeError("This an item of the ≠ ListNode")
         self.node_stack = []
         self._data = []
 
