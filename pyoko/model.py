@@ -610,7 +610,8 @@ class Model(Node):
                 if self.is_saved(obj):
                     continue
                 setattr(obj, name, self)
-                # obj.save(root=self.root)
+                obj.add_to_saved(self)
+                obj.save(root=self.root)
         for pointer, name, mdl in self._get_forward_links():
             cached_obj = getattr(self, pointer)
             if not cached_obj.is_in_db():
@@ -628,12 +629,14 @@ class Model(Node):
             if back_linking_model:
                 # this is a 1-to-1 relation
                 setattr(obj, name, self)
+                obj.add_to_saved(self)
                 obj.save(root=self.root)
             else:
                 # this is a 1-to-many relation, other side is a ListNode
                 # named like object_set
                 object_set = getattr(obj, '%s_set' % name)
                 object_set.add(**{name: self})
+                obj.add_to_saved(self)
                 obj.save(root=self.root)
 
     def delete(self):
