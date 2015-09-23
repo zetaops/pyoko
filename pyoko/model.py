@@ -286,7 +286,7 @@ class Node(object):
 
     def _instantiate_node(self, name, klass):
         # instantiate given node, pass path and parent info
-        ins = klass(**{'parent': self.parent})
+        ins = klass(**{'parent': self.parent, 'root': self.root})
         ins.parent = self.parent
         ins.path = self.path + [self.__class__.__name__.lower()]
         for (mdl, o2o) in klass._linked_models.values():
@@ -719,10 +719,13 @@ class ListNode(Node):
         for name, (model, is_one_to_one) in self._linked_models.items():
             if name in node_data:
                 key = node_data[name]
-                ins = model()
-                # ins._set_fields_values(from_db=self._from_db, **cache[name])
-                ins.key = key
-                ins.set_data(cache[key], self._from_db)
+                if isinstance(key, six.string_types):
+                    ins = model(root=self.root)
+                    # ins._set_fields_values(from_db=self._from_db, **cache[name])
+                    ins.key = key
+                    ins.set_data(cache[key], self._from_db)
+                else:
+                    ins = key
                 setattr(clone, name, ins)
         self.node_dict[clone.key] = clone
         # self.node_stack.append(clone)
