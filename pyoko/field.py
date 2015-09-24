@@ -150,7 +150,7 @@ class DateTime(BaseField):
     def _load_data(self, instance, value):
         if value is None or value == EMPTY_DATETIME:
             value = ''
-        else:
+        elif isinstance(value, six.string_types):
             value = datetime.datetime.strptime(value, DATE_TIME_FORMAT)
         instance._field_values[self.name] = value
 
@@ -180,7 +180,7 @@ class Date(BaseField):
     def _load_data(self, instance, value):
         if value is None or value == EMPTY_DATETIME:
             value = ''
-        else:
+        elif isinstance(value, six.string_types):
             value = datetime.datetime.strptime(value, DATE_FORMAT).date()
         instance._field_values[self.name] = value
 

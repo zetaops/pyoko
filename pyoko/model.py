@@ -660,6 +660,7 @@ class ListNode(Node):
         self.values = []
         self.node_stack = []
         self._data = []
+        self.data = []
         self.node_dict = {}
         # print("KWARGS", kwargs, self)
         super(ListNode, self).__init__(**kwargs)
@@ -702,8 +703,8 @@ class ListNode(Node):
         """
         for node in self.node_stack:
             yield node
-        while self._data:
-            yield self._make_instance(self._data.pop(0))
+        while self.data:
+            yield self._make_instance(self.data.pop(0))
 
     def _make_instance(self, node_data):
 
@@ -715,7 +716,7 @@ class ListNode(Node):
             _name = un_camel(name)
             if _name in node_data:  # check for partial data
                 getattr(clone, name)._load_data(node_data[_name])
-        cache = self.parent._data['model_cache']
+        cache = self.parent._data.get('model_cache', self.root._data['model_cache'])
         for name, (model, is_one_to_one) in self._linked_models.items():
             if name in node_data:
                 key = node_data[name]
@@ -781,7 +782,7 @@ class ListNode(Node):
         :param kwargs: properties of the ListNode
         :return: None
         """
-        self._data.append(kwargs)
+        self.data.append(kwargs)
 
     def clear(self):
         """
@@ -790,10 +791,10 @@ class ListNode(Node):
         if self._is_item:
             raise TypeError("This an item of the ≠ ListNode")
         self.node_stack = []
-        self._data = []
+        self.data = []
 
     def __len__(self):
-        return len(self._data or self.node_stack)
+        return len(self.data or self.node_stack)
 
     def __getitem__(self, index):
         return list(self._generate_instances()).__getitem__(index)
