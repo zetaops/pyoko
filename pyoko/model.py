@@ -424,6 +424,8 @@ class Node(object):
                 # link_mdl.parent = self.parent
                 if link_mdl.key not in self.parent.model_cache:
                     self.parent.model_cache[link_mdl.key] = link_mdl._clean_value()
+                if self.root != self and self.root != self.parent:
+                    self.root.model_cache[link_mdl.key] = link_mdl._clean_value()
                 dct[name] = link_mdl.key
             else:
                 dct[name] = ""
@@ -492,7 +494,13 @@ class Model(Node):
     def get_search_index(cls):
         if not cls._SEARCH_INDEX:
             # cls._SEARCH_INDEX = settings.get_index(cls._get_bucket_name())
-            cls._SEARCH_INDEX = cls.objects.bucket.get_property('search_index')
+            try:
+                cls._SEARCH_INDEX = cls.objects.bucket.get_property('search_index')
+            except KeyError:
+                print("This model probably not migrated yet: %s" % cls.__name__)
+                print(cls.objects.bucket)
+                print(cls.objects.bucket.get_properties())
+                raise
         return cls._SEARCH_INDEX
 
     def set_data(self, data, from_db=False):
@@ -739,7 +747,7 @@ class ListNode(Node):
         :return:
         """
 
-        kwargs['parent'] = self.parent
+        kwargs.update({'parent': self.parent, 'root': self.root})
         clone = self.__class__(**kwargs)
         clone._is_item = True
         self.node_stack.append(clone)
