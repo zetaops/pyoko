@@ -74,7 +74,6 @@ class SchemaUpdater(object):
         self.t1 = 0.0  # start time
 
     def run(self):
-        # TODO: Limit thread size to 10-20
         self.t1 = time.time()
         apply_threads = []
         models = [model for model in self.registry.get_base_models()
@@ -82,6 +81,8 @@ class SchemaUpdater(object):
                   model.__name__.lower() in self.bucket_names]
         num_models = len(models)
         pack_size = num_models / self.threads or 1
+        n_val = self.client.bucket_type(settings.DEFAULT_BUCKET_TYPE).get_property('n_val')
+        self.client.create_search_index('foo_index', '_yz_default', n_val=n_val)
         for i in range(0, num_models, pack_size):
             job_pack = []
             for model in models[i:i+pack_size]:
@@ -180,6 +181,7 @@ class SchemaUpdater(object):
 
                 # suffix = 9000000000 - int(time.time())
                 index_name = "%s_%s" % (settings.DEFAULT_BUCKET_TYPE, bucket_name)
+                bucket.set_property('search_index', 'foo_index')
                 client.delete_search_index(index_name)
                 wait_for_schema_deletion(index_name)
                 client.create_search_schema(index_name, new_schema)
