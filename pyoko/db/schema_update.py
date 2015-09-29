@@ -61,7 +61,7 @@ class SchemaUpdater(object):
     then creates a solr schema for these fields.
     """
 
-    FIELD_TEMPLATE = '<field type="{type}" name="{name}"  indexed="{index}" ' \
+    FIELD_TEMPLATE = '<field    type="{type}" name="{name}"  indexed="{index}" ' \
                      'stored="{store}" multiValued="{multi}" />'
 
     def __init__(self, registry, bucket_names, threads, reindex):
@@ -181,6 +181,14 @@ class SchemaUpdater(object):
 
                 # suffix = 9000000000 - int(time.time())
                 index_name = "%s_%s" % (settings.DEFAULT_BUCKET_TYPE, bucket_name)
+                try:
+                    if client.get_search_schema(index_name)['content'] == new_schema:
+                        print("Schema already up to date, nothing to do!")
+                        continue
+                except:
+                    import traceback
+                    traceback.print_exc()
+
                 bucket.set_property('search_index', 'foo_index')
                 client.delete_search_index(index_name)
                 wait_for_schema_deletion(index_name)
