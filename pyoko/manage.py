@@ -49,7 +49,7 @@ class SchemaUpdate(Command):
     CMD_NAME = 'migrate'
     PARAMS = [{'name': 'model', 'required': True, 'help': 'Models name(s) to be updated'
                                                          'Say "all" to update all models'},
-              {'name': 'threads', 'default': 12, 'help': 'Number of threads. Default: 12'},
+              {'name': 'threads', 'default': 6, 'help': 'Number of threads. Default: 12'},
               {'name': 'reindex', 'action': 'store_true', 'help': 'Reindex all records'},
               ]
     HELP = 'Creates/Updates SOLR schemas for given model(s)'

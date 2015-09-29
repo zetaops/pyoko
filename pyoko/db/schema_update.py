@@ -25,6 +25,36 @@ class FakeContext(object):
 fake_context = FakeContext()
 
 
+def wait_for_schema_creation(index_name):
+    import urllib2
+    while True:
+        url = 'http://%s:8093/internal_solr/%s/select' % (settings.RIAK_SERVER, index_name)
+        print("pinging solr schema: %s" % url)
+        try:
+            urllib2.urlopen(url)
+            return
+        except urllib2.HTTPError, e:
+            if e.code == 404:
+                time.sleep(1)
+                import traceback
+                print(traceback.format_exc())
+            else:
+                raise
+
+def wait_for_schema_deletion(index_name):
+    import urllib2
+    while True:
+        url = 'http://%s:8093/internal_solr/%s/select' % (settings.RIAK_SERVER, index_name)
+        print("pinging solr schema: %s" % url)
+        try:
+            urllib2.urlopen(url)
+            time.sleep(1)
+        except urllib2.HTTPError, e:
+            if e.code == 404:
+                return
+            else:
+                raise
+
 class SchemaUpdater(object):
     """
     traverses trough all models, collects fields marked for index or store in solr
@@ -118,16 +148,6 @@ class SchemaUpdater(object):
         return schema_template.format('\n'.join(fields)).encode('utf-8')
 
 
-    def wait_for_schema_creation(self, index_name):
-        import urllib2
-        while True:
-            try:
-                urllib2.urlopen('http://%s:8093/internal_solr/%s/select' % (
-                    settings.RIAK_SERVER, index_name
-                ))
-                return
-            except urllib2.HTTPError:
-                time.sleep(1)
 
     @staticmethod
     def apply_schema(client, reindex, job_pack):
@@ -158,25 +178,22 @@ class SchemaUpdater(object):
                 # for stale_index in stale_indexes:
                 #     self.client.delete_search_index(stale_index)
 
-                suffix = 9000000000 - int(time.time())
-                new_index_name = "%s_%s_%s" % (settings.DEFAULT_BUCKET_TYPE, bucket_name, suffix)
-                client.create_search_schema(new_index_name, new_schema)
-                self.wait_for_schema_creation(new_index_name)
-                client.create_search_index(new_index_name, new_index_name, n_val)
-                # time.sleep(1)
-                bucket.set_property('search_index', new_index_name)
-                # settings.update_index(bucket_name, new_index_name)
-                print("+ %s (%s)" % (model.__name__, new_index_name))
-                if reindex:
-                    print("Reindexing %s" % model.__name__)
-                    stream = bucket.stream_keys()
-                    i = 0
-                    for key_list in stream:
-                        for key in key_list:
-                            i += 1
-                            bucket.get(key).store()
-                    stream.close()
-                    print("Reindexed %s records" % i)
+                # suffix = 9000000000 - int(time.time())
+                index_name = "%s_%s" % (settings.DEFAULT_BUCKET_TYPE, bucket_name)
+                client.delete_search_index(index_name)
+                wait_for_schema_deletion(index_name)
+                client.create_search_schema(index_name, new_schema)
+                client.create_search_index(index_name, index_name, n_val)
+                bucket.set_property('search_index', index_name)
+                print("+ %s (%s)" % (model.__name__, index_name))
+                stream = bucket.stream_keys()
+                i = 0
+                for key_list in stream:
+                    for key in key_list:
+                        i += 1
+                        bucket.get(key).store()
+                stream.close()
+                print("Re-indexed %s records of %s" % (i, bucket_name))
 
             except:
                 # import traceback
