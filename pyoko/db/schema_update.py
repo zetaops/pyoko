@@ -117,6 +117,18 @@ class SchemaUpdater(object):
             schema_template = fh.read()
         return schema_template.format('\n'.join(fields)).encode('utf-8')
 
+
+    def wait_for_schema_creation(self, index_name):
+        import urllib2
+        while True:
+            try:
+                urllib2.urlopen('http://%s:8093/internal_solr/%s/select' % (
+                    settings.RIAK_SERVER, index_name
+                ))
+                return
+            except urllib2.HTTPError:
+                time.sleep(1)
+
     @staticmethod
     def apply_schema(client, reindex, job_pack):
         """
@@ -149,6 +161,7 @@ class SchemaUpdater(object):
                 suffix = 9000000000 - int(time.time())
                 new_index_name = "%s_%s_%s" % (settings.DEFAULT_BUCKET_TYPE, bucket_name, suffix)
                 client.create_search_schema(new_index_name, new_schema)
+                self.wait_for_schema_creation(new_index_name)
                 client.create_search_index(new_index_name, new_index_name, n_val)
                 # time.sleep(1)
                 bucket.set_property('search_index', new_index_name)
@@ -166,7 +179,9 @@ class SchemaUpdater(object):
                     print("Reindexed %s records" % i)
 
             except:
-                import traceback
-                print(traceback.format_exc())
+                # import traceback
+                # print(traceback.format_exc())
+                print("n_val: %s" % n_val)
                 print("bucket_name: %s" % bucket_name)
                 print("bucket_type: %s" % bucket_type)
+                raise
