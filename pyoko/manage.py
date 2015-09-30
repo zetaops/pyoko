@@ -49,8 +49,8 @@ class SchemaUpdate(Command):
     CMD_NAME = 'migrate'
     PARAMS = [{'name': 'model', 'required': True, 'help': 'Models name(s) to be updated'
                                                          'Say "all" to update all models'},
-              {'name': 'threads', 'default': 6, 'help': 'Number of threads. Default: 12'},
-              {'name': 'reindex', 'action': 'store_true', 'help': 'Reindex all records'},
+              {'name': 'threads', 'default': 3, 'help': 'Number of threads. Default: 3'},
+              {'name': 'force', 'action': 'store_true', 'help': 'Force schema creation'},
               ]
     HELP = 'Creates/Updates SOLR schemas for given model(s)'
 
@@ -63,7 +63,7 @@ class SchemaUpdate(Command):
         updater = SchemaUpdater(registry,
                                 self.manager.args.model,
                                 self.manager.args.threads,
-                                self.manager.args.reindex,
+                                self.manager.args.force,
                                 )
         updater.run()
         return updater.create_report()

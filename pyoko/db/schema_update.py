@@ -7,8 +7,10 @@
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 
+from __future__ import print_function
 import codecs
 from random import randint
+from sys import stdout
 import threading
 import time
 from pyoko.conf import settings
@@ -27,9 +29,9 @@ fake_context = FakeContext()
 
 def wait_for_schema_creation(index_name):
     import urllib2
+    url = 'http://%s:8093/internal_solr/%s/select' % (settings.RIAK_SERVER, index_name)
+    print("pinging solr schema: %s" % url, end='')
     while True:
-        url = 'http://%s:8093/internal_solr/%s/select' % (settings.RIAK_SERVER, index_name)
-        print("pinging solr schema: %s" % url)
         try:
             urllib2.urlopen(url)
             return
@@ -41,19 +43,25 @@ def wait_for_schema_creation(index_name):
             else:
                 raise
 
+
 def wait_for_schema_deletion(index_name):
     import urllib2
+    url = 'http://%s:8093/internal_solr/%s/select' % (settings.RIAK_SERVER, index_name)
+    i = 0
     while True:
-        url = 'http://%s:8093/internal_solr/%s/select' % (settings.RIAK_SERVER, index_name)
-        print("pinging solr schema: %s" % url)
+        i += 1
+        stdout.write("\r Waiting for actual deletion of solr schema %s %s" % (index_name, i * '.'))
+        stdout.flush()
         try:
             urllib2.urlopen(url)
             time.sleep(1)
         except urllib2.HTTPError, e:
+            print("")
             if e.code == 404:
                 return
             else:
                 raise
+
 
 class SchemaUpdater(object):
     """
@@ -64,10 +72,10 @@ class SchemaUpdater(object):
     FIELD_TEMPLATE = '<field    type="{type}" name="{name}"  indexed="{index}" ' \
                      'stored="{store}" multiValued="{multi}" />'
 
-    def __init__(self, registry, bucket_names, threads, reindex):
+    def __init__(self, registry, bucket_names, threads, force):
         self.report = []
         self.registry = registry
-        self.reindex = reindex
+        self.force = force
         self.client = client
         self.threads = int(threads)
         self.bucket_names = [b.lower() for b in bucket_names.split(',')]
@@ -85,17 +93,17 @@ class SchemaUpdater(object):
         self.client.create_search_index('foo_index', '_yz_default', n_val=n_val)
         for i in range(0, num_models, pack_size):
             job_pack = []
-            for model in models[i:i+pack_size]:
+            for model in models[i:i + pack_size]:
                 ins = model(fake_context)
                 fields = self.get_schema_fields(ins._collect_index_fields())
                 new_schema = self.compile_schema(fields)
                 job_pack.append((new_schema, model))
             apply_threads.append(
                 threading.Thread(target=self.apply_schema, args=(self.client,
-                                                                 self.reindex,
+                                                                 self.force,
                                                                  job_pack)))
 
-        print("Schema creation started for %s model(s) with %s threads\n" % (
+        print("Schema creation started for %s model(s) with max %s threads\n" % (
             num_models, self.threads))
         for t in apply_threads:
             t.start()
@@ -148,10 +156,8 @@ class SchemaUpdater(object):
             schema_template = fh.read()
         return schema_template.format('\n'.join(fields)).encode('utf-8')
 
-
-
     @staticmethod
-    def apply_schema(client, reindex, job_pack):
+    def apply_schema(client, force, job_pack):
         """
         riak doesn't support schema/index updates ( http://git.io/vLOTS )
 
@@ -171,23 +177,15 @@ class SchemaUpdater(object):
                 bucket_type = client.bucket_type(settings.DEFAULT_BUCKET_TYPE)
                 bucket = bucket_type.bucket(bucket_name)
                 n_val = bucket_type.get_property('n_val')
-                # delete stale indexes
-                # inuse_indexes = [b.get_properties().get('search_index') for b in
-                #                  bucket_type.get_buckets()]
-                # stale_indexes = [si['name'] for si in self.client.list_search_indexes()
-                #                     if si['name'] not in inuse_indexes]
-                # for stale_index in stale_indexes:
-                #     self.client.delete_search_index(stale_index)
-
-                # suffix = 9000000000 - int(time.time())
                 index_name = "%s_%s" % (settings.DEFAULT_BUCKET_TYPE, bucket_name)
-                try:
-                    if client.get_search_schema(index_name)['content'] == new_schema:
-                        print("Schema already up to date, nothing to do!")
-                        continue
-                except:
-                    import traceback
-                    traceback.print_exc()
+                if not force:
+                    try:
+                        if client.get_search_schema(index_name)['content'] == new_schema:
+                            print("Schema already up to date, nothing to do!")
+                            continue
+                    except:
+                        import traceback
+                        traceback.print_exc()
 
                 bucket.set_property('search_index', 'foo_index')
                 client.delete_search_index(index_name)
@@ -201,6 +199,7 @@ class SchemaUpdater(object):
                 for key_list in stream:
                     for key in key_list:
                         i += 1
+                        time.sleep(0.4)
                         bucket.get(key).store()
                 stream.close()
                 print("Re-indexed %s records of %s" % (i, bucket_name))
