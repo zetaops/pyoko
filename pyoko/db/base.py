@@ -354,7 +354,9 @@ class DBObjects(object):
             raise Exception("Query already executed, no changes can be made."
                             "%s %s %s" % (self._solr_query, self._solr_params)
                             )
-        self._solr_params.update(params)
+        clone = copy.deepcopy(self)
+        clone._solr_params.update(params)
+        return clone
 
     def fields(self, *args):
         """
@@ -363,6 +365,7 @@ class DBObjects(object):
         :param args:
         :return:
         """
+
         self._solr_params.update({'fl': ' '.join(set(args + ('_yz_rk',)))})
         return self
 
@@ -385,7 +388,7 @@ class DBObjects(object):
         clone._set_return_type(ReturnType.Object)
         return clone
 
-    def raw(self, query, params=None):
+    def raw(self, query, **params):
         """
         make a raw query
         :param str query: solr query
@@ -412,7 +415,7 @@ class DBObjects(object):
             self._solr_query += filtered_query._solr_query
         for key, val in self._solr_query:
             key = key.replace('__', '.')
-            # quering on a linked model by model instance
+            # querying on a linked model by model instance
             # it should be a Model, not a Node!
             if hasattr(val, '_TYPE'):
                 val = val.key

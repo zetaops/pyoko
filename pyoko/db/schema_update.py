@@ -13,10 +13,12 @@ from random import randint
 from sys import stdout
 import threading
 import time
+from riak import ConflictError
 from pyoko.conf import settings
 from pyoko.db.connection import client
 import os, inspect
 from pyoko.lib.utils import un_camel, random_word
+import urllib2
 
 
 class FakeContext(object):
@@ -28,7 +30,6 @@ fake_context = FakeContext()
 
 
 def wait_for_schema_creation(index_name):
-    import urllib2
     url = 'http://%s:8093/internal_solr/%s/select' % (settings.RIAK_SERVER, index_name)
     print("pinging solr schema: %s" % url, end='')
     while True:
@@ -45,7 +46,6 @@ def wait_for_schema_creation(index_name):
 
 
 def wait_for_schema_deletion(index_name):
-    import urllib2
     url = 'http://%s:8093/internal_solr/%s/select' % (settings.RIAK_SERVER, index_name)
     i = 0
     while True:
@@ -61,6 +61,18 @@ def wait_for_schema_deletion(index_name):
                 return
             else:
                 raise
+
+
+def get_schema_from_solr(index_name):
+    url = 'http://%s:8093/internal_solr/%s/admin/file?file=%s.xml' % (settings.RIAK_SERVER,
+                                                                      index_name, index_name)
+    try:
+        return urllib2.urlopen(url).read()
+    except urllib2.HTTPError, e:
+        if e.code == 404:
+            return ""
+        else:
+            raise
 
 
 class SchemaUpdater(object):
@@ -180,13 +192,12 @@ class SchemaUpdater(object):
                 index_name = "%s_%s" % (settings.DEFAULT_BUCKET_TYPE, bucket_name)
                 if not force:
                     try:
-                        if client.get_search_schema(index_name)['content'] == new_schema:
+                        if get_schema_from_solr(index_name) == new_schema:
                             print("Schema already up to date, nothing to do!")
                             continue
                     except:
                         import traceback
                         traceback.print_exc()
-
                 bucket.set_property('search_index', 'foo_index')
                 client.delete_search_index(index_name)
                 wait_for_schema_deletion(index_name)
@@ -196,17 +207,29 @@ class SchemaUpdater(object):
                 print("+ %s (%s)" % (model.__name__, index_name))
                 stream = bucket.stream_keys()
                 i = 0
+                unsaved_keys = []
                 for key_list in stream:
                     for key in key_list:
                         i += 1
-                        time.sleep(0.4)
-                        bucket.get(key).store()
+                        # time.sleep(0.4)
+                        try:
+                            obj = bucket.get(key)
+                            if obj.data:
+                                obj.store()
+                        except ConflictError:
+                            unsaved_keys.append(key)
+                            print("Error on save. Record in conflict: %s > %s" % (bucket_name, key))
+                        except:
+                            unsaved_keys.append(key)
+                            print("Error on save! %s > %s" % (bucket_name, key))
+                            import traceback
+                            traceback.print_exc()
                 stream.close()
                 print("Re-indexed %s records of %s" % (i, bucket_name))
+                if unsaved_keys:
+                    print("\nThese keys cannot be updated:\n\n", unsaved_keys)
 
             except:
-                # import traceback
-                # print(traceback.format_exc())
                 print("n_val: %s" % n_val)
                 print("bucket_name: %s" % bucket_name)
                 print("bucket_type: %s" % bucket_type)
