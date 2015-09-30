@@ -7,11 +7,14 @@ command line management interface
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
+import codecs
 from collections import defaultdict
+import json
 
 from os import environ
-from sys import argv
+from sys import argv, stdout
 from six import add_metaclass
+from pyoko.model import super_context
 
 
 class CommandRegistry(type):
@@ -48,7 +51,7 @@ class Command(object):
 class SchemaUpdate(Command):
     CMD_NAME = 'migrate'
     PARAMS = [{'name': 'model', 'required': True, 'help': 'Models name(s) to be updated'
-                                                         'Say "all" to update all models'},
+                                                          'Say "all" to update all models'},
               {'name': 'threads', 'default': 1, 'help': 'Number of threads. Default: 1'},
               {'name': 'force', 'action': 'store_true', 'help': 'Force schema creation'},
               ]
@@ -72,7 +75,7 @@ class SchemaUpdate(Command):
 class FlushDB(Command):
     CMD_NAME = 'flush_model'
     HELP = 'REALLY DELETES the contents of buckets'
-    PARAMS = [{'name': 'model','required': True,
+    PARAMS = [{'name': 'model', 'required': True,
                'help': 'Models name(s) to be cleared. Say "all" to clear all models'},
               ]
 
@@ -109,7 +112,7 @@ class ManagementCommands(object):
         if not input:
             input = ['-h']
         self.parse_args(input)
-        print(self.args.command() or '\nProcess completed')
+        self.args.command()
 
     def parse_args(self, args):
         import argparse
@@ -117,7 +120,6 @@ class ManagementCommands(object):
         subparsers = parser.add_subparsers(title='Possible commands')
         for cmd_class in self.commands:
             cmd = cmd_class(self)
-            # print(cmd.CMD_NAME)
             sub_parser = subparsers.add_parser(cmd.CMD_NAME, help=getattr(cmd, 'HELP', None))
             sub_parser.set_defaults(command=cmd.run)
             if hasattr(cmd, 'PARAMS'):
@@ -131,10 +133,18 @@ class ManagementCommands(object):
 
 
 class DumpData(Command):
-    CMD_NAME = 'dump'
-    HELP = 'Dumps all data to stdout, pipe them to a file'
+    CMD_NAME = 'dump_data'
+    HELP = 'Dumps all data to stdout (as JSON), pipe them to a file.'
     PARAMS = [{'name': 'model', 'required': True,
-               'help': 'Models name(s) to be dumped. Say "all" to clear all models'},
+               'help': 'Models name(s) to be dumped. Say "all" to dump all models'},
+              {'name': 'pretty', 'action': 'store_true', 'help': 'Pretty print. '
+                                                                 'Needs "--tree" flag to be set'},
+              {'name': 'tree', 'action': 'store_true',
+               'help': 'Write whole dump as a big JSON object. Since it uses much more memory then'
+                       ' standard linear mode (where each line dumped as a separate JSON document)'
+                       ', DO NOT USE on big DBs.'},
+              {'name': 'batch_size', 'type': int, 'default': 1000,
+               'help': 'Retrieve this amount of records from solr in one time, defaults to 1000'},
               ]
 
     def run(self):
@@ -142,15 +152,91 @@ class DumpData(Command):
         from importlib import import_module
         import_module(settings.MODELS_MODULE)
         registry = import_module('pyoko.model').model_registry
-        models = registry.get_base_models()
+        model_name = self.manager.args.model
+        if model_name != 'all':
+            models = [registry.get_model(name) for name in model_name.split(',')]
+        else:
+            models = registry.get_base_models()
+        batch_size = self.manager.args.batch_size
+        tree = self.manager.args.tree
+        pretty = self.manager.args.pretty
 
         data = defaultdict(list)
         for mdl in models:
-            count = mdl.objects.count()
-            bucket = mdl.objects.bucket
-            for obj in mdl.objects.data().filter():
-                if obj.data is not None:
-                    data[bucket.name].append(obj.data)
+            model = mdl(super_context)
+            count = model.objects.count()
+            rounds = count / batch_size + 1
+            bucket = model.objects.bucket
+            for i in range(rounds):
+                for obj in model.objects.data().raw('*:*',
+                                                    sort="timestamp asc",
+                                                    rows=batch_size,
+                                                    start=i * batch_size):
+                    if obj.data is not None:
+                        if not tree:
+                            print(json.dumps((bucket.name, obj.key, obj.data)))
+                        else:
+                            data[bucket.name].append((obj.key, obj.data))
+        if tree:
+            if pretty:
+                out = json.dumps(data, sort_keys=True, indent=4)
+            else:
+                out = json.dumps(data)
+            print(out)
+
+
+class LoadData(Command):
+    CMD_NAME = 'load_data'
+    HELP = 'Reads JSON data from given file and populates models'
+    PARAMS = [{'name': 'file', 'required': True,
+               'help': 'Path of the data file'},
+              {'name': 'tree', 'action': 'store_true',
+               'help': 'Set this to load a JSON file previously dumped with "--tree" flag.'},
+              {'name': 'overwrite', 'action': 'store_true',
+               'help': 'Overwrites existing records. First gets then updates.'},
+
+              # {'name': 'pretty', 'action': 'store_true', 'help': 'Pretty print'},
+              # {'name': 'batch_size', 'type': int, 'default': 1000,
+              #  'help': 'Batch size, defaults to 1000'},
+              ]
+
+    def run(self):
+        from pyoko.conf import settings
+        from importlib import import_module
+        import_module(settings.MODELS_MODULE)
+        registry = import_module('pyoko.model').model_registry
+        self.buckets = {}
+        self.record_counter = 0
+        for mdl in registry.get_base_models():
+            bucket = mdl(super_context).objects.bucket
+            self.buckets[bucket.name] = bucket
+        with codecs.open(self.manager.args.file, encoding='utf-8') as file:
+            if self.manager.args.tree:
+                self.read_whole_file(file)
+            else:
+                self.read_per_line(file)
+        if self.record_counter:
+            print("%s record(s) inserted." % self.record_counter)
+
+    def read_whole_file(self, file):
+        data = json.loads(file.read())
+        for bucket_name in data.keys():
+            for key, val in data[bucket_name]:
+                self.save_obj(bucket_name, key, val)
+
+    def read_per_line(self, file):
+        for line in file:
+            bucket_name, key, val = json.loads(line)
+            self.save_obj(bucket_name, key, val)
+
+    def save_obj(self, bucket_name, key, val):
+        if self.manager.args.overwrite:
+            obj = self.buckets[bucket_name].get(key)
+            obj.data = val
+            obj.store()
+        else:
+            self.buckets[bucket_name].new(key, val).store()
+        self.record_counter += 1
 
 
 class FindEmptyRecords(Command):
@@ -178,11 +264,9 @@ class FindEmptyRecords(Command):
                 obj = bucket.get(k)
                 if obj.data is not None:
                     empty_records.remove(k)
-                    print("%s is found in %s" % (obj.key, bucket))
-                    print("%s is seen in %s" % (obj.key, seen_in[obj.key]))
+                    print("%s seen in %s" % (obj.key, seen_in[obj.key]))
+                    print("But actually found in %s" % (obj.key, bucket))
                     print("\n------\n")
 
         if empty_records:
             print("These keys cannot found anywhere: %s" % empty_records)
-
-
