@@ -7,6 +7,7 @@ command line management interface
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
+from argparse import RawTextHelpFormatter, HelpFormatter
 import codecs
 from collections import defaultdict
 import json
@@ -50,9 +51,9 @@ class Command(object):
 
 class SchemaUpdate(Command):
     CMD_NAME = 'migrate'
-    PARAMS = [{'name': 'model', 'required': True, 'help': 'Models name(s) to be updated'
-                                                          'Say "all" to update all models'},
-              {'name': 'threads', 'default': 1, 'help': 'Number of threads. Default: 1'},
+    PARAMS = [{'name': 'model', 'required': True, 'help': 'Models name(s) to be updated.'
+                                                          ' Say "all" to update all models'},
+              {'name': 'threads', 'default': 1, 'help': 'Max number of threads. Defaults to 1'},
               {'name': 'force', 'action': 'store_true', 'help': 'Force schema creation'},
               ]
     HELP = 'Creates/Updates SOLR schemas for given model(s)'
@@ -92,7 +93,15 @@ class FlushDB(Command):
             models = registry.get_base_models()
         for mdl in models:
             num_of_records = mdl.objects._clear_bucket()
-            print("%s records deleted from %s " % (num_of_records, mdl.__name__))
+            print("%s object(s) deleted from %s " % (num_of_records, mdl.__name__))
+
+
+class SmartFormatter(HelpFormatter):
+    def _split_lines(self, text, width):
+        # this is the RawTextHelpFormatter._split_lines
+        if text.startswith('R|'):
+            return text[2:].splitlines()
+        return HelpFormatter._split_lines(self, text, width)
 
 
 class ManagementCommands(object):
@@ -112,16 +121,23 @@ class ManagementCommands(object):
         if not input:
             input = ['-h']
         self.parse_args(input)
+        if self.args.timeit:
+            import time
+            t1 = time.time()
         self.args.command()
+        if self.args.timeit:
+            print("Process took %s seconds" % round(time.time() - t1, 2))
 
     def parse_args(self, args):
         import argparse
-        parser = argparse.ArgumentParser()
+        parser = argparse.ArgumentParser(formatter_class=SmartFormatter)
         subparsers = parser.add_subparsers(title='Possible commands')
         for cmd_class in self.commands:
             cmd = cmd_class(self)
-            sub_parser = subparsers.add_parser(cmd.CMD_NAME, help=getattr(cmd, 'HELP', None))
+            sub_parser = subparsers.add_parser(cmd.CMD_NAME, help=getattr(cmd, 'HELP', None),
+                                               formatter_class=SmartFormatter)
             sub_parser.set_defaults(command=cmd.run)
+            sub_parser.add_argument("--timeit", action="store_true", help="Time the process")
             if hasattr(cmd, 'PARAMS'):
                 for params in cmd.PARAMS:
                     name = "--%s" % params.pop("name")
@@ -129,22 +145,38 @@ class ManagementCommands(object):
                     if 'action' not in params:
                         params['nargs'] = '?'
                     sub_parser.add_argument(name, **params)
+
         self.args = parser.parse_args(args)
 
 
 class DumpData(Command):
     CMD_NAME = 'dump_data'
-    HELP = 'Dumps all data to stdout (as JSON), pipe them to a file.'
+    HELP = 'Dumps all data to stdout, pipe it to a file.'
+    CSV = 'csv'
+    JSON = 'json'
+    TREE = 'json_tree'
+    PRETTY = 'pretty'
+    CHOICES = (CSV, JSON, TREE, PRETTY)
     PARAMS = [{'name': 'model', 'required': True,
                'help': 'Models name(s) to be dumped. Say "all" to dump all models'},
-              {'name': 'pretty', 'action': 'store_true', 'help': 'Pretty print. '
-                                                                 'Needs "--tree" flag to be set'},
-              {'name': 'tree', 'action': 'store_true',
-               'help': 'Write whole dump as a big JSON object. Since it uses much more memory then'
-                       ' standard linear mode (where each line dumped as a separate JSON document)'
-                       ', DO NOT USE on big DBs.'},
+
+              {'name': 'type', 'default': CSV, 'choices': CHOICES,
+               'help': """R|
+                %s : This is the default format. Writes one record per line.
+                     Since it bypasses the JSON encoding/decoding,
+                     it's much faster and memory efficient than others.
+
+                %s: Writes each line as a separate JSON document. Unlike "json_tree", memory usage
+                    does not increase with the number of records.
+
+                %s: DO NOT use on big DBs. Writes whole dump as a big JSON object.
+
+                %s: DO NOT use on big DBs. Formatted version of json_tree.
+
+                """ % CHOICES
+               },
               {'name': 'batch_size', 'type': int, 'default': 1000,
-               'help': 'Retrieve this amount of records from solr in one time, defaults to 1000'},
+               'help': 'Retrieve this amount of records from Solr in one time, defaults to 1000'},
               ]
 
     def run(self):
@@ -158,8 +190,7 @@ class DumpData(Command):
         else:
             models = registry.get_base_models()
         batch_size = self.manager.args.batch_size
-        tree = self.manager.args.tree
-        pretty = self.manager.args.pretty
+        typ = self.manager.args.type
 
         data = defaultdict(list)
         for mdl in models:
@@ -167,18 +198,22 @@ class DumpData(Command):
             count = model.objects.count()
             rounds = count / batch_size + 1
             bucket = model.objects.bucket
+            if typ == self.CSV:
+                bucket.set_decoder('application/json', lambda a: a)
             for i in range(rounds):
                 for obj in model.objects.data().raw('*:*',
                                                     sort="timestamp asc",
                                                     rows=batch_size,
                                                     start=i * batch_size):
                     if obj.data is not None:
-                        if not tree:
+                        if typ == self.JSON:
                             print(json.dumps((bucket.name, obj.key, obj.data)))
-                        else:
+                        elif typ == self.TREE:
                             data[bucket.name].append((obj.key, obj.data))
-        if tree:
-            if pretty:
+                        elif typ == self.CSV:
+                            print(bucket.name + "/|" + obj.key + "/|" + obj.data)
+        if typ in [self.TREE, self.PRETTY]:
+            if typ == self.PRETTY:
                 out = json.dumps(data, sort_keys=True, indent=4)
             else:
                 out = json.dumps(data)
@@ -188,16 +223,21 @@ class DumpData(Command):
 class LoadData(Command):
     CMD_NAME = 'load_data'
     HELP = 'Reads JSON data from given file and populates models'
-    PARAMS = [{'name': 'file', 'required': True,
-               'help': 'Path of the data file'},
-              {'name': 'tree', 'action': 'store_true',
-               'help': 'Set this to load a JSON file previously dumped with "--tree" flag.'},
-              {'name': 'overwrite', 'action': 'store_true',
-               'help': 'Overwrites existing records. First gets then updates.'},
 
-              # {'name': 'pretty', 'action': 'store_true', 'help': 'Pretty print'},
-              # {'name': 'batch_size', 'type': int, 'default': 1000,
-              #  'help': 'Batch size, defaults to 1000'},
+    CSV = 'csv'
+    JSON = 'json'
+    TREE = 'json_tree'
+    PRETTY = 'pretty'
+    CHOICES = (CSV, JSON, TREE, PRETTY)
+    PARAMS = [{'name': 'file', 'required': True, 'help': 'Path of the data file'},
+              {'name': 'update', 'action': 'store_true',
+               'help': 'Overwrites existing records. '
+                       'Since not checks for the existence of an object, it runs faster.'},
+              {'name': 'type', 'default': CSV, 'choices': CHOICES,
+               'help': 'Defaults to "csv". See help of dump_data command for more details'
+               },
+              {'name': 'batch_size', 'type': int, 'default': 1000,
+               'help': 'Retrieve this amount of objects from Solr in one time, defaults to 1000'},
               ]
 
     def run(self):
@@ -205,18 +245,28 @@ class LoadData(Command):
         from importlib import import_module
         import_module(settings.MODELS_MODULE)
         registry = import_module('pyoko.model').model_registry
+        typ = self.manager.args.type
         self.buckets = {}
         self.record_counter = 0
+        self.already_existing = 0
         for mdl in registry.get_base_models():
             bucket = mdl(super_context).objects.bucket
+            if typ == self.CSV:
+                bucket.set_encoder("application/json", lambda a: a)
             self.buckets[bucket.name] = bucket
         with codecs.open(self.manager.args.file, encoding='utf-8') as file:
-            if self.manager.args.tree:
+            if typ in (self.TREE, self.PRETTY):
                 self.read_whole_file(file)
+            elif typ == self.JSON:
+                self.read_json_per_line(file)
             else:
                 self.read_per_line(file)
+
         if self.record_counter:
-            print("%s record(s) inserted." % self.record_counter)
+            print("%s object(s) inserted." % self.record_counter)
+
+        if self.already_existing:
+            print("%s existing object(s) NOT updated." % self.already_existing)
 
     def read_whole_file(self, file):
         data = json.loads(file.read())
@@ -226,22 +276,31 @@ class LoadData(Command):
 
     def read_per_line(self, file):
         for line in file:
+            bucket_name, key, val = line.split('/|')
+            self.save_obj(bucket_name, key, val.strip())
+
+    def read_json_per_line(self, file):
+        for line in file:
             bucket_name, key, val = json.loads(line)
             self.save_obj(bucket_name, key, val)
 
     def save_obj(self, bucket_name, key, val):
-        if self.manager.args.overwrite:
-            obj = self.buckets[bucket_name].get(key)
-            obj.data = val
-            obj.store()
-        else:
+        if self.manager.args.update:
             self.buckets[bucket_name].new(key, val).store()
-        self.record_counter += 1
+            self.record_counter += 1
+        else:
+            obj = self.buckets[bucket_name].get(key)
+            if not obj.exists:
+                obj.data = val
+                obj.store()
+                self.record_counter += 1
+            else:
+                self.already_existing += 1
 
 
-class FindEmptyRecords(Command):
-    CMD_NAME = '_find_empty'
-    HELP = 'tests the correctness of the output of the bucket.get_keys()'
+class TestGetKeys(Command):
+    CMD_NAME = '_test_get_keys'
+    HELP = 'tests the correctness of the bucket.get_keys()'
 
     def run(self):
         from pyoko.conf import settings
@@ -265,8 +324,28 @@ class FindEmptyRecords(Command):
                 if obj.data is not None:
                     empty_records.remove(k)
                     print("%s seen in %s" % (obj.key, seen_in[obj.key]))
-                    print("But actually found in %s" % (obj.key, bucket))
-                    print("\n------\n")
+                    print("But actually found in %s" % bucket.name)
+                    print("- - -")
 
         if empty_records:
             print("These keys cannot found anywhere: %s" % empty_records)
+
+
+class FindDuplicateKeys(Command):
+    CMD_NAME = '_find_dups'
+    HELP = 'finds duplicate keys, to help debugging'
+
+    def run(self):
+        from pyoko.conf import settings
+        from importlib import import_module
+        import_module(settings.MODELS_MODULE)
+        registry = import_module('pyoko.model').model_registry
+        models = registry.get_base_models()
+        keys = defaultdict(list)
+        for mdl in models:
+            model = mdl(super_context)
+            for r in model.objects.solr().raw('*:*'):
+                if r['_yz_rk'] in keys:
+                    print("%s found in %s perviously seen in %s" % (r['_yz_rk'],  mdl.__name__, keys[r['_yz_rk']]))
+                keys[r['_yz_rk']].append(mdl.__name__)
+
