@@ -56,7 +56,8 @@ class DBObjects(object):
         self.compiled_query = ''
         # self._solr_query = {}  # query parts, will be compiled before execution
         self._solr_query = []  # query parts, will be compiled before execution
-        self._solr_params = {}  # search parameters. eg: rows, fl, start, sort etc.
+        self._solr_params = {
+            'sort': 'timestamp desc'}  # search parameters. eg: rows, fl, start, sort etc.
         self._solr_locked = False
         self._solr_cache = {}
         self.key = None
