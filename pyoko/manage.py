@@ -346,6 +346,8 @@ class FindDuplicateKeys(Command):
             model = mdl(super_context)
             for r in model.objects.solr().raw('*:*'):
                 if r['_yz_rk'] in keys:
-                    print("%s found in %s perviously seen in %s" % (r['_yz_rk'],  mdl.__name__, keys[r['_yz_rk']]))
+                    print("%s found in %s previously seen in %s" % (r['_yz_rk'],
+                                                                    mdl.__name__,
+                                                                    keys[r['_yz_rk']]))
                 keys[r['_yz_rk']].append(mdl.__name__)
 
