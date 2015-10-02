@@ -13,7 +13,7 @@ from random import randint
 from sys import stdout
 import threading
 import time
-from riak import ConflictError
+from riak import ConflictError, RiakError
 from pyoko.conf import settings
 from pyoko.db.connection import client
 import os, inspect
@@ -199,7 +199,11 @@ class SchemaUpdater(object):
                         import traceback
                         traceback.print_exc()
                 bucket.set_property('search_index', 'foo_index')
-                client.delete_search_index(index_name)
+                try:
+                    client.delete_search_index(index_name)
+                except RiakError as e:
+                    if 'notfound' != e.value:
+                        raise
                 wait_for_schema_deletion(index_name)
                 client.create_search_schema(index_name, new_schema)
                 client.create_search_index(index_name, index_name, n_val)
