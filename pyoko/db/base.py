@@ -21,7 +21,6 @@ from pyoko.field import DATE_FORMAT, DATE_TIME_FORMAT
 from pyoko.lib.py2map import Dictomap
 from pyoko.lib.utils import grayed
 
-# TODO: Add "ignore marked as _deleted"
 # TODO: Add OR support
 
 
@@ -132,14 +131,12 @@ class DBObjects(object):
                        if self._cfg['rtype'] == ReturnType.Model else riak_obj)
 
     def __len__(self):
-        # print("~~~~!!! __len__ CALLED !!!~~~~")
         return self.count()
         # return len(self._solr_cache)
 
     def __getitem__(self, index):
         if isinstance(index, int):
-            self.set_params(rows=1, start=index)
-            return self._get()
+            return self.set_params(rows=1, start=index)._get()
         elif isinstance(index, slice):
             # start, stop, step = index.indices(len(self))
             if index.start is not None:
@@ -165,8 +162,6 @@ class DBObjects(object):
         and shares Riak client and bucket
         """
         obj = self.__class__(**self._cfg)
-        # print "COPY", obj, memo
-        # print self.__dict__
         for k, v in self.__dict__.items():
             if k == '_riak_cache':
                 obj.__dict__[k] = []
