@@ -16,7 +16,7 @@ from enum import Enum
 from pyoko.conf import settings
 from pyoko.db.connection import client
 import riak
-from pyoko.exceptions import MultipleObjectsReturned
+from pyoko.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 from pyoko.field import DATE_FORMAT, DATE_TIME_FORMAT
 from pyoko.lib.py2map import Dictomap
 from pyoko.lib.utils import grayed
@@ -43,7 +43,7 @@ class DBObjects(object):
         self._cfg.update(conf)
         self.model = None
         self._client = self._cfg.pop('client', client)
-
+        self.index_name = ''
         if 'model' in conf:
             self.set_model(model=conf['model'])
         elif 'model_class' in conf:
@@ -56,7 +56,8 @@ class DBObjects(object):
         self.compiled_query = ''
         # self._solr_query = {}  # query parts, will be compiled before execution
         self._solr_query = []  # query parts, will be compiled before execution
-        self._solr_params = {}  # search parameters. eg: rows, fl, start, sort etc.
+        self._solr_params = {
+            'sort': 'timestamp desc'}  # search parameters. eg: rows, fl, start, sort etc.
         self._solr_locked = False
         self._solr_cache = {}
         self.key = None
@@ -105,13 +106,13 @@ class DBObjects(object):
             self.bucket.get(k).delete()
         return i
 
-    def _count_bucket(self):
-        """
-        only for development purposes
-        counts number of objects in the bucket.
-        :return:
-        """
-        return sum([len(key_list) for key_list in self.bucket.stream_keys()])
+    # def _count_bucket(self):
+    #     """
+    #     only for development purposes
+    #     counts number of objects in the bucket.
+    #     :return:
+    #     """
+    #     return sum([len(key_list) for key_list in self.bucket.stream_keys()])
 
     # ######## Python Magic  #########
 
@@ -186,12 +187,13 @@ class DBObjects(object):
         :param str name: bucket name
         :return:
         """
-        self._cfg['bucket_type'] = type
-        self._cfg['bucket_name'] = name
-        self.bucket = self._client.bucket_type(
-            self._cfg['bucket_type']).bucket(self._cfg['bucket_name'])
-        # if 'index' not in self._cfg:
-        #     self._cfg['index'] = "%s_%s" % (settings.DEFAULT_BUCKET_TYPE, name)
+        if type:
+            self._cfg['bucket_type'] = type
+        if name:
+            self._cfg['bucket_name'] = name
+        self.bucket = self._client.bucket_type(self._cfg['bucket_type']
+                                               ).bucket(self._cfg['bucket_name'])
+        self.index_name = "%s_%s" % (self._cfg['bucket_type'], self._cfg['bucket_name'])
         return self
 
     def save(self, data, key=None):
@@ -230,8 +232,9 @@ class DBObjects(object):
         """
         self._exec_query()
         if not self._riak_cache and self._cfg['rtype'] != ReturnType.Solr:
-            self._riak_cache = [self.bucket.get(
-                self._solr_cache['docs'][0]['_yz_rk'])]
+            if not self._solr_cache['docs']:
+                raise ObjectDoesNotExist()
+            self._riak_cache = [self.bucket.get(self._solr_cache['docs'][0]['_yz_rk'])]
 
         if self._cfg['rtype'] == ReturnType.Model:
             return self._make_model(self._riak_cache[0].data,
@@ -350,7 +353,9 @@ class DBObjects(object):
             raise Exception("Query already executed, no changes can be made."
                             "%s %s %s" % (self._solr_query, self._solr_params)
                             )
-        self._solr_params.update(params)
+        clone = copy.deepcopy(self)
+        clone._solr_params.update(params)
+        return clone
 
     def fields(self, *args):
         """
@@ -359,6 +364,7 @@ class DBObjects(object):
         :param args:
         :return:
         """
+
         self._solr_params.update({'fl': ' '.join(set(args + ('_yz_rk',)))})
         return self
 
@@ -381,7 +387,7 @@ class DBObjects(object):
         clone._set_return_type(ReturnType.Object)
         return clone
 
-    def raw(self, query, params=None):
+    def raw(self, query, **params):
         """
         make a raw query
         :param str query: solr query
@@ -408,7 +414,7 @@ class DBObjects(object):
             self._solr_query += filtered_query._solr_query
         for key, val in self._solr_query:
             key = key.replace('__', '.')
-            # quering on a linked model by model instance
+            # querying on a linked model by model instance
             # it should be a Model, not a Node!
             if hasattr(val, '_TYPE'):
                 val = val.key
@@ -467,9 +473,8 @@ class DBObjects(object):
         if not self._solr_locked:
             if not self.compiled_query:
                 self._compile_query()
-            # print(self.compiled_query)
             self._solr_cache = self.bucket.search(self.compiled_query,
-                                                  self.model_class.get_search_index(),
+                                                self.index_name,
                                                   **self._process_params())
             self._solr_locked = True
         return self

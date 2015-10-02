@@ -25,3 +25,6 @@ class NotCompatible(PyokoError):
 class MultipleObjectsReturned(PyokoError):
     """The query returned multiple objects when only one was expected."""
     pass
+
+class ObjectDoesNotExist(PyokoError):
+    pass
