@@ -43,7 +43,7 @@ class DBObjects(object):
         self._cfg.update(conf)
         self.model = None
         self._client = self._cfg.pop('client', client)
-
+        self.index_name = ''
         if 'model' in conf:
             self.set_model(model=conf['model'])
         elif 'model_class' in conf:
@@ -106,13 +106,13 @@ class DBObjects(object):
             self.bucket.get(k).delete()
         return i
 
-    def _count_bucket(self):
-        """
-        only for development purposes
-        counts number of objects in the bucket.
-        :return:
-        """
-        return sum([len(key_list) for key_list in self.bucket.stream_keys()])
+    # def _count_bucket(self):
+    #     """
+    #     only for development purposes
+    #     counts number of objects in the bucket.
+    #     :return:
+    #     """
+    #     return sum([len(key_list) for key_list in self.bucket.stream_keys()])
 
     # ######## Python Magic  #########
 
@@ -187,12 +187,13 @@ class DBObjects(object):
         :param str name: bucket name
         :return:
         """
-        self._cfg['bucket_type'] = type
-        self._cfg['bucket_name'] = name
-        self.bucket = self._client.bucket_type(
-            self._cfg['bucket_type']).bucket(self._cfg['bucket_name'])
-        # if 'index' not in self._cfg:
-        #     self._cfg['index'] = "%s_%s" % (settings.DEFAULT_BUCKET_TYPE, name)
+        if type:
+            self._cfg['bucket_type'] = type
+        if name:
+            self._cfg['bucket_name'] = name
+        self.bucket = self._client.bucket_type(self._cfg['bucket_type']
+                                               ).bucket(self._cfg['bucket_name'])
+        self.index_name = "%s_%s" % (self._cfg['bucket_type'], self._cfg['bucket_name'])
         return self
 
     def save(self, data, key=None):
@@ -475,9 +476,8 @@ class DBObjects(object):
         if not self._solr_locked:
             if not self.compiled_query:
                 self._compile_query()
-            # print(self.compiled_query)
             self._solr_cache = self.bucket.search(self.compiled_query,
-                                                  self.model_class.get_search_index(),
+                                                self.index_name,
                                                   **self._process_params())
             self._solr_locked = True
         return self
