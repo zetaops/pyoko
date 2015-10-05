@@ -191,23 +191,23 @@ class DBObjects(object):
         self.index_name = "%s_%s" % (self._cfg['bucket_type'], self._cfg['bucket_name'])
         return self
 
-    def save(self, data, key=None):
-        """
-        saves data to riak with optional key.
-        converts python dict to riak map if needed.
-        :param dict data: data to be saved
-        :param str key: riak object key
-        :return:
-        """
-        # if self._data_type == 'map' and isinstance(data, dict):
-        #     return Dictomap(self.bucket, data, str(key)).map.store()
+    # def save(self, data, key=None):
+    #     """
+    #     saves data to riak with optional key.
+    #     converts python dict to riak map if needed.
+    #     :param dict data: data to be saved
+    #     :param str key: riak object key
+    #     :return:
+    #     """
+    #     if self._data_type == 'map' and isinstance(data, dict):
+    #         return Dictomap(self.bucket, data, str(key)).map.store()
+    #     else:
+        # if key is None:
+        #     return self.bucket.new(data=data).store()
         # else:
-        if key is None:
-            return self.bucket.new(data=data).store()
-        else:
-            obj = self.bucket.get(key)
-            obj.data = data
-            return obj.store()
+        #     obj = self.bucket.get(key)
+        #     obj.data = data
+        #     return obj.store()
 
     def save_model(self, model=None):
         """
@@ -219,7 +219,8 @@ class DBObjects(object):
         clean_value = self.model.clean_value()
         if not self.model.is_in_db():
             self.model.key = None
-        riak_object = self.save(clean_value, self.model.key)
+        # riak_object = self.save(clean_value, self.model.key)
+        riak_object = self.bucket.new(data=clean_value, key=self.model.key).store()
         self.model.key = riak_object.key
 
     def _get(self):
