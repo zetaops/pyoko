@@ -461,6 +461,8 @@ class Model(Node):
         self.objects.set_model(model=self)
         self.saved_models = []
 
+    def __eq__(self, other):
+        return self._data == other._data and  self.key == other.key
 
     def is_in_db(self):
         """
