@@ -25,15 +25,3 @@ def test_create_solr_schema():
     fields = st._collect_index_fields()
     result = SchemaUpdater.get_schema_fields(fields)
     assert sorted(result) == sorted(test_data_solr_schema)
-
-# FIXME: schema update/creation runs multithreaded
-# if we run this -fake- test before other db related ones,
-# we can be sure that it's working as expected.
-def tXXXXXXXXXXXXXXXXXXest_apply_solr_schema():
-    mc = ManagementCommands()
-    mc.parse_args(['update_schema', '--silent', '--bucket', 'all'])
-    mc.schema_update()
-    # sleep(20)  # riak probably will need some time to apply schema updates
-    # to other nodes. but we need to investigate how much time required
-    #
-
