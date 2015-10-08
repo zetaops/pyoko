@@ -34,7 +34,7 @@ class TestCase:
         Person(context, name='p1', section='Section_A', phone='90232').save()
         Person(context, name='p2', section='Section_A', phone='902321').save()
         Person(context, name='p3', section='Section_B', phone='9023212').save()
-        sleep(1)
+        sleep(2)
         assert Person(context).objects.count() == 3
         context.restrict('access_to_other_sections')
         assert Person(context).objects.count() == 2

@@ -198,7 +198,7 @@ class ModelMeta(type):
         else:
             for k, v in DEFAULT_META.items():
                 if k not in attrs['Meta'].__dict__:
-                    attrs['Meta'].__dict__[k] = v
+                    setattr(attrs['Meta'], k, v)
 
 
 
@@ -445,7 +445,7 @@ class Model(Node):
 
     def __init__(self, context=None, **kwargs):
         self._riak_object = None
-        self._instance_registry.add(weakref.ref(self))
+
         self.unpermitted_fields = []
         self.is_unpermitted_fields_set = False
         self.context = context
@@ -459,10 +459,14 @@ class Model(Node):
         self.title = kwargs.pop('title', self.__class__.__name__)
         super(Model, self).__init__(**kwargs)
         self.objects.set_model(model=self)
+        self._instance_registry.add(weakref.ref(self))
         self.saved_models = []
 
     def __eq__(self, other):
         return self._data == other._data and  self.key == other.key
+
+    def __hash__(self):
+        return hash(self.key)
 
     def is_in_db(self):
         """

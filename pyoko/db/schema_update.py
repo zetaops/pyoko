@@ -18,7 +18,12 @@ from pyoko.conf import settings
 from pyoko.db.connection import client
 import os, inspect
 from pyoko.lib.utils import un_camel, random_word
-import urllib2
+try:
+    from urllib.request import urlopen
+    from urllib.error import HTTPError
+except ImportError:
+    from urllib2 import urlopen, HTTPError
+
 
 
 class FakeContext(object):
@@ -34,9 +39,9 @@ def wait_for_schema_creation(index_name):
     print("pinging solr schema: %s" % url, end='')
     while True:
         try:
-            urllib2.urlopen(url)
+            urlopen(url)
             return
-        except urllib2.HTTPError, e:
+        except HTTPError as e:
             if e.code == 404:
                 time.sleep(1)
                 import traceback
@@ -53,9 +58,9 @@ def wait_for_schema_deletion(index_name):
         stdout.write("\r Waiting for actual deletion of solr schema %s %s" % (index_name, i * '.'))
         stdout.flush()
         try:
-            urllib2.urlopen(url)
+            urlopen(url)
             time.sleep(1)
-        except urllib2.HTTPError, e:
+        except HTTPError as e:
             print("")
             if e.code == 404:
                 return
@@ -67,8 +72,8 @@ def get_schema_from_solr(index_name):
     url = 'http://%s:8093/internal_solr/%s/admin/file?file=%s.xml' % (settings.RIAK_SERVER,
                                                                       index_name, index_name)
     try:
-        return urllib2.urlopen(url).read()
-    except urllib2.HTTPError, e:
+        return urlopen(url).read()
+    except HTTPError as e:
         if e.code == 404:
             return ""
         else:
@@ -100,7 +105,7 @@ class SchemaUpdater(object):
                   if self.bucket_names[0] == 'all' or
                   model.__name__.lower() in self.bucket_names]
         num_models = len(models)
-        pack_size = num_models / self.threads or 1
+        pack_size = int(num_models / self.threads) or 1
         n_val = self.client.bucket_type(settings.DEFAULT_BUCKET_TYPE).get_property('n_val')
         self.client.create_search_index('foo_index', '_yz_default', n_val=n_val)
         for i in range(0, num_models, pack_size):

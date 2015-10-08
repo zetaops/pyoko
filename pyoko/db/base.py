@@ -18,7 +18,7 @@ from pyoko.db.connection import client
 import riak
 from pyoko.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 from pyoko.field import DATE_FORMAT, DATE_TIME_FORMAT
-from pyoko.lib.py2map import Dictomap
+# from pyoko.lib.py2map import Dictomap
 from pyoko.lib.utils import grayed
 
 # TODO: Add OR support
