@@ -13,8 +13,9 @@ from collections import defaultdict
 import json
 
 from os import environ
-from sys import argv, stdout
-from six import add_metaclass
+from riak.client import binary_json_decoder, binary_json_encoder
+from sys import argv
+from six import add_metaclass, PY2
 from pyoko.model import super_context
 
 
@@ -158,8 +159,11 @@ class DumpData(Command):
     TREE = 'json_tree'
     PRETTY = 'pretty'
     CHOICES = (CSV, JSON, TREE, PRETTY)
-    PARAMS = [{'name': 'model', 'required': True,
+    PARAMS = [
+                {'name': 'model', 'required': True,
                'help': 'Models name(s) to be dumped. Say "all" to dump all models'},
+               {'name': 'file', 'required': False,
+               'help': 'Instead of stdout, write to given file'},
 
               {'name': 'type', 'default': CSV, 'choices': CHOICES,
                'help': """R|
@@ -192,12 +196,14 @@ class DumpData(Command):
             models = registry.get_base_models()
         batch_size = self.manager.args.batch_size
         typ = self.manager.args.type
-
+        to_file = self.manager.args.file
+        if to_file:
+            outfile = codecs.open(self.manager.args.file, 'w', encoding='utf-8')
         data = defaultdict(list)
         for mdl in models:
             model = mdl(super_context)
             count = model.objects.count()
-            rounds = count / batch_size + 1
+            rounds = int(count / batch_size) + 1
             bucket = model.objects.bucket
             if typ == self.CSV:
                 bucket.set_decoder('application/json', lambda a: a)
@@ -208,17 +214,38 @@ class DumpData(Command):
                                                     start=i * batch_size):
                     if obj.data is not None:
                         if typ == self.JSON:
-                            print(json.dumps((bucket.name, obj.key, obj.data)))
+                            out = json.dumps((bucket.name, obj.key, obj.data))
+                            if to_file:
+                                outfile.write(out + "\n")
+                            else:
+                                print(out)
                         elif typ == self.TREE:
                             data[bucket.name].append((obj.key, obj.data))
                         elif typ == self.CSV:
-                            print(bucket.name + "/|" + obj.key + "/|" + obj.data)
+                            if PY2:
+                                out = bucket.name + "/|" + obj.key + "/|" + obj.data + "\n"
+                                if to_file:
+                                    outfile.write(out)
+                                else:
+                                    print(out)
+                            else:
+                                out = bucket.name + "/|" + obj.key + "/|" + obj.data.decode('utf-8')
+                                if to_file:
+                                    outfile.write(out+"\n")
+                                else:
+                                    print(out)
+            bucket.set_decoder('application/json', binary_json_decoder)
         if typ in [self.TREE, self.PRETTY]:
             if typ == self.PRETTY:
                 out = json.dumps(data, sort_keys=True, indent=4)
             else:
                 out = json.dumps(data)
-            print(out)
+            if to_file:
+                outfile.write(out)
+            else:
+                print(out)
+        if to_file:
+            outfile.close()
 
 
 class LoadData(Command):
@@ -268,6 +295,11 @@ class LoadData(Command):
 
         if self.already_existing:
             print("%s existing object(s) NOT updated." % self.already_existing)
+
+        for mdl in registry.get_base_models():
+            if typ == self.CSV:
+                mdl(super_context).objects.bucket.set_encoder("application/json",
+                                                              binary_json_encoder)
 
     def read_whole_file(self, file):
         data = json.loads(file.read())
