@@ -223,7 +223,7 @@ class DumpData(Command):
                             data[bucket.name].append((obj.key, obj.data))
                         elif typ == self.CSV:
                             if PY2:
-                                out = bucket.name + "/|" + obj.key + "/|" + obj.data + "\n"
+                                out = bucket.name + "/|" + obj.key + "/|" + obj.data
                                 if to_file:
                                     outfile.write(out)
                                 else:
@@ -248,7 +248,7 @@ class DumpData(Command):
             outfile.close()
 
 
-class LoadData(Command):
+class   LoadData(Command):
     CMD_NAME = 'load_data'
     HELP = 'Reads JSON data from given file and populates models'
 
@@ -319,12 +319,12 @@ class LoadData(Command):
 
     def save_obj(self, bucket_name, key, val):
         if self.manager.args.update:
-            self.buckets[bucket_name].new(key, val).store()
+            self.buckets[bucket_name].new(key, val.encode('utf-8')).store()
             self.record_counter += 1
         else:
             obj = self.buckets[bucket_name].get(key)
             if not obj.exists:
-                obj.data = val
+                obj.data = val.encode('utf-8')
                 obj.store()
                 self.record_counter += 1
             else:
