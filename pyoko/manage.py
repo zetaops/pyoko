@@ -153,7 +153,7 @@ class ManagementCommands(object):
 
 class DumpData(Command):
     CMD_NAME = 'dump_data'
-    HELP = 'Dumps all data to stdout, pipe it to a file.'
+    HELP = 'Dumps all data to stdout or to given file'
     CSV = 'csv'
     JSON = 'json'
     TREE = 'json_tree'
@@ -187,7 +187,12 @@ class DumpData(Command):
     def run(self):
         from pyoko.conf import settings
         from importlib import import_module
-        import_module(settings.MODELS_MODULE)
+        try:
+            import_module(settings.MODELS_MODULE)
+        except:
+            # weird but this is enough to prevent a strange riak error
+            # http://pastebin.com/HiPRmAhM
+            raise
         registry = import_module('pyoko.model').model_registry
         model_name = self.manager.args.model
         if model_name != 'all':
