@@ -63,7 +63,7 @@ class TestCase:
     def test_get_multiple_objects_exception(self):
         self.prepare_testbed()
         s2 = Student(name='Foo').save()
-        sleep(1)
+        sleep(2)
         with pytest.raises(MultipleObjectsReturned):
             Student.objects.get()
 

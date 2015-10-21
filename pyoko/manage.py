@@ -230,7 +230,7 @@ class DumpData(Command):
                             if PY2:
                                 out = bucket.name + "/|" + obj.key + "/|" + obj.data
                                 if to_file:
-                                    outfile.write(out)
+                                    outfile.write(out+"\n")
                                 else:
                                     print(out)
                             else:
