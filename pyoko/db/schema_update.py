@@ -198,7 +198,7 @@ class SchemaUpdater(object):
                 if not force:
                     try:
                         if get_schema_from_solr(index_name) == new_schema:
-                            print("Schema already up to date, nothing to do!")
+                            print("Schema %s already up to date, nothing to do!" % index_name)
                             continue
                     except:
                         import traceback
