@@ -191,17 +191,17 @@ class DBObjects(object):
         self.index_name = "%s_%s" % (self._cfg['bucket_type'], self._cfg['bucket_name'])
         return self
 
-    # def save(self, data, key=None):
-    #     """
-    #     saves data to riak with optional key.
-    #     converts python dict to riak map if needed.
-    #     :param dict data: data to be saved
-    #     :param str key: riak object key
-    #     :return:
-    #     """
-    #     if self._data_type == 'map' and isinstance(data, dict):
-    #         return Dictomap(self.bucket, data, str(key)).map.store()
-    #     else:
+        # def save(self, data, key=None):
+        #     """
+        #     saves data to riak with optional key.
+        #     converts python dict to riak map if needed.
+        #     :param dict data: data to be saved
+        #     :param str key: riak object key
+        #     :return:
+        #     """
+        #     if self._data_type == 'map' and isinstance(data, dict):
+        #         return Dictomap(self.bucket, data, str(key)).map.store()
+        #     else:
         # if key is None:
         #     return self.bucket.new(data=data).store()
         # else:
@@ -220,8 +220,13 @@ class DBObjects(object):
         if not self.model.is_in_db():
             self.model.key = None
         # riak_object = self.save(clean_value, self.model.key)
-        riak_object = self.bucket.new(data=clean_value, key=self.model.key).store()
-        self.model.key = riak_object.key
+        if not self.model.key:
+            obj = self.bucket.new(data=clean_value, key=self.model.key).store()
+            self.model.key = obj.key
+        else:
+            obj = self.bucket.get(self.model.key)
+            obj.data = clean_value
+            obj.store()
 
     def _get(self):
         """
@@ -473,7 +478,7 @@ class DBObjects(object):
             if not self.compiled_query:
                 self._compile_query()
             self._solr_cache = self.bucket.search(self.compiled_query,
-                                                self.index_name,
+                                                  self.index_name,
                                                   **self._process_params())
             self._solr_locked = True
         return self
