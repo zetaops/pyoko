@@ -15,7 +15,7 @@ import six
 from pyoko import field
 from pyoko.conf import settings
 from pyoko.db.base import DBObjects
-from pyoko.lib.utils import un_camel, un_camel_id, lazy_property
+from pyoko.lib.utils import un_camel, un_camel_id, lazy_property, pprnt
 import weakref
 import lazy_object_proxy
 
@@ -461,6 +461,10 @@ class Model(Node):
         self.objects.set_model(model=self)
         self._instance_registry.add(weakref.ref(self))
         self.saved_models = []
+
+
+    def prnt(self):
+        pprnt(self._data)
 
     def __eq__(self, other):
         return self._data == other._data and  self.key == other.key

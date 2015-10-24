@@ -85,3 +85,26 @@ def get_object_from_path(path):
     class_name = path[-1]
     module = importlib.import_module(module_path)
     return getattr(module, class_name)
+
+def pprnt(input, return_data=False):
+    """
+    prettier print for nested data
+    :param input:
+    :return:
+    """
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[32m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+    import json, re
+    result = json.dumps(input, sort_keys=True, indent=4)
+    result = re.sub(r'(")(\w*?_set)(":)', r'\1%s%s\2%s\3' % (BOLD, HEADER, ENDC), result)
+    result = re.sub(r'(\n *?")(\w*?)(":)', r'\1%s%s\2%s\3' % (BOLD,OKGREEN, ENDC), result)
+    if not return_data:
+        print(result)
+    else:
+        return result
