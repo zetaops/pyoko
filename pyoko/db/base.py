@@ -429,8 +429,9 @@ class DBObjects(object):
                 val = val.strftime(DATE_TIME_FORMAT)
             # if it's not one of the expected objects, it should be a string
             # solr wants quotes when query has spaces
-            elif ' ' in str(val):
-                val = '"' + val + '"'
+            # elif ' ' in str(val):
+            #     val = '"' + val + '"'
+            val = val.replace(' ', "\ ")
 
             # lower than or equal
             if key.endswith('_lte'):

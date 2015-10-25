@@ -20,6 +20,12 @@ import weakref
 import lazy_object_proxy
 
 
+class LazyModel(lazy_object_proxy.Proxy):
+    def __init__(self, model, context, key):
+        self.key = key
+        super(LazyModel, self).__init__(lambda: model(context).objects.get(key))
+
+
 # log = logging.getLogger(__name__)
 # fh = logging.FileHandler(filename="/tmp/pyoko.log", mode="w")
 # fh.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
@@ -30,10 +36,13 @@ class FakeContext(object):
     this fake context object can be used to use
     ACL limited models from shell
     """
+
     def has_permission(self, perm):
         return True
 
+
 super_context = FakeContext()
+
 
 class Registry(object):
     def __init__(self):
@@ -129,7 +138,7 @@ class ModelMeta(type):
 
     def __init__(mcs, name, bases, attrs):
         if mcs.__name__ not in ('Model', 'Node', 'ListNode'):
-           ModelMeta.process_objects(mcs)
+            ModelMeta.process_objects(mcs)
         if mcs.__base__.__name__ == 'Model':
             # add models to model_registry
             mcs.objects = DBObjects(model_class=mcs)
@@ -201,7 +210,6 @@ class ModelMeta(type):
                     setattr(attrs['Meta'], k, v)
 
 
-
 @add_metaclass(ModelMeta)
 class Node(object):
     """
@@ -228,6 +236,7 @@ class Node(object):
         self.set_tmp_key()
         self.root = kwargs.pop('root', None)
         self._field_values = {}
+        self._data = {}
 
         # if model has cell_filters that applies to current user,
         # filtered values will be kept in _secured_data dict
@@ -240,7 +249,7 @@ class Node(object):
         # this is required to prevent endless recursive invocation of n-2-n related models
         self.processed_nodes = kwargs.pop('processed_nodes', [])
 
-        self._instantiate_linked_models()
+        # self._instantiate_linked_models()
         self._instantiate_nodes()
         self._set_fields_values(kwargs)
 
@@ -259,13 +268,13 @@ class Node(object):
         return ('.'.join(list(self.path + [un_camel(self.__class__.__name__),
                                            prop]))).replace(root._get_bucket_name() + '.', '')
 
-    def _instantiate_linked_models(self):
+    def _instantiate_linked_models(self, data):
         for name, (mdl, o2o) in self._linked_models.items():
             # TODO: investigate if this really required/needed and remove if not
-            # mdl.root = self.root or self
-            root = self.root or self
-            obj = lazy_object_proxy.Proxy(lambda: mdl(root.context, root=root))
-            setattr(self, name, obj)
+            _name = un_camel_id(name)
+            if _name in data:
+                obj = LazyModel(mdl, self.context, data[_name])
+                setattr(self, name, obj)
 
     def _instantiate_node(self, name, klass):
         # instantiate given node, pass path and root info
@@ -285,6 +294,14 @@ class Node(object):
             self._instantiate_node(name, klass)
             # if self._nodes:
             #     print("INS NODE: ", self, self._nodes)
+
+    def _fill_nodes(self, data):
+        for name in self._nodes:
+            _name = un_camel_id(name)
+            if _name in self._data:
+                # node = self._instantiate_node(name, getattr(self, name).__class__)
+                node = getattr(self, name)
+                node._load_data(self._data[_name], data['from_db'])
 
     def __repr__(self):
         try:
@@ -320,10 +337,6 @@ class Node(object):
                         setattr(self, name, val)
                     else:
                         _field._load_data(self, val)
-            for name in self._linked_models:
-                linked_model = kwargs.get(name)
-                if linked_model:
-                    setattr(self, name, linked_model)
 
     def _collect_index_fields(self, in_multi=False):
         """
@@ -363,16 +376,10 @@ class Node(object):
         :return: self
         """
         self._data = data.copy()
-        for name in self._nodes:
-            _name = un_camel(name)
-            if _name in self._data:
-                new = self._instantiate_node(name,
-                                             getattr(self, name).__class__)
-                # new = getattr(self, name).__class__(**{})
-                new._load_data(self._data[_name], from_db)
-                # setattr(self, name, new)
         self._data['from_db'] = from_db
+        self._fill_nodes(self._data)
         self._set_fields_values(self._data)
+        self._instantiate_linked_models(self._data)
         return self
 
     def _clean_node_value(self, dct):
@@ -395,18 +402,8 @@ class Node(object):
 
     def _clean_linked_model_value(self, dct):
         # get vales of linked models
-        dct['_cache'] = {}
         for name in self._linked_models:
-            link_mdl = getattr(self, name)
-            # print("LM: ", link_mdl)
-            link_mdl.processed_nodes = self.processed_nodes
-            _name = un_camel(name)
-            dct[un_camel_id(name)] = link_mdl.key or ''
-            if link_mdl.is_in_db() and not link_mdl._is_auto_created:
-                dct['_cache'][_name] = link_mdl.clean_value()
-            else:
-                dct['_cache'][_name] = {}
-            dct['_cache'][_name]['key'] = link_mdl.key
+            dct[un_camel_id(name)] = getattr(self, name).key
 
     def clean_field_values(self):
         return dict((un_camel(name), field_ins.clean_value(self._field_values.get(name)))
@@ -418,19 +415,10 @@ class Node(object):
         :rtype: dict
         :return: riak ready python dict
         """
-
         dct = {}
         self._clean_field_value(dct)
         self._clean_node_value(dct)
-
-        if self.key in self.processed_nodes:
-            return dct
-        else:
-            self.processed_nodes.append(self.key)
-
-        if self._linked_models:
-            self._clean_linked_model_value(dct)
-
+        self._clean_linked_model_value(dct)
         return dct
 
 
@@ -462,12 +450,14 @@ class Model(Node):
         self._instance_registry.add(weakref.ref(self))
         self.saved_models = []
 
-
     def prnt(self):
-        pprnt(self._data)
+        try:
+            pprnt(self._data)
+        except:
+            pprnt(self.clean_value())
 
     def __eq__(self, other):
-        return self._data == other._data and  self.key == other.key
+        return self._data == other._data and self.key == other.key
 
     def __hash__(self):
         return hash(self.key)
@@ -497,14 +487,6 @@ class Model(Node):
         :return:
         """
         self._load_data(data, from_db)
-        cache = data.get('_cache', {})
-        if cache:
-            for name in self._linked_models:
-                _name = un_camel(name)
-                if _name in cache:
-                    mdl = getattr(self, name)
-                    mdl.key = cache[_name]['key']
-                    mdl.set_data(cache[_name], from_db)
         return self
 
     def apply_cell_filters(self, context):
@@ -517,7 +499,6 @@ class Model(Node):
     def get_unpermitted_fields(self):
         return (self.unpermitted_fields if self.is_unpermitted_fields_set else
                 self.apply_cell_filters(self.context))
-
 
     @staticmethod
     def row_level_access(context, objects):
@@ -557,9 +538,9 @@ class Model(Node):
 
     def save(self):
         self.objects.save_model(self)
-        self.saved_models.append(self.key)
-        self._save_to_many_models()
-        self._save_backlinked_models()
+        # self.saved_models.append(self.key)
+        # self._save_to_many_models()
+        # self._save_backlinked_models()
         return self
 
     def _save_to_many_models(self):
@@ -639,6 +620,8 @@ class ListNode(Node):
     """
     Currently we disregard the ordering when updating items of a ListNode
     """
+
+
     # HASH_BY = '' # calculate __hash__ value by field defined here
     _TYPE = 'ListNode'
 
@@ -654,17 +637,23 @@ class ListNode(Node):
 
     # ######## Public Methods  #########
 
-    def get(self, key):
-        """
-        this method returns the ListNode item with given "key"
+    def __contains__(self, item):
+        if self._data:
+            return any([d[un_camel_id(item.__class__.__name__)] == item.key for d in self._data])
+        else:
+            return item.key in self.node_dict
 
-        :param str key: key of the listnode item
-        :return: object
-        """
-        if not self.node_dict:
-            for node in self.node_stack:
-                self.node_dict[node.key] = node
-        return self.node_dict[key]
+    # def get(self, key):
+    #     """
+    #     this method returns the ListNode item with given "key"
+    #
+    #     :param str key: key of the listnode item
+    #     :return: object
+    #     """
+    #     if not self.node_dict:
+    #         for node in self.node_stack:
+    #             self.node_dict[node.key] = node
+    #     return self.node_dict[key]
 
     def update_linked_model(self, model_ins):
         for name, (mdl, o2o) in self._linked_models.items():
@@ -702,17 +691,12 @@ class ListNode(Node):
             _name = un_camel(name)
             if _name in node_data:  # check for partial data
                 getattr(clone, name)._load_data(node_data[_name])
-        cache = node_data.get('_cache', {})
         for name, (model, is_one_to_one) in self._linked_models.items():
-            _name = un_camel(name)
-            if _name in cache:
-                ins = model()
-                ins(from_db=self._from_db, **cache[_name])
-                ins.key = cache[_name]['key']
-                ins.set_data(cache[_name], self._from_db)
-                setattr(clone, name, ins)
-        self.node_dict[clone.key] = clone
-        # self.node_stack.append(clone)
+            _name = un_camel_id(name)
+            ins = LazyModel(model, self.context, node_data[_name])
+            setattr(clone, name, ins)
+        self.node_dict[node_data[_name]] = clone
+        self.node_stack.append(clone)
         return clone
 
     def clean_value(self):
