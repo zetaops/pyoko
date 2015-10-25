@@ -321,6 +321,7 @@ class DBObjects(object):
         :type key: builtins.NoneType
         :rtype: pyoko.Model
         """
+        # print("Get %s from %s" % (key, self.model_class))
         clone = copy.deepcopy(self)
         if key:
             self.key = key
@@ -429,9 +430,9 @@ class DBObjects(object):
                 val = val.strftime(DATE_TIME_FORMAT)
             # if it's not one of the expected objects, it should be a string
             # solr wants quotes when query has spaces
-            # elif ' ' in str(val):
-            #     val = '"' + val + '"'
-            val = val.replace(' ', "\ ")
+            elif ' ' in str(val):
+                # val = '"' + val + '"'
+                val = val.replace(' ', "\ ")
 
             # lower than or equal
             if key.endswith('_lte'):
