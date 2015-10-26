@@ -578,7 +578,7 @@ class Model(Node):
     def update_new_linked_model(self, linked_mdl_ins, name):
         for (local_field_name, kls, remote_field_name,
              remote_listnode_name) in linked_mdl_ins._get_reverse_links():
-            if local_field_name == name:
+            if local_field_name == name and isinstance(self, kls):
                 remote_set = getattr(linked_mdl_ins, remote_listnode_name)
                 if self not in remote_set:
                     remote_set(**{remote_field_name: self.root})
@@ -586,9 +586,9 @@ class Model(Node):
 
     def save(self):
         self.objects.save_model(self)
-        print(self.new_back_links)
+        # print(self.new_back_links)
         for i in range(len(self.new_back_links)):
-            print(self.new_back_links)
+            # print(self.new_back_links)
             if self.new_back_links:
                 self.update_new_linked_model(*self.new_back_links.pop())
         return self
