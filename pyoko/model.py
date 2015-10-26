@@ -18,6 +18,8 @@ from pyoko.db.base import DBObjects
 from pyoko.lib.utils import un_camel, un_camel_id, lazy_property, pprnt
 import weakref
 import lazy_object_proxy
+
+
 #
 #
 # class LazyModel_old(lazy_object_proxy.Proxy):
@@ -31,6 +33,7 @@ import lazy_object_proxy
 
 class LazyModel(lazy_object_proxy.Proxy):
     key = None
+
     def __init__(self, wrapped):
         super(LazyModel, self).__init__(wrapped)
 
@@ -69,7 +72,8 @@ class Registry(object):
             self._process_many_to_many(klass, klass_name)
             for name, (linked_model, is_one_to_one) in klass._linked_models.items():
                 # register models that linked from this model
-                self.link_registry[linked_model].append((name, klass, '%s_set' % klass_name))
+                self.link_registry[linked_model].append(
+                    (name, klass, klass_name, '%s_set' % klass_name))
                 # register models that gives (back)links to this model
                 self.back_link_registry[klass].append((name, klass_name, linked_model))
                 if is_one_to_one:
@@ -80,9 +84,13 @@ class Registry(object):
     def _process_many_to_many(self, klass, klass_name):
         for node in klass._nodes.values():
             if node._linked_models:
-                for (model, is_one_to_one) in node._linked_models.values():
+                for name, (model, is_one_to_one) in node._linked_models.items():
                     # klass._many_to_models.append(model)
+                    print("KLASSS: %s" % klass_name)
+                    self.link_registry[model].append(
+                        (name, klass, klass_name, '%s_set' % klass_name))
                     self._process_one_to_many(klass, klass_name, model)
+
 
     def _process_one_to_one(self, klass, klass_name, linked_model):
         klass_instance = klass(one_to_one=True)
@@ -243,7 +251,10 @@ class Node(object):
         self.timer = 0.0
         self.path = []
         self.set_tmp_key()
-        self.root = kwargs.pop('root', None)
+        try:
+            self.root
+        except:
+            self.root = kwargs.pop('root', None)
         self.context = kwargs.pop('context', None)
         self._field_values = {}
         self._data = {}
@@ -283,12 +294,18 @@ class Node(object):
 
             if data:
                 if name in data:
-                    setattr(self, name, data[name])
+                    linked_mdl_ins = data[name]
+                    setattr(self, name, linked_mdl_ins)
+                    if self.root.is_in_db():
+                        self.root.update_new_linked_model(linked_mdl_ins, name)
+                    else:
+                        self.root.new_back_links.append((linked_mdl_ins, name))
                 else:
                     _name = un_camel_id(name)
                     if _name in data:
                         def fo(modl, context, field_name):
                             return lambda: modl(context).objects.get(field_name)
+
                         obj = LazyModel(fo(mdl, self.context, data[_name]))
                         obj.key = data[_name]
                         setattr(self, name, obj)
@@ -456,6 +473,7 @@ class Model(Node):
         self.unpermitted_fields = []
         self.is_unpermitted_fields_set = False
         self.context = context
+
         self._pass_perm_checks = kwargs.pop('_pass_perm_checks', False)
         # if not self._pass_perm_checks:
         #     self.row_level_access(context)
@@ -464,6 +482,8 @@ class Model(Node):
         # self._prepare_linked_models()
         self._is_one_to_one = kwargs.pop('one_to_one', False)
         self.title = kwargs.pop('title', self.__class__.__name__)
+        self.root = self
+        self.new_back_links = []
         super(Model, self).__init__(**kwargs)
         self.objects.set_model(model=self)
         self._instance_registry.add(weakref.ref(self))
@@ -555,14 +575,23 @@ class Model(Node):
         # TODO: refactor _linked_models to use it instead of back_link_registry
         return model_registry.back_link_registry[self.__class__]
 
+    def update_new_linked_model(self, linked_mdl_ins, name):
+        for (local_field_name, kls, remote_field_name,
+             remote_listnode_name) in linked_mdl_ins._get_reverse_links():
+            if local_field_name == name:
+                remote_set = getattr(linked_mdl_ins, remote_listnode_name)
+                if self not in remote_set:
+                    remote_set(**{remote_field_name: self.root})
+                    linked_mdl_ins.save()
+
     def save(self):
         self.objects.save_model(self)
-        # self.saved_models.append(self.key)
-        # self._save_to_many_models()
-        # self._save_backlinked_models()
+        print(self.new_back_links)
+        for i in range(len(self.new_back_links)):
+            print(self.new_back_links)
+            if self.new_back_links:
+                self.update_new_linked_model(*self.new_back_links.pop())
         return self
-
-
 
     def delete(self):
         """
@@ -611,13 +640,13 @@ class ListNode(Node):
     #             self.node_dict[node.key] = node
     #     return self.node_dict[key]
 
-    def update_linked_model(self, model_ins):
-        for name, (mdl, o2o) in self._linked_models.items():
-            if model_ins.__class__ == mdl:
-                for item in self:
-                    if getattr(item, name).key == model_ins.key:
-                        self.node_stack.remove(item)
-                self.__call__(**{name: model_ins})
+    # def update_linked_model(self, model_ins):
+    #     for name, (mdl, o2o) in self._linked_models.items():
+    #         if model_ins.__class__ == mdl:
+    #             for item in self:
+    #                 if getattr(item, name).key == model_ins.key:
+    #                     self.node_stack.remove(item)
+    #             self.__call__(**{name: model_ins})
 
     def _load_data(self, data, from_db=False):
         """
@@ -647,12 +676,12 @@ class ListNode(Node):
             _name = un_camel(name)
             if _name in node_data:  # check for partial data
                 getattr(clone, name)._load_data(node_data[_name])
-        # for name, (model, is_one_to_one) in self._linked_models.items():
-        #     _name = un_camel_id(name)
-        #     ins = LazyModel(model, self.context, node_data[_name])
-        #     ins.key = node_data[_name]
-        #     setattr(clone, name, ins)
-        # self.node_dict[node_data[name]] = clone
+        for name, (model, is_one_to_one) in self._linked_models.items():
+            _name = un_camel_id(name)
+            ins = getattr(clone, name)
+            # ins.key = node_data[_name]
+            self.node_dict[ins.key] = clone
+            break  # only one linked_model can represent an item
         self.node_stack.append(clone)
         return clone
 
