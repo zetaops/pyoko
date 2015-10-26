@@ -85,8 +85,6 @@ class Registry(object):
         for node in klass._nodes.values():
             if node._linked_models:
                 for name, (model, is_one_to_one) in node._linked_models.items():
-                    # klass._many_to_models.append(model)
-                    print("KLASSS: %s" % klass_name)
                     self.link_registry[model].append(
                         (name, klass, klass_name, '%s_set' % klass_name))
                     self._process_one_to_many(klass, klass_name, model)
@@ -328,8 +326,6 @@ class Node(object):
         """
         for name, klass in self._nodes.items():
             self._instantiate_node(name, klass)
-            # if self._nodes:
-            #     print("INS NODE: ", self, self._nodes)
 
     def _fill_nodes(self, data):
         for name in self._nodes:
@@ -586,9 +582,7 @@ class Model(Node):
 
     def save(self):
         self.objects.save_model(self)
-        # print(self.new_back_links)
         for i in range(len(self.new_back_links)):
-            # print(self.new_back_links)
             if self.new_back_links:
                 self.update_new_linked_model(*self.new_back_links.pop())
         return self
@@ -617,7 +611,6 @@ class ListNode(Node):
         self.node_stack = []
         self._data = []
         self.node_dict = {}
-        # print("KWARGS", kwargs, self)
         super(ListNode, self).__init__(**kwargs)
 
     # ######## Public Methods  #########
