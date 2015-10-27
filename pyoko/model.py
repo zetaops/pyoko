@@ -20,16 +20,6 @@ import weakref
 import lazy_object_proxy
 
 
-#
-#
-# class LazyModel_old(lazy_object_proxy.Proxy):
-#     key = None
-#
-#     def __init__(self, model, context, key=None):
-#         super(LazyModel, self).__init__(
-#             lambda: (model(context).objects.get(key) if key else model(context)))
-#         # self.key = key
-
 
 class LazyModel(lazy_object_proxy.Proxy):
     key = None
@@ -38,11 +28,6 @@ class LazyModel(lazy_object_proxy.Proxy):
         super(LazyModel, self).__init__(wrapped)
 
 
-# log = logging.getLogger(__name__)
-# fh = logging.FileHandler(filename="/tmp/pyoko.log", mode="w")
-# fh.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-# log.addHandler(fh)
-# log.setLevel(logging.INFO)
 class FakeContext(object):
     """
     this fake context object can be used to use
@@ -72,8 +57,8 @@ class Registry(object):
             self._process_many_to_many(klass, klass_name)
             for name, (linked_model, is_one_to_one) in klass._linked_models.items():
                 # register models that linked from this model
-                self.link_registry[linked_model].append(
-                    (name, klass, klass_name, '%s_set' % klass_name))
+                kls_name = '%s_set' % klass_name if not is_one_to_one else klass_name
+                self.link_registry[linked_model].append((name, klass, klass_name, kls_name))
                 # register models that gives (back)links to this model
                 self.back_link_registry[klass].append((name, klass_name, linked_model))
                 if is_one_to_one:
@@ -85,8 +70,11 @@ class Registry(object):
         for node in klass._nodes.values():
             if node._linked_models:
                 for name, (model, is_one_to_one) in node._linked_models.items():
-                    self.link_registry[model].append(
-                        (name, klass, klass_name, '%s_set' % klass_name))
+                    if not is_one_to_one:
+                        self.link_registry[model].append((name, klass, klass_name,
+                                                          '%s_set' % klass_name))
+                    else:
+                        self.link_registry[model].append((name, klass, klass_name, klass_name))
                     self._process_one_to_many(klass, klass_name, model)
 
 
@@ -295,9 +283,9 @@ class Node(object):
                     linked_mdl_ins = data[name]
                     setattr(self, name, linked_mdl_ins)
                     if self.root.is_in_db():
-                        self.root.update_new_linked_model(linked_mdl_ins, name)
+                        self.root.update_new_linked_model(linked_mdl_ins, name, o2o)
                     else:
-                        self.root.new_back_links.append((linked_mdl_ins, name))
+                        self.root.new_back_links.append((linked_mdl_ins, name, o2o))
                 else:
                     _name = un_camel_id(name)
                     if _name in data:
@@ -480,7 +468,9 @@ class Model(Node):
         self.title = kwargs.pop('title', self.__class__.__name__)
         self.root = self
         self.new_back_links = []
+        kwargs['context'] = context
         super(Model, self).__init__(**kwargs)
+
         self.objects.set_model(model=self)
         self._instance_registry.add(weakref.ref(self))
         self.saved_models = []
@@ -571,13 +561,17 @@ class Model(Node):
         # TODO: refactor _linked_models to use it instead of back_link_registry
         return model_registry.back_link_registry[self.__class__]
 
-    def update_new_linked_model(self, linked_mdl_ins, name):
+    def update_new_linked_model(self, linked_mdl_ins, name, is_one_to_one):
         for (local_field_name, kls, remote_field_name,
-             remote_listnode_name) in linked_mdl_ins._get_reverse_links():
+             remote_name) in linked_mdl_ins._get_reverse_links():
             if local_field_name == name and isinstance(self, kls):
-                remote_set = getattr(linked_mdl_ins, remote_listnode_name)
-                if self not in remote_set:
-                    remote_set(**{remote_field_name: self.root})
+                if not is_one_to_one:
+                    remote_set = getattr(linked_mdl_ins, remote_name)
+                    if self not in remote_set:
+                        remote_set(**{remote_field_name: self.root})
+                        linked_mdl_ins.save()
+                else:
+                    setattr(linked_mdl_ins, remote_name, self.root)
                     linked_mdl_ins.save()
 
     def save(self):
@@ -612,34 +606,6 @@ class ListNode(Node):
         self._data = []
         self.node_dict = {}
         super(ListNode, self).__init__(**kwargs)
-
-    # ######## Public Methods  #########
-
-    def __contains__(self, item):
-        if self._data:
-            return any([d[un_camel_id(item.__class__.__name__)] == item.key for d in self._data])
-        else:
-            return item.key in self.node_dict
-
-    # def get(self, key):
-    #     """
-    #     this method returns the ListNode item with given "key"
-    #
-    #     :param str key: key of the listnode item
-    #     :return: object
-    #     """
-    #     if not self.node_dict:
-    #         for node in self.node_stack:
-    #             self.node_dict[node.key] = node
-    #     return self.node_dict[key]
-
-    # def update_linked_model(self, model_ins):
-    #     for name, (mdl, o2o) in self._linked_models.items():
-    #         if model_ins.__class__ == mdl:
-    #             for item in self:
-    #                 if getattr(item, name).key == model_ins.key:
-    #                     self.node_stack.remove(item)
-    #             self.__call__(**{name: model_ins})
 
     def _load_data(self, data, from_db=False):
         """
@@ -740,6 +706,12 @@ class ListNode(Node):
             raise TypeError("This an item of the parent ListNode")
         self.node_stack = []
         self._data = []
+
+    def __contains__(self, item):
+        if self._data:
+            return any([d[un_camel_id(item.__class__.__name__)] == item.key for d in self._data])
+        else:
+            return item.key in self.node_dict
 
     def __len__(self):
         return len(self._data or self.node_stack)
