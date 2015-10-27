@@ -14,12 +14,12 @@ from pyoko.manage import ManagementCommands
 
 def test_load_dump_data():
     path = '/tmp/load_dump.csv'
-    ManagementCommands(args=['dump_data', '--model', 'Student', '--file', path])
+    ManagementCommands(args=['dump_data', '--model', 'Student', '--path', path])
     with codecs.open(path, encoding='utf-8') as file:
         out = file.read()
-    ManagementCommands(args=['load_data', '--update', '--file', path])
+    ManagementCommands(args=['load_data', '--update', '--path', path])
     sleep(1)
-    ManagementCommands(args=['dump_data', '--model', 'Student', '--file', path])
+    ManagementCommands(args=['dump_data', '--model', 'Student', '--path', path])
     with codecs.open(path, encoding='utf-8') as file:
         assert out == file.read()
 

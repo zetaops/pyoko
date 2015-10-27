@@ -13,6 +13,7 @@ from collections import defaultdict
 import json
 
 from os import environ
+import os
 from riak.client import binary_json_decoder, binary_json_encoder
 from sys import argv
 from six import add_metaclass, PY2
@@ -160,13 +161,13 @@ class DumpData(Command):
     PRETTY = 'pretty'
     CHOICES = (CSV, JSON, TREE, PRETTY)
     PARAMS = [
-                {'name': 'model', 'required': True,
-               'help': 'Models name(s) to be dumped. Say "all" to dump all models'},
-               {'name': 'file', 'required': False,
-               'help': 'Instead of stdout, write to given file'},
+        {'name': 'model', 'required': True,
+         'help': 'Models name(s) to be dumped. Say "all" to dump all models'},
+        {'name': 'path', 'required': False,
+         'help': 'Instead of stdout, write to given file'},
 
-              {'name': 'type', 'default': CSV, 'choices': CHOICES,
-               'help': """R|
+        {'name': 'type', 'default': CSV, 'choices': CHOICES,
+         'help': """R|
                 %s : This is the default format. Writes one record per line.
                      Since it bypasses the JSON encoding/decoding,
                      it's much faster and memory efficient than others.
@@ -179,10 +180,10 @@ class DumpData(Command):
                 %s: DO NOT use on big DBs. Formatted version of json_tree.
 
                 """ % CHOICES
-               },
-              {'name': 'batch_size', 'type': int, 'default': 1000,
-               'help': 'Retrieve this amount of records from Solr in one time, defaults to 1000'},
-              ]
+         },
+        {'name': 'batch_size', 'type': int, 'default': 1000,
+         'help': 'Retrieve this amount of records from Solr in one time, defaults to 1000'},
+    ]
 
     def run(self):
         from pyoko.conf import settings
@@ -201,9 +202,9 @@ class DumpData(Command):
             models = registry.get_base_models()
         batch_size = self.manager.args.batch_size
         typ = self.manager.args.type
-        to_file = self.manager.args.file
+        to_file = self.manager.args.path
         if to_file:
-            outfile = codecs.open(self.manager.args.file, 'w', encoding='utf-8')
+            outfile = codecs.open(self.manager.args.path, 'w', encoding='utf-8')
         data = defaultdict(list)
         for mdl in models:
             model = mdl(super_context)
@@ -230,13 +231,13 @@ class DumpData(Command):
                             if PY2:
                                 out = bucket.name + "/|" + obj.key + "/|" + obj.data
                                 if to_file:
-                                    outfile.write(out+"\n")
+                                    outfile.write(out + "\n")
                                 else:
                                     print(out)
                             else:
                                 out = bucket.name + "/|" + obj.key + "/|" + obj.data.decode('utf-8')
                                 if to_file:
-                                    outfile.write(out+"\n")
+                                    outfile.write(out + "\n")
                                 else:
                                     print(out)
             bucket.set_decoder('application/json', binary_json_decoder)
@@ -253,7 +254,7 @@ class DumpData(Command):
             outfile.close()
 
 
-class   LoadData(Command):
+class LoadData(Command):
     CMD_NAME = 'load_data'
     HELP = 'Reads JSON data from given file and populates models'
 
@@ -262,35 +263,55 @@ class   LoadData(Command):
     TREE = 'json_tree'
     PRETTY = 'pretty'
     CHOICES = (CSV, JSON, TREE, PRETTY)
-    PARAMS = [{'name': 'file', 'required': True, 'help': 'Path of the data file'},
-              {'name': 'update', 'action': 'store_true',
-               'help': 'Overwrites existing records. '
-                       'Since not checks for the existence of an object, it runs faster.'},
-              {'name': 'type', 'default': CSV, 'choices': CHOICES,
-               'help': 'Defaults to "csv". See help of dump_data command for more details'
-               },
-              {'name': 'batch_size', 'type': int, 'default': 1000,
-               'help': 'Retrieve this amount of objects from Solr in one time, defaults to 1000'},
-              ]
+    PARAMS = [
+        {'name': 'path', 'required': True, 'help':"""R|Path of the data file or fixture directory.
+When loading from a directory, files with .csv (for CSV format)
+and .js extensions will be loaded."""},
+        {'name': 'update', 'action': 'store_true',
+         'help': 'Overwrites existing records. '
+                 'Since this will not check for the existence of an object, it runs a bit faster.'},
+        {'name': 'type', 'default': CSV, 'choices': CHOICES,
+         'help': 'Defaults to "csv". See help of dump_data command for more details'
+         },
+        {'name': 'batch_size', 'type': int, 'default': 1000,
+         'help': 'Retrieve this amount of objects from Solr in one time, defaults to 1000'},
+    ]
 
     def run(self):
         from pyoko.conf import settings
         from importlib import import_module
         import_module(settings.MODELS_MODULE)
-        registry = import_module('pyoko.model').model_registry
-        typ = self.manager.args.type
+        self.registry = import_module('pyoko.model').model_registry
+        self.typ = self.manager.args.type
         self.buckets = {}
         self.record_counter = 0
         self.already_existing = 0
-        for mdl in registry.get_base_models():
+        self.prepare_buckets()
+
+        if os.path.isdir(self.manager.args.path):
+            from glob import glob
+            ext = 'csv' if self.typ is self.CSV else 'js'
+            for file in glob(os.path.join(self.manager.args.path, "*.%s" % ext)):
+                self.read_file(file)
+        else:
+            self.read_file(self.manager.args.path)
+
+    def prepare_buckets(self):
+        """
+        loads buckets to bucket cache. disables the default json encoders if CSV is selected
+        :return:
+        """
+        for mdl in self.registry.get_base_models():
             bucket = mdl(super_context).objects.bucket
-            if typ == self.CSV:
+            if self.typ == self.CSV:
                 bucket.set_encoder("application/json", lambda a: a)
             self.buckets[bucket.name] = bucket
-        with codecs.open(self.manager.args.file, encoding='utf-8') as file:
-            if typ in (self.TREE, self.PRETTY):
+
+    def read_file(self, file_path):
+        with codecs.open(file_path, encoding='utf-8') as file:
+            if self.typ in (self.TREE, self.PRETTY):
                 self.read_whole_file(file)
-            elif typ == self.JSON:
+            elif self.typ == self.JSON:
                 self.read_json_per_line(file)
             else:
                 self.read_per_line(file)
@@ -301,8 +322,8 @@ class   LoadData(Command):
         if self.already_existing:
             print("%s existing object(s) NOT updated." % self.already_existing)
 
-        for mdl in registry.get_base_models():
-            if typ == self.CSV:
+        for mdl in self.registry.get_base_models():
+            if self.typ == self.CSV:
                 mdl(super_context).objects.bucket.set_encoder("application/json",
                                                               binary_json_encoder)
 
@@ -323,7 +344,8 @@ class   LoadData(Command):
             self.save_obj(bucket_name, key, val)
 
     def save_obj(self, bucket_name, key, val):
-        if self.manager.args.update:
+        key = key or None
+        if self.manager.args.update or key is None:
             self.buckets[bucket_name].new(key, val.encode('utf-8')).store()
             self.record_counter += 1
         else:

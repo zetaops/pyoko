@@ -13,14 +13,15 @@ import copy
 from datetime import date
 from datetime import datetime
 from enum import Enum
+import six
 from pyoko.conf import settings
 from pyoko.db.connection import client
 import riak
-from pyoko.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
+from pyoko.exceptions import MultipleObjectsReturned, ObjectDoesNotExist, PyokoError
 from pyoko.field import DATE_FORMAT, DATE_TIME_FORMAT
 # from pyoko.lib.py2map import Dictomap
 from pyoko.lib.utils import grayed
-
+import traceback
 # TODO: Add OR support
 
 
@@ -321,6 +322,7 @@ class DBObjects(object):
         :type key: builtins.NoneType
         :rtype: pyoko.Model
         """
+        # print("Get %s from %s" % (key, self.model_class))
         clone = copy.deepcopy(self)
         if key:
             self.key = key
@@ -430,7 +432,8 @@ class DBObjects(object):
             # if it's not one of the expected objects, it should be a string
             # solr wants quotes when query has spaces
             elif ' ' in str(val):
-                val = '"' + val + '"'
+                # val = '"' + val + '"'
+                val = val.replace(' ', "\ ")
 
             # lower than or equal
             if key.endswith('_lte'):
@@ -477,8 +480,17 @@ class DBObjects(object):
         if not self._solr_locked:
             if not self.compiled_query:
                 self._compile_query()
-            self._solr_cache = self.bucket.search(self.compiled_query,
-                                                  self.index_name,
-                                                  **self._process_params())
+            try:
+                solr_params = self._process_params()
+                self._solr_cache = self.bucket.search(self.compiled_query,
+                                                      self.index_name,
+                                                      **solr_params)
+            except riak.RiakError as err:
+                err.value += "                      ~=QUERY DEBUG=~                              " \
+                             + six.text_type({
+                    'QUERY': self.compiled_query,
+                    'BUCKET': self.index_name,
+                    'QUERY_PARAMS': solr_params})
+                raise
             self._solr_locked = True
         return self
