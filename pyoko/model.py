@@ -28,6 +28,7 @@ class LazyModel(lazy_object_proxy.Proxy):
         super(LazyModel, self).__init__(wrapped)
 
 
+
 class FakeContext(object):
     """
     this fake context object can be used to use
@@ -44,6 +45,7 @@ super_context = FakeContext()
 class Registry(object):
     def __init__(self):
         self.registry = {}
+        self.lazy_models = {}
         self.app_registry = defaultdict(dict)
         self.link_registry = defaultdict(list)
         self.back_link_registry = defaultdict(list)
@@ -55,6 +57,7 @@ class Registry(object):
             self.app_registry[klass.Meta.app][klass.__name__] = klass
             klass_name = un_camel(klass.__name__)
             self._process_many_to_many(klass, klass_name)
+
             for name, (linked_model, is_one_to_one) in klass._linked_models.items():
                 # register models that linked from this model
                 kls_name = '%s_set' % klass_name if not is_one_to_one else klass_name
@@ -135,7 +138,7 @@ class ModelMeta(type):
             mcs.process_models(attrs, base_model_class)
         if class_type == 'ListNode':
             mcs.process_listnode(attrs, base_model_class)
-        mcs.process_attributes(attrs)
+        mcs.process_attributes(attrs, name)
         new_class = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
         return new_class
 
@@ -165,7 +168,7 @@ class ModelMeta(type):
             kls.Meta.verbose_name_plural = kls.Meta.verbose_name + 's'
 
     @staticmethod
-    def process_attributes(attrs):
+    def process_attributes(attrs, model_name):
         """
         we're iterating over attributes of the soon to be created class object.
 
@@ -173,6 +176,7 @@ class ModelMeta(type):
         """
         attrs['_nodes'] = {}
         attrs['_linked_models'] = {}  # property_name: (model, is_one_to_one)
+        attrs['_lazy_linked_models'] = {}  # property_name: (model, is_one_to_one)
         attrs['_fields'] = {}
         # attrs['_many_to_models'] = []
 
@@ -183,6 +187,7 @@ class ModelMeta(type):
                 attrs['_nodes'][key] = attrs.pop(key)
             else:  # otherwise it should be a field or linked model
                 attr_type = getattr(attr, '_TYPE', '')
+
                 if attr_type == 'Model':
                     linked_model_instance = attrs.pop(key)
                     attrs['_linked_models'][key] = (
@@ -191,6 +196,10 @@ class ModelMeta(type):
                 elif attr_type == 'Field':
                     attr.name = key
                     attrs['_fields'][key] = attr
+                elif attr_type == 'Link':
+                    lazy_link = attrs.pop(key)
+                    attrs['_lazy_linked_models'][key] = (lazy_link.link_to, lazy_link.one_to_one)
+                    model_registry.lazy_models[lazy_link.link_to] = (key, lazy_link.one_to_one)
 
     @staticmethod
     def process_models(attrs, base_model_class):
@@ -588,6 +597,14 @@ class Model(Node):
         self.deleted = True
         self.save()
 
+class LinkProxy(object):
+    _TYPE = 'Link'
+
+    def __init__(self, link_to, one_to_one=False, verbose_name=None, reverse_name=None):
+        self.link_to = link_to
+        self.one_to_one = one_to_one
+        self.verbose_name = verbose_name
+        self.reverse_name = reverse_name
 
 class ListNode(Node):
     """
