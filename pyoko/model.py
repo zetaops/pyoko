@@ -20,13 +20,11 @@ import weakref
 import lazy_object_proxy
 
 
-
 class LazyModel(lazy_object_proxy.Proxy):
     key = None
 
     def __init__(self, wrapped):
         super(LazyModel, self).__init__(wrapped)
-
 
 
 class FakeContext(object):
@@ -48,51 +46,58 @@ class Registry(object):
         self.lazy_models = {}
         self.app_registry = defaultdict(dict)
         self.link_registry = defaultdict(list)
-        self.back_link_registry = defaultdict(list)
 
-    def register_model(self, klass):
-        if klass not in self.registry:
-            # register model to base registry
-            self.registry[klass.__name__] = klass
-            self.app_registry[klass.Meta.app][klass.__name__] = klass
-            klass_name = un_camel(klass.__name__)
-            self._process_many_to_many(klass, klass_name)
-            if klass.__name__ in self.lazy_models:
-                lm = self.lazy_models[klass.__name__]
-                from_mdl = self.registry[lm['from']]
-                from_mdl._linked_models[lm['field']] = (klass, lm['o2o'])
-                self._process_one_to_many(from_mdl, klass, klass_name)
-            for name, (linked_model, is_one_to_one) in klass._linked_models.items():
-                # register models that linked from this model
-                kls_name = '%s_set' % klass_name if not is_one_to_one else klass_name
-                self.link_registry[linked_model].append((name, klass, klass_name, kls_name))
-                if is_one_to_one:
-                    self._process_one_to_one(klass, linked_model, klass_name)
+    def register_model(self, mdl):
+        if mdl not in self.registry:
+            self.registry[mdl.__name__] = mdl
+            self.app_registry[mdl.Meta.app][mdl.__name__] = mdl
+            self._process_links_from_nodes(mdl)
+            self._process_lazy_links(mdl)
+            self._process_links(mdl)
+
+    def _process_links(self, mdl):
+        for name, vals in mdl._linked_models.items():
+            for val in vals:
+                reverse_name = val['reverse'] or mdl.__name__ + ('' if val['o2o'] else '_set')
+                self.link_registry[val['mdl']].append((name, mdl, reverse_name))
+                if val['o2o']:
+                    self._create_one_to_one(mdl, val['mdl'], reverse_name)
                 else:
-                    self._process_one_to_many(klass, linked_model)
+                    self._create_one_to_many(mdl, val['mdl'], reverse_name)
 
-    def _process_many_to_many(self, klass, klass_name):
-        for node in klass._nodes.values():
-            if node._linked_models:
-                for name, (model, is_one_to_one) in node._linked_models.items():
-                    if not is_one_to_one:
-                        self.link_registry[model].append((name, klass, klass_name,
-                                                          '%s_set' % klass_name))
+    def _process_lazy_links(self, target_mdl):
+        if target_mdl.__name__ in self.lazy_models:
+            for lm in self.lazy_models[target_mdl.__name__]:
+                source_mdl = self.registry[lm['from']]
+                source_mdl._add_linked_model(target_mdl, lm['o2o'], lm['field'],
+                                             lm['reverse'], lm['verbose'])
+                self._create_one_to_many(source_mdl, target_mdl, lm['reverse'])
+
+    def _process_links_from_nodes(self, source_mdl):
+        for node in source_mdl._nodes.values():
+            for vals in node._linked_models.values():
+                for val in vals:
+                    if not val['o2o']:
+                        self.link_registry[val['mdl']].append((val['field'],
+                                                               source_mdl,
+                                                               val['reverse']))
+                        self._create_one_to_many(source_mdl, val['mdl'], val['reverse'])
                     else:
-                        self.link_registry[model].append((name, klass, klass_name, klass_name))
-                    self._process_one_to_many(klass, model, klass_name)
+                        self.link_registry[val['mdl']].append((val['field'],
+                                                               source_mdl,
+                                                               val['reverse']))
+                        self._create_one_to_one(source_mdl, val['mdl'], val['reverse'])
 
-
-    def _process_one_to_one(self, klass, linked_model, klass_name):
-        klass_instance = klass(one_to_one=True)
-        klass_instance._is_auto_created = True
+    def _create_one_to_one(self, source_mdl, linked_model, field_name):
+        mdl_instance = source_mdl(one_to_one=True)
+        mdl_instance._is_auto_created = True
         for instance_ref in linked_model._instance_registry:
             mdl = instance_ref()
             if mdl:  # if not yet garbage collected
-                setattr(mdl, klass_name, klass_instance)
-        linked_model._linked_models[klass_name] = (klass, True)
+                setattr(mdl, field_name, mdl_instance)
+        linked_model._add_linked_model(source_mdl, o2o=True, field=field_name)
 
-    def _process_one_to_many(self, source_mdl, target_mdl, listnode_name=None):
+    def _create_one_to_many(self, source_mdl, target_mdl, listnode_name=None):
         # other side of n-to-many should be a ListNode
         # named with a "_set" suffix and
         # our linked_model as the sole element
@@ -103,15 +108,8 @@ class Registry(object):
         target_instance._is_auto_created = True
         listnode = type(listnode_name, (ListNode,),
                         {source_mdl.__name__: target_instance, '_is_auto_created': True})
-        listnode._linked_models[source_mdl.__name__] = {
-            'mdl': source_mdl,
-            'o2o': False,
-            # 'reverse': lnk_mdl_ins.reverse_name,
-            # 'verbose': lnk_mdl_ins.verbose_name,
-            # 'field': key
-        }
-
-
+        listnode._add_linked_model(source_mdl, o2o=False, field=listnode_name,
+                                   reverse=source_mdl.__name__)
         target_mdl._nodes[listnode_name] = listnode
         # add just created model_set to model instances that
         # initialized inside of another model as linked model
@@ -186,8 +184,8 @@ class ModelMeta(type):
         :param dict attrs: attribute dict
         """
         attrs['_nodes'] = {}
-        attrs['_linked_models'] = {}  # property_name: (model, is_one_to_one)
-        attrs['_lazy_linked_models'] = {}  # property_name: (model, is_one_to_one)
+        attrs['_linked_models'] = defaultdict(list)
+        attrs['_lazy_linked_models'] = defaultdict(list)
         attrs['_fields'] = {}
         # attrs['_many_to_models'] = []
 
@@ -201,23 +199,24 @@ class ModelMeta(type):
 
                 if attr_type == 'Model':
                     lnk_mdl_ins = attrs.pop(key)
-                    attrs['_linked_models'][key] = {
+                    attrs['_linked_models'][key].append({
                         'mdl': lnk_mdl_ins.__class__,
                         'o2o': lnk_mdl_ins._is_one_to_one,
                         'reverse': lnk_mdl_ins.reverse_name,
                         'verbose': lnk_mdl_ins.verbose_name,
                         'field': key
-                    }
+                    })
                 elif attr_type == 'Field':
                     attr.name = key
                     attrs['_fields'][key] = attr
                 elif attr_type == 'Link':
                     lzy_lnk = attrs.pop(key)
-                    attrs['_lazy_linked_models'][key] = {'from': model_name,
-                                                         'to': lzy_lnk.link_to,
-                                                         'o2o': lzy_lnk.one_to_one,
-                                                         'field': key}
-                    model_registry.lazy_models[lzy_lnk.link_to] = attrs['_lazy_linked_models'][key]
+                    attrs['_lazy_linked_models'][key].append({'from': model_name,
+                                                              'to': lzy_lnk.link_to,
+                                                              'o2o': lzy_lnk.one_to_one,
+                                                              'verbose': lzy_lnk.verbose_name,
+                                                              'reverse': lzy_lnk.reverse_name,
+                                                              'field': key})
 
     @staticmethod
     def process_models(attrs, base_model_class):
@@ -287,6 +286,16 @@ class Node(object):
         self._instantiate_nodes()
         self._set_fields_values(kwargs)
 
+    @classmethod
+    def _add_linked_model(cls, mdl, o2o=False, field=None, reverse=None, verbose=None):
+        cls._linked_models[field or mdl.__name__].append({
+            'o2o': o2o,
+            'mdl': mdl,
+            'field': field,
+            'reverse': reverse,
+            'verbose': verbose
+        })
+
     def set_tmp_key(self):
         self.key = "TMP_%s_%s" % (self.__class__.__name__, uuid4().hex[:10])
 
@@ -303,29 +312,29 @@ class Node(object):
                                            prop]))).replace(root._get_bucket_name() + '.', '')
 
     def _instantiate_linked_models(self, data=None):
-        for name, (mdl, o2o) in self._linked_models.items():
-
+        for v in self._linked_models.values():
+            field_name = v['field']
             if data:
-                if name in data:
-                    linked_mdl_ins = data[name]
-                    setattr(self, name, linked_mdl_ins)
+                if field_name in data:
+                    linked_mdl_ins = data[field_name]
+                    setattr(self, field_name, linked_mdl_ins)
                     if self.root.is_in_db():
-                        self.root.update_new_linked_model(linked_mdl_ins, name, o2o)
+                        self.root.update_new_linked_model(linked_mdl_ins, field_name, v['o2o'])
                     else:
-                        self.root.new_back_links.append((linked_mdl_ins, name, o2o))
+                        self.root.new_back_links.append((linked_mdl_ins, field_name, v['o2o']))
                 else:
-                    _name = un_camel_id(name)
+                    _name = un_camel_id(field_name)
                     if _name in data:
                         def fo(modl, context, field_name):
                             return lambda: modl(context).objects.get(field_name)
 
-                        obj = LazyModel(fo(mdl, self.context, data[_name]))
+                        obj = LazyModel(fo(v['mdl'], self.context, data[_name]))
                         obj.key = data[_name]
-                        setattr(self, name, obj)
+                        setattr(self, field_name, obj)
                     else:
-                        setattr(self, name, LazyModel(lambda: mdl(self.context)))
+                        setattr(self, field_name, LazyModel(lambda: v['mdl'](self.context)))
             else:
-                setattr(self, name, LazyModel(lambda: mdl(self.context)))
+                setattr(self, field_name, LazyModel(lambda: v['mdl'](self.context)))
 
     def _instantiate_node(self, name, klass):
         # instantiate given node, pass path and root info
@@ -580,12 +589,11 @@ class Model(Node):
         """
         return model_registry.link_registry[self.__class__]
 
-
-    def update_new_linked_model(self, linked_mdl_ins, name, is_one_to_one):
-        for (local_field_name, kls, remote_field_name,
+    def update_new_linked_model(self, linked_mdl_ins, name, o2o):
+        for (local_field_name, mdl, remote_field_name,
              remote_name) in linked_mdl_ins._get_back_links():
-            if local_field_name == name and isinstance(self, kls):
-                if not is_one_to_one:
+            if local_field_name == name and isinstance(self, mdl):
+                if not o2o:
                     remote_set = getattr(linked_mdl_ins, remote_name)
                     if self not in remote_set:
                         remote_set(**{remote_field_name: self.root})
@@ -608,6 +616,7 @@ class Model(Node):
         self.deleted = True
         self.save()
 
+
 class LinkProxy(object):
     _TYPE = 'Link'
 
@@ -616,6 +625,7 @@ class LinkProxy(object):
         self.one_to_one = one_to_one
         self.verbose_name = verbose_name
         self.reverse_name = reverse_name
+
 
 class ListNode(Node):
     """
