@@ -45,7 +45,7 @@ class Registry(object):
         self.registry = {}
         self.lazy_models = {}
         self.app_registry = defaultdict(dict)
-        self.link_registry = defaultdict(list)
+        # self.link_registry = defaultdict(list)
 
     def register_model(self, mdl):
         if mdl not in self.registry:
@@ -58,37 +58,38 @@ class Registry(object):
     def _process_links(self, mdl):
         for name, vals in mdl._linked_models.items():
             for val in vals:
-                reverse_name = val['reverse'] or mdl.__name__ + ('' if val['o2o'] else '_set')
-                self.link_registry[val['mdl']].append((name, mdl, reverse_name))
+                # reverse_name = val['reverse'] or mdl.__name__ + ('' if val['o2o'] else '_set')
+                # self.link_registry[val['mdl']].append((name, mdl, reverse_name))
                 if val['o2o']:
-                    self._create_one_to_one(mdl, val['mdl'], reverse_name)
+                    self._create_one_to_one(mdl, val['mdl'], val['reverse'])
+                    val['mdl']._add_linked_model(mdl, o2o=True, field=val['reverse'])
                 else:
-                    self._create_one_to_many(mdl, val['mdl'], reverse_name)
+                    val['mdl']._add_linked_model(mdl, reverse=val['field'], field=val['reverse'])
+                    self._create_one_to_many(mdl, val['mdl'], val['reverse'])
 
     def _process_lazy_links(self, target_mdl):
         if target_mdl.__name__ in self.lazy_models:
             for lm in self.lazy_models[target_mdl.__name__]:
                 source_mdl = self.registry[lm['from']]
-                source_mdl._add_linked_model(target_mdl, lm['o2o'], lm['field'],
-                                             lm['reverse'], lm['verbose'])
+                source_mdl._add_linked_model(target_mdl, lm['o2o'], lm['field'], lm['reverse'], lm['verbose'])
+                target_mdl._add_linked_model(source_mdl, reverse=lm['field'], field=lm['reverse'])
                 self._create_one_to_many(source_mdl, target_mdl, lm['reverse'])
 
     def _process_links_from_nodes(self, source_mdl):
         for node in source_mdl._nodes.values():
             for vals in node._linked_models.values():
                 for val in vals:
+                    # self.link_registry[val['mdl']].append((val['field'],
+                    #                                        source_mdl,
+                    #                                        val['reverse']))
                     if not val['o2o']:
                         # Role.Permisions(permission=Permission()) -->
                         # --> Permission.role_set (or if given, custom
                         #  reverse name)
-                        self.link_registry[val['mdl']].append((val['field'],
-                                                               source_mdl,
-                                                               val['reverse']))
+                        source_mdl._add_linked_model(val['mdl'], o2o=False, field=val['reverse'], reverse=val['field'])
                         self._create_one_to_many(source_mdl, val['mdl'], val['reverse'])
                     else:
-                        self.link_registry[val['mdl']].append((val['field'],
-                                                               source_mdl,
-                                                               val['reverse']))
+                        source_mdl._add_linked_model(val['mdl'], o2o=True, field=val['reverse'], reverse=val['field'])
                         self._create_one_to_one(source_mdl, val['mdl'], val['reverse'])
 
     def _create_one_to_one(self, source_mdl, target_mdl, field_name):
@@ -98,13 +99,14 @@ class Registry(object):
             mdl = instance_ref()
             if mdl:  # if not yet garbage collected
                 setattr(mdl, field_name, mdl_instance)
-        target_mdl._add_linked_model(source_mdl, o2o=True, field=field_name)
+        # target_mdl._add_linked_model(source_mdl, o2o=True, field=field_name)
 
     def _create_one_to_many(self, source_mdl, target_mdl, listnode_name=None):
         # other side of n-to-many should be a ListNode
         # and our source model as the sole element
         if not listnode_name:
             listnode_name = '%s_set' % un_camel(source_mdl.__name__)
+
         source_instance = source_mdl()
         source_instance._is_auto_created = True
         # create a new class which extends ListNode
@@ -113,6 +115,7 @@ class Registry(object):
                          '_is_auto_created': True})
         listnode._add_linked_model(source_mdl, o2o=False, field=listnode_name,
                                    reverse=source_mdl.__name__)
+        # source_mdl._add_linked_model(target_mdl, o2o=False, )
         target_mdl._nodes[listnode_name] = listnode
         # add just created model_set to model instances that
         # initialized inside of another model as linked model
@@ -319,11 +322,14 @@ class Node(object):
             for v in vals:
                 if data:
                     if field_name in data:
+                        # this means we've got a new model instance assigned
+                        # with field_name. we should update other side too
                         linked_mdl_ins = data[field_name]
                         setattr(self, field_name, linked_mdl_ins)
                         if self.root.is_in_db():
                             self.root.update_new_linked_model(linked_mdl_ins, field_name, v['o2o'])
                         else:
+                            # we have to wait till instance's saved to db
                             self.root.new_back_links.append((linked_mdl_ins, field_name, v['o2o']))
                     else:
                         _name = un_camel_id(field_name)
@@ -497,14 +503,15 @@ class Model(Node):
         self.is_unpermitted_fields_set = False
         self.context = context
         self.verbose_name = kwargs.get('verbose_name')
-        self.reverse_name = kwargs.get('reverse_name')
+        self._is_one_to_one = kwargs.pop('one_to_one', False)
+        self.reverse_name = kwargs.get('reverse_name', un_camel(self.__class__.__name__) + ('' if self._is_one_to_one else '_set'))
         self._pass_perm_checks = kwargs.pop('_pass_perm_checks', False)
         # if not self._pass_perm_checks:
         #     self.row_level_access(context)
         #     self.apply_cell_filters(context)
         self.objects._pass_perm_checks = self._pass_perm_checks
         # self._prepare_linked_models()
-        self._is_one_to_one = kwargs.pop('one_to_one', False)
+
         self.title = kwargs.pop('title', self.__class__.__name__)
         self.root = self
         self.new_back_links = []
@@ -585,25 +592,29 @@ class Model(Node):
     def _name_id(self):
         return "%s_id" % self._name
 
-    def _get_back_links(self):
-        """
-        get models that linked from this models
-        :return: [Model]
-        """
-        return model_registry.link_registry[self.__class__]
+    # def _get_back_links(self):
+    #     """
+    #     get models that linked from this models
+    #     :return: [Model]
+    #     """
+    #     return model_registry.link_registry[self.__class__]
 
     def update_new_linked_model(self, linked_mdl_ins, name, o2o):
-        for (local_field_name, mdl, remote_name) in linked_mdl_ins._get_back_links():
-            remote_field_name = un_camel(mdl.__name__)
-            if local_field_name == name and isinstance(self, mdl):
-                if not o2o:
-                    remote_set = getattr(linked_mdl_ins, remote_field_name)
-                    if self not in remote_set:
-                        remote_set(**{remote_field_name: self.root})
+        for field, vals in linked_mdl_ins._linked_models.items():
+            for val in vals:
+                mdl = val['mdl']
+                local_field_name = val['field']
+                remote_name = val['reverse']
+                remote_field_name = un_camel(mdl.__name__)
+                if val['field'] == name and isinstance(self, mdl):
+                    if not o2o:
+                        remote_set = getattr(linked_mdl_ins, remote_field_name)
+                        if self not in remote_set:
+                            remote_set(**{remote_field_name: self.root})
+                            linked_mdl_ins.save()
+                    else:
+                        setattr(linked_mdl_ins, remote_name, self.root)
                         linked_mdl_ins.save()
-                else:
-                    setattr(linked_mdl_ins, remote_name, self.root)
-                    linked_mdl_ins.save()
 
     def save(self):
         self.objects.save_model(self)
