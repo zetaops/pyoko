@@ -9,7 +9,7 @@ both from models or standalone forms
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 import six
-from pyoko.field import BaseField
+from pyoko.fields import BaseField
 from pyoko.lib.utils import un_camel, to_camel
 
 
