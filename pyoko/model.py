@@ -1,8 +1,6 @@
 # -*-  coding: utf-8 -*-
 """
-"""
-
-# Copyright (C) 2015 ZetaOps Inc.
+"""  # Copyright (C) 2015 ZetaOps Inc.
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
@@ -58,7 +56,8 @@ class Registry(object):
     def _process_links(self, mdl):
         for name, vals in mdl._linked_models.items():
             for val in vals:
-                reverse_name = val['reverse'] or mdl.__name__ + ('' if val['o2o'] else '_set')
+                reverse_name = un_camel(
+                    val['reverse'] or mdl.__name__ + ('' if val['o2o'] else '_set'))
                 # self.link_registry[val['mdl']].append((name, mdl, reverse_name))
                 if val['o2o']:
                     self._create_one_to_one(mdl, val['mdl'], reverse_name)
@@ -71,7 +70,8 @@ class Registry(object):
         if target_mdl.__name__ in self.lazy_models:
             for lm in self.lazy_models[target_mdl.__name__]:
                 source_mdl = self.registry[lm['from']]
-                source_mdl._add_linked_model(target_mdl, lm['o2o'], lm['field'], lm['reverse'], lm['verbose'])
+                source_mdl._add_linked_model(target_mdl, lm['o2o'], lm['field'], lm['reverse'],
+                                             lm['verbose'])
                 target_mdl._add_linked_model(source_mdl, reverse=lm['field'], field=lm['reverse'])
                 self._create_one_to_many(source_mdl, target_mdl, lm['reverse'])
 
@@ -82,14 +82,18 @@ class Registry(object):
                     # self.link_registry[val['mdl']].append((val['field'],
                     #                                        source_mdl,
                     #                                        val['reverse']))
+                    reverse_name = un_camel(
+                        val['reverse'] or source_mdl.__name__ + ('' if val['o2o'] else '_set'))
                     if not val['o2o']:
                         # Role.Permisions(permission=Permission()) -->
                         # --> Permission.role_set (or if given, custom
                         #  reverse name)
-                        val['mdl']._add_linked_model(source_mdl, o2o=False, field=val['reverse'], reverse=val['field'])
+                        val['mdl']._add_linked_model(source_mdl, o2o=False, field=reverse_name,
+                                                     reverse=val['field'])
                         self._create_one_to_many(source_mdl, val['mdl'], val['reverse'])
                     else:
-                        val['mdl']._add_linked_model(source_mdl, o2o=True, field=val['reverse'], reverse=val['field'])
+                        val['mdl']._add_linked_model(source_mdl, o2o=True, field=reverse_name,
+                                                     reverse=val['field'])
                         self._create_one_to_one(source_mdl, val['mdl'], val['reverse'])
 
     def _create_one_to_one(self, source_mdl, target_mdl, field_name):
@@ -99,7 +103,7 @@ class Registry(object):
             mdl = instance_ref()
             if mdl:  # if not yet garbage collected
                 setattr(mdl, field_name, mdl_instance)
-        # target_mdl._add_linked_model(source_mdl, o2o=True, field=field_name)
+                # target_mdl._add_linked_model(source_mdl, o2o=True, field=field_name)
 
     def _create_one_to_many(self, source_mdl, target_mdl, listnode_name=None):
         # other side of n-to-many should be a ListNode
