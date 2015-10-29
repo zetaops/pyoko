@@ -78,6 +78,9 @@ class Registry(object):
             for vals in node._linked_models.values():
                 for val in vals:
                     if not val['o2o']:
+                        # Role.Permisions(permission=Permission()) -->
+                        # --> Permission.role_set (or if given, custom
+                        #  reverse name)
                         self.link_registry[val['mdl']].append((val['field'],
                                                                source_mdl,
                                                                val['reverse']))
@@ -88,26 +91,26 @@ class Registry(object):
                                                                val['reverse']))
                         self._create_one_to_one(source_mdl, val['mdl'], val['reverse'])
 
-    def _create_one_to_one(self, source_mdl, linked_model, field_name):
+    def _create_one_to_one(self, source_mdl, target_mdl, field_name):
         mdl_instance = source_mdl(one_to_one=True)
         mdl_instance._is_auto_created = True
-        for instance_ref in linked_model._instance_registry:
+        for instance_ref in target_mdl._instance_registry:
             mdl = instance_ref()
             if mdl:  # if not yet garbage collected
                 setattr(mdl, field_name, mdl_instance)
-        linked_model._add_linked_model(source_mdl, o2o=True, field=field_name)
+        target_mdl._add_linked_model(source_mdl, o2o=True, field=field_name)
 
     def _create_one_to_many(self, source_mdl, target_mdl, listnode_name=None):
         # other side of n-to-many should be a ListNode
-        # named with a "_set" suffix and
-        # our linked_model as the sole element
+        # and our source model as the sole element
         if not listnode_name:
-            listnode_name = '%s_set' % source_mdl.__name__
+            listnode_name = '%s_set' % un_camel(source_mdl.__name__)
+        source_instance = source_mdl()
+        source_instance._is_auto_created = True
         # create a new class which extends ListNode
-        target_instance = source_mdl()
-        target_instance._is_auto_created = True
         listnode = type(listnode_name, (ListNode,),
-                        {source_mdl.__name__: target_instance, '_is_auto_created': True})
+                        {source_mdl.__name__: source_instance,
+                         '_is_auto_created': True})
         listnode._add_linked_model(source_mdl, o2o=False, field=listnode_name,
                                    reverse=source_mdl.__name__)
         target_mdl._nodes[listnode_name] = listnode
@@ -312,29 +315,29 @@ class Node(object):
                                            prop]))).replace(root._get_bucket_name() + '.', '')
 
     def _instantiate_linked_models(self, data=None):
-        for v in self._linked_models.values():
-            field_name = v['field']
-            if data:
-                if field_name in data:
-                    linked_mdl_ins = data[field_name]
-                    setattr(self, field_name, linked_mdl_ins)
-                    if self.root.is_in_db():
-                        self.root.update_new_linked_model(linked_mdl_ins, field_name, v['o2o'])
+        for field_name, vals in self._linked_models.items():
+            for v in vals:
+                if data:
+                    if field_name in data:
+                        linked_mdl_ins = data[field_name]
+                        setattr(self, field_name, linked_mdl_ins)
+                        if self.root.is_in_db():
+                            self.root.update_new_linked_model(linked_mdl_ins, field_name, v['o2o'])
+                        else:
+                            self.root.new_back_links.append((linked_mdl_ins, field_name, v['o2o']))
                     else:
-                        self.root.new_back_links.append((linked_mdl_ins, field_name, v['o2o']))
-                else:
-                    _name = un_camel_id(field_name)
-                    if _name in data:
-                        def fo(modl, context, field_name):
-                            return lambda: modl(context).objects.get(field_name)
+                        _name = un_camel_id(field_name)
+                        if _name in data:
+                            def fo(modl, context, field_name):
+                                return lambda: modl(context).objects.get(field_name)
 
-                        obj = LazyModel(fo(v['mdl'], self.context, data[_name]))
-                        obj.key = data[_name]
-                        setattr(self, field_name, obj)
-                    else:
-                        setattr(self, field_name, LazyModel(lambda: v['mdl'](self.context)))
-            else:
-                setattr(self, field_name, LazyModel(lambda: v['mdl'](self.context)))
+                            obj = LazyModel(fo(v['mdl'], self.context, data[_name]))
+                            obj.key = data[_name]
+                            setattr(self, field_name, obj)
+                        else:
+                            setattr(self, field_name, LazyModel(lambda: v['mdl'](self.context)))
+                else:
+                    setattr(self, field_name, LazyModel(lambda: v['mdl'](self.context)))
 
     def _instantiate_node(self, name, klass):
         # instantiate given node, pass path and root info
@@ -407,7 +410,7 @@ class Node(object):
         multi = in_multi or isinstance(self, ListNode)
         for name in self._linked_models:
             # obj = getattr(self, name) ### obj.has_many_values()
-            result.append((un_camel_id(name), 'string', True, False, multi))
+            result.append((self._path_of(un_camel_id(name)), 'string', True, False, multi))
 
         for name, field_ins in self._fields.items():
             field_name = self._path_of(name)
@@ -590,11 +593,11 @@ class Model(Node):
         return model_registry.link_registry[self.__class__]
 
     def update_new_linked_model(self, linked_mdl_ins, name, o2o):
-        for (local_field_name, mdl, remote_field_name,
-             remote_name) in linked_mdl_ins._get_back_links():
+        for (local_field_name, mdl, remote_name) in linked_mdl_ins._get_back_links():
+            remote_field_name = un_camel(mdl.__name__)
             if local_field_name == name and isinstance(self, mdl):
                 if not o2o:
-                    remote_set = getattr(linked_mdl_ins, remote_name)
+                    remote_set = getattr(linked_mdl_ins, remote_field_name)
                     if self not in remote_set:
                         remote_set(**{remote_field_name: self.root})
                         linked_mdl_ins.save()
@@ -673,12 +676,9 @@ class ListNode(Node):
             _name = un_camel(name)
             if _name in node_data:  # check for partial data
                 getattr(clone, name)._load_data(node_data[_name])
-        for name, (model, is_one_to_one) in self._linked_models.items():
-            _name = un_camel_id(name)
-            ins = getattr(clone, name)
-            # ins.key = node_data[_name]
-            self.node_dict[ins.key] = clone
-            break  # only one linked_model can represent an item
+        if self._linked_models:
+            # first found linked model represents the this item
+            self.node_dict[getattr(clone, self._linked_models.keys()[0])]
         self.node_stack.append(clone)
         return clone
 
