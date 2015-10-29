@@ -58,14 +58,14 @@ class Registry(object):
     def _process_links(self, mdl):
         for name, vals in mdl._linked_models.items():
             for val in vals:
-                # reverse_name = val['reverse'] or mdl.__name__ + ('' if val['o2o'] else '_set')
+                reverse_name = val['reverse'] or mdl.__name__ + ('' if val['o2o'] else '_set')
                 # self.link_registry[val['mdl']].append((name, mdl, reverse_name))
                 if val['o2o']:
-                    self._create_one_to_one(mdl, val['mdl'], val['reverse'])
-                    val['mdl']._add_linked_model(mdl, o2o=True, field=val['reverse'])
+                    self._create_one_to_one(mdl, val['mdl'], reverse_name)
+                    val['mdl']._add_linked_model(mdl, o2o=True, field=reverse_name)
                 else:
-                    val['mdl']._add_linked_model(mdl, reverse=val['field'], field=val['reverse'])
-                    self._create_one_to_many(mdl, val['mdl'], val['reverse'])
+                    val['mdl']._add_linked_model(mdl, reverse=val['field'], field=reverse_name)
+                    self._create_one_to_many(mdl, val['mdl'], reverse_name)
 
     def _process_lazy_links(self, target_mdl):
         if target_mdl.__name__ in self.lazy_models:
@@ -86,10 +86,10 @@ class Registry(object):
                         # Role.Permisions(permission=Permission()) -->
                         # --> Permission.role_set (or if given, custom
                         #  reverse name)
-                        source_mdl._add_linked_model(val['mdl'], o2o=False, field=val['reverse'], reverse=val['field'])
+                        val['mdl']._add_linked_model(source_mdl, o2o=False, field=val['reverse'], reverse=val['field'])
                         self._create_one_to_many(source_mdl, val['mdl'], val['reverse'])
                     else:
-                        source_mdl._add_linked_model(val['mdl'], o2o=True, field=val['reverse'], reverse=val['field'])
+                        val['mdl']._add_linked_model(source_mdl, o2o=True, field=val['reverse'], reverse=val['field'])
                         self._create_one_to_one(source_mdl, val['mdl'], val['reverse'])
 
     def _create_one_to_one(self, source_mdl, target_mdl, field_name):
@@ -503,15 +503,14 @@ class Model(Node):
         self.is_unpermitted_fields_set = False
         self.context = context
         self.verbose_name = kwargs.get('verbose_name')
-        self._is_one_to_one = kwargs.pop('one_to_one', False)
-        self.reverse_name = kwargs.get('reverse_name', un_camel(self.__class__.__name__) + ('' if self._is_one_to_one else '_set'))
+        self.reverse_name = kwargs.get('reverse_name')
         self._pass_perm_checks = kwargs.pop('_pass_perm_checks', False)
         # if not self._pass_perm_checks:
         #     self.row_level_access(context)
         #     self.apply_cell_filters(context)
         self.objects._pass_perm_checks = self._pass_perm_checks
         # self._prepare_linked_models()
-
+        self._is_one_to_one = kwargs.pop('one_to_one', False)
         self.title = kwargs.pop('title', self.__class__.__name__)
         self.root = self
         self.new_back_links = []
