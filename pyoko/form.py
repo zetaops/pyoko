@@ -18,6 +18,7 @@ class ModelForm(object):
     class Meta:
         title = None
         customize_types = {}
+        help_text = ''
 
     def __init__(self, model=None, **kwargs):
         """
@@ -39,11 +40,11 @@ class ModelForm(object):
         if 'nodes' not in kwargs or 'models' not in kwargs or 'fields' not in kwargs:
             kwargs['fields'] = True
         self.config = kwargs
-        self.customize_types = kwargs.get('types', self.Meta.customize_types)
-        if not self.Meta.title:
+        self.customize_types = kwargs.get('types', getattr(self.Meta, 'customize_types', {}))
+        if not hasattr(self.Meta, 'title'):
             self.Meta.title = kwargs.get('title',
                                          getattr(self.model.Meta, 'verbose_name',
-                                                             self.model.__class__.__name__))
+                                                 self.model.__class__.__name__))
 
     def deserialize(self, data):
         """
@@ -80,61 +81,6 @@ class ModelForm(object):
                             kwargs[k] = ln_item_data[k]
                     list_node(**kwargs)
         return new_instance
-        # _data = {'_cache': {}}
-        # new_instance = self.model.__class__(self.model.context)
-        # new_instance.key = self.model.key
-        # for key, val in data.items():
-        #     if key.endswith('_id'):  # linked model
-        #         name = key[:-3]
-        #         _data['_cache'][name] = self.model._linked_models[name][0](
-        #             self.model.context).objects.data().get(val).data
-        #         _data['_cache'][name]['key'] = val
-        #     elif isinstance(val, six.string_types):  # field
-        #         _data[key] = val
-        #     elif isinstance(val, dict):  # Node
-        #         _data[un_camel(key)] = val
-        #     elif isinstance(val, list):  # ListNode
-        #         list_node = getattr(self.model, key)
-        #         _key = un_camel(key)
-        #         _data[_key] = []
-        #         for listnode_item_data in val[:]:
-        #             listnode_item_data['_cache'] = {}
-        #             for k, v in listnode_item_data.items():
-        #                 if k.endswith('_id'):  # linked model in a ListNode
-        #                     name = k[:-3]
-        #                     listnode_item_data['_cache'][name] = getattr(list_node, name).__class__(
-        #                         self.model.context).objects.data().get(v).data
-        #                     listnode_item_data['_cache'][name]['key'] = v
-        #             _data[_key].append(listnode_item_data.copy())
-        # new_instance.set_data(_data)
-        # return new_instance
-
-        #
-        # field_data = {}
-        # node_data = {}
-        # listnode_data = {}
-        # linked_models = {}
-        # for key, val in data.items():
-        #     if key.endswith('_id'):
-        #         name = key[:-3]
-        #         linked_models[name] = getattr(self.model, name).__class__(self.model.context).objects.get(val)
-        #     elif isinstance(val, six.string_types):
-        #         field_data[key] = val
-        #     elif isinstance(val, dict):
-        #         node_data[key] = val
-        #     elif isinstance(val, list):
-        #         listnode_data[key] = val
-        # self.model.set_data(field_data)
-        # for k in node_data:
-        #     getattr(self.model, k)(node_data[k])
-        # for k in listnode_data:
-        #     list_node = getattr(self.model, k)
-        #     list_node._data = []
-        #     list_node.node_stack = []
-        #     for node_item in listnode_data[k]:
-        #         list_node(node_item)
-        # return self.model
-        #
 
     def _serialize(self):
         """
