@@ -15,7 +15,9 @@ from pyoko.lib.utils import un_camel, to_camel
 
 class ModelForm(object):
     # FIXME: Permission checks
-    TYPE_OVERRIDES = {}
+    class Meta:
+        title = None
+        customize_types = {}
 
     def __init__(self, model=None, **kwargs):
         """
@@ -37,8 +39,11 @@ class ModelForm(object):
         if 'nodes' not in kwargs or 'models' not in kwargs or 'fields' not in kwargs:
             kwargs['fields'] = True
         self.config = kwargs
-        self.customize_types = kwargs.get('types', self.TYPE_OVERRIDES)
-        self.title = kwargs.get('title', self.model.__class__.__name__)
+        self.customize_types = kwargs.get('types', self.Meta.customize_types)
+        if not self.Meta.title:
+            self.Meta.title = kwargs.get('title',
+                                         getattr(self.model.Meta, 'verbose_name',
+                                                             self.model.__class__.__name__))
 
     def deserialize(self, data):
         """
@@ -170,7 +175,7 @@ class ModelForm(object):
                            'title': instance_node.Meta.verbose_name,
                            'schema': schema,
                            'value': node_data if not node_data or node_type == 'ListNode'
-                                    else node_data[0],
+                           else node_data[0],
                            'required': None,
                            'default': None,
                            })
@@ -200,7 +205,8 @@ class ModelForm(object):
                            'value': self.model._field_values.get(name, ''),
                            'required': field.required,
                            'title': field.title,
-                           'default': field.default() if callable(field.default) else field.default,
+                           'default': field.default() if callable(
+                               field.default) else field.default,
                            })
 
     def node_schema(self, node, parent_name):
