@@ -23,8 +23,8 @@ class Student(Model):
 
     number = field.String("Student No", index=True)
     pno = field.String("TC No", index=True)
-    name = field.String("First Name", index_as='text_tr')
-    surname = field.String("Last Name", index_as='text_tr')
+    name = field.String("First Name", type='text_tr')
+    surname = field.String("Last Name", type='text_tr')
     join_date = field.Date("Join Date", index=True)
     bio = field.Text("Biography", index=True)
 
@@ -34,7 +34,7 @@ class Student(Model):
         password = field.String("Password")
 
     class Lectures(ListNode):
-        name = field.String(index_as='text_tr')
+        name = field.String(type='text_tr')
         code = field.String(required=False, index=True)
         credit = field.Integer(default=0, index=True)
 

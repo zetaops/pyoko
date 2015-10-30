@@ -32,13 +32,13 @@ class BaseField(object):
                  default=None,
                  required=True,
                  index=False,
-                 index_as=None,
-                 store=False):
+                 type=None,
+                 store=False,):
         self.required = required
         self.title = title
-        if index_as:
-            self.solr_type = index_as
-        self.index = index or bool(index_as)
+        if type:
+            self.solr_type = type
+        self.index = index or bool(type)
         self.store = store
         self.default = default
         self.name = ''
