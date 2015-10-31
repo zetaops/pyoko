@@ -9,15 +9,14 @@
 - AND queries by using filter() and exclude() methods.
 - Query chaining and caching.
 - Automatic Solr schema creation / update (one way migration).
-- One-To-One, ManyToMany and ManyToOne relations with auto denormalization (aka reactive joins / write-time joins)
 - Row level access control, permission based cell filtering.
 
 #### Work in progress ####
 - More pythonic APIs for Solr's extensive query features. (OR queries, searching in list of values)
 - Self referencing model relations.
+- One-To-One, ManyToMany and ManyToOne relations with auto denormalization (aka reactive joins / write-time joins)
 
 #### Planned ####
-- Auto retry of failed writes (on strongly consistent buckets).
 - Automatic versioning on write-once buckets.
 - Custom migrations with migration history.
 - CRDT based models.
