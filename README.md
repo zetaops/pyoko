@@ -124,11 +124,11 @@ You need to define the following environmental variable to run tests.
 
 to create or update schemas run the following command:
 
-` python manage.py update_schema --bucket \<model_name\>,\<model_name\> `
+` python manage.py migrate --model \<model_name\>,\<model_name\> `
 
 or
 
-` python manage.py update_schema --bucket all `
+` python manage.py migrate --model all `
 
 **py.test** command runs all the tests from tests directory.
 
