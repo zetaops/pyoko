@@ -16,7 +16,6 @@ from pyoko.lib.utils import un_camel, to_camel
 class ModelForm(object):
     # FIXME: Permission checks
     class Meta:
-        title = None
         customize_types = {}
         help_text = ''
 
