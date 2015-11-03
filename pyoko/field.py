@@ -11,6 +11,7 @@ import time
 import uuid
 import six
 from pyoko.exceptions import ValidationError
+from pyoko.conf import settings
 
 DATE_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 DATE_FORMAT = "%Y-%m-%dT00:00:00Z"
@@ -129,7 +130,7 @@ class DateTime(BaseField):
     solr_type = 'date'
 
     def __init__(self, *args, **kwargs):
-        self.format = kwargs.pop('format', DATE_TIME_FORMAT)
+        self.format = kwargs.pop('format', settings.DATETIME_DEFAULT_FORMAT or DATE_TIME_FORMAT)
         super(DateTime, self).__init__(*args, **kwargs)
         if self.default is None:
             self.default = EMPTY_DATETIME
@@ -159,7 +160,7 @@ class Date(BaseField):
     solr_type = 'date'
 
     def __init__(self, *args, **kwargs):
-        self.format = kwargs.pop('format', DATE_FORMAT)
+        self.format = kwargs.pop('format', settings.DATE_DEFAULT_FORMAT or DATE_FORMAT)
         super(Date, self).__init__(*args, **kwargs)
         if self.default is None:
             self.default = EMPTY_DATETIME

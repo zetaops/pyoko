@@ -18,6 +18,8 @@ class Settings(object):
         :return:
         """
         self.SEARCH_INDEXES = {}
+        self.DATE_DEFAULT_FORMAT = ""
+        self.DATETIME_DEFAULT_FORMAT = ""
         self.SETTINGS_MODULE = os.environ.get('PYOKO_SETTINGS')
         self.MODELS_MODULE = '.'.join(
             self.SETTINGS_MODULE.split('.')[:1]) + '.models'
