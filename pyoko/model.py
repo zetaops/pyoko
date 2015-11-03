@@ -474,6 +474,7 @@ class Model(Node):
         self.objects._pass_perm_checks = self._pass_perm_checks
         # self._prepare_linked_models()
         self._is_one_to_one = kwargs.pop('one_to_one', False)
+        # TODO : Remove self.title if not neccessary or prefix with _
         self.title = kwargs.pop('title', self.__class__.__name__)
         self.root = self
         self.new_back_links = []
