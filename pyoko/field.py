@@ -34,8 +34,10 @@ class BaseField(object):
                  required=True,
                  index=False,
                  type=None,
-                 store=False,):
+                 store=False,
+                 choices=None):
         self.required = required
+        self.choices = choices
         self.title = title
         if type:
             self.solr_type = type

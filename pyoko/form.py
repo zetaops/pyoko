@@ -149,6 +149,7 @@ class ModelForm(object):
                                                             field.solr_type),
                            'value': self.model._field_values.get(name, ''),
                            'required': field.required,
+                           'choices': getattr(field, 'choices', None),
                            'title': field.title,
                            'default': field.default() if callable(
                                field.default) else field.default,
