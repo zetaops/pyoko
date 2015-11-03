@@ -38,7 +38,7 @@ class DBObjects(object):
         self.current_context = None
         self._pass_perm_checks = False
         self.bucket = riak.RiakBucket
-        self._cfg = {'row_size': 100,
+        self._cfg = {'row_size': 1000,
                      'rtype': ReturnType.Model}
         self._cfg.update(conf)
         self.model = None
