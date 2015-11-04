@@ -196,15 +196,15 @@ class ModelForm(object):
 class Form(ModelForm):
     """
     A base class for a custom form with pyoko.fields.
-    Has some fake dicts to simulate model object
+    Has some fake properties to simulate model object
     """
 
     def __init__(self, *args, **kwargs):
+        self.current = kwargs.get('current')
         self._nodes = {}
         self._fields = {}
         self._linked_models = {}
         self._field_values = {}
-        self.context = None
         self.key = None
         for key, val in self.__class__.__dict__.items():
             if isinstance(val, BaseField):
