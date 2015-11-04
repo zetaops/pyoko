@@ -252,8 +252,8 @@ class DBObjects(object):
                 'KEY': obj.key,
                 'BUCKET': self.index_name,
                 'SAVE_IS_NEW': new_obj,
-                'SerializationTime': round(t2 - t1, 5),
-                'Time': round(time.time() - t2, 5)
+                'SERIALIZATION_TIME': round(t2 - t1, 5),
+                'TIME': round(time.time() - t2, 5)
             })
 
     def _get(self):
