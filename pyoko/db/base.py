@@ -129,9 +129,10 @@ class DBObjects(object):
                 riak_obj = self.bucket.get(doc['_yz_rk'])
                 if settings.DEBUG:
                     sys._debug_db_queries.append({
+                        'TIMESTAMP': t1,
                         'KEY': doc['_yz_rk'],
                         'BUCKET': self.index_name,
-                        'time': round(time.time() - t1, 2)})
+                        'TIME': round(time.time() - t1, 5)})
                 if not riak_obj.data:
                     # # TODO: remove this, if not occur on production
                     # raise riak.RiakError("Empty object returned. "
@@ -247,11 +248,12 @@ class DBObjects(object):
             obj.store()
         if settings.DEBUG:
             sys._debug_db_queries.append({
+                'TIMESTAMP': t1,
                 'KEY': obj.key,
                 'BUCKET': self.index_name,
                 'SAVE_IS_NEW': new_obj,
-                'TimeSerialization': round(t2 - t1, 5),
-                'TimeStore': round(time.time() - t2, 5)
+                'SerializationTime': round(t2 - t1, 5),
+                'Time': round(time.time() - t2, 5)
             })
 
     def _get(self):
@@ -270,9 +272,10 @@ class DBObjects(object):
             self._riak_cache = [self.bucket.get(self._solr_cache['docs'][0]['_yz_rk'])]
             if settings.DEBUG:
                 sys._debug_db_queries.append({
+                    'TIMESTAMP': t1,
                     'KEY': self._solr_cache['docs'][0]['_yz_rk'],
                     'BUCKET': self.index_name,
-                    'time': round(time.time() - t1, 5)})
+                    'TIME': round(time.time() - t1, 5)})
         if self._cfg['rtype'] == ReturnType.Model:
             return self._make_model(self._riak_cache[0].data,
                                     self._riak_cache[0])
@@ -363,9 +366,10 @@ class DBObjects(object):
             clone._riak_cache = [self.bucket.get(key)]
             if settings.DEBUG:
                 sys._debug_db_queries.append({
+                    'TIMESTAMP': t1,
                     'KEY': key,
                     'BUCKET': self.index_name,
-                    'time': round(time.time() - t1, 5)})
+                    'TIME': round(time.time() - t1, 5)})
         else:
             clone._exec_query()
             if clone.count() > 1:
@@ -528,10 +532,11 @@ class DBObjects(object):
                                                       **solr_params)
                 if settings.DEBUG:
                     sys._debug_db_queries.append({
+                        'TIMESTAMP': t1,
                         'QUERY': self.compiled_query,
                         'BUCKET': self.index_name,
                         'QUERY_PARAMS': solr_params,
-                        'time': round(time.time() - t1, 2)})
+                        'TIME': round(time.time() - t1, 4)})
             except riak.RiakError as err:
                 err.value += "                      ~=QUERY DEBUG=~                              " \
                              + six.text_type({
