@@ -11,6 +11,7 @@ import copy
 
 # noinspection PyCompatibility
 from datetime import date
+import time
 from datetime import datetime
 from enum import Enum
 import six
@@ -24,6 +25,7 @@ from pyoko.lib.utils import grayed
 import traceback
 # TODO: Add OR support
 
+import sys
 
 ReturnType = Enum('ReturnType', 'Solr Object Model')
 
@@ -482,9 +484,17 @@ class DBObjects(object):
                 self._compile_query()
             try:
                 solr_params = self._process_params()
+                if settings.DEBUG:
+                    t1 = time.time()
                 self._solr_cache = self.bucket.search(self.compiled_query,
                                                       self.index_name,
                                                       **solr_params)
+                if settings.DEBUG:
+                    sys._debug_solr_queries.append({
+                        'QUERY': self.compiled_query,
+                        'BUCKET': self.index_name,
+                        'QUERY_PARAMS': solr_params,
+                        'time': round(time.time() - t1, 2)})
             except riak.RiakError as err:
                 err.value += "                      ~=QUERY DEBUG=~                              " \
                              + six.text_type({
