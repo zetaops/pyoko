@@ -40,7 +40,7 @@ class Settings(object):
         if self.DEBUG:
             import sys
             # Will be used to store solr query logs
-            sys._debug_solr_queries = []
+            sys._debug_db_queries = []
 
             # def get_index(self, bucket_name):
     #     """

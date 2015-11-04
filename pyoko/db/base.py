@@ -124,7 +124,14 @@ class DBObjects(object):
             if self._cfg['rtype'] == ReturnType.Solr:
                 yield doc
             else:
+                if settings.DEBUG:
+                    t1 = time.time()
                 riak_obj = self.bucket.get(doc['_yz_rk'])
+                if settings.DEBUG:
+                    sys._debug_db_queries.append({
+                        'KEY': doc['_yz_rk'],
+                        'BUCKET': self.index_name,
+                        'time': round(time.time() - t1, 2)})
                 if not riak_obj.data:
                     # # TODO: remove this, if not occur on production
                     # raise riak.RiakError("Empty object returned. "
@@ -219,17 +226,33 @@ class DBObjects(object):
         """
         if model:
             self.model = model
+
+
+        if settings.DEBUG:
+            t1 = time.time()
         clean_value = self.model.clean_value()
+        if settings.DEBUG:
+            t2 = time.time()
         if not self.model.is_in_db():
             self.model.key = None
         # riak_object = self.save(clean_value, self.model.key)
         if not self.model.key:
             obj = self.bucket.new(data=clean_value, key=self.model.key).store()
             self.model.key = obj.key
+            new_obj = True
         else:
+            new_obj = False
             obj = self.bucket.get(self.model.key)
             obj.data = clean_value
             obj.store()
+        if settings.DEBUG:
+            sys._debug_db_queries.append({
+                'KEY': obj.key,
+                'BUCKET': self.index_name,
+                'SAVE_IS_NEW': new_obj,
+                'TimeSerialization': round(t2 - t1, 5),
+                'TimeStore': round(time.time() - t2, 5)
+            })
 
     def _get(self):
         """
@@ -237,12 +260,19 @@ class DBObjects(object):
         selected ReturnType (defaults to Model)
         :return: pyoko.Model or riak.Object or solr document
         """
-        self._exec_query()
+        if not self._riak_cache:
+            self._exec_query()
         if not self._riak_cache and self._cfg['rtype'] != ReturnType.Solr:
             if not self._solr_cache['docs']:
                 raise ObjectDoesNotExist()
+            if settings.DEBUG:
+                t1 = time.time()
             self._riak_cache = [self.bucket.get(self._solr_cache['docs'][0]['_yz_rk'])]
-
+            if settings.DEBUG:
+                sys._debug_db_queries.append({
+                    'KEY': self._solr_cache['docs'][0]['_yz_rk'],
+                    'BUCKET': self.index_name,
+                    'time': round(time.time() - t1, 5)})
         if self._cfg['rtype'] == ReturnType.Model:
             return self._make_model(self._riak_cache[0].data,
                                     self._riak_cache[0])
@@ -328,7 +358,14 @@ class DBObjects(object):
         clone = copy.deepcopy(self)
         if key:
             self.key = key
+            if settings.DEBUG:
+                t1 = time.time()
             clone._riak_cache = [self.bucket.get(key)]
+            if settings.DEBUG:
+                sys._debug_db_queries.append({
+                    'KEY': key,
+                    'BUCKET': self.index_name,
+                    'time': round(time.time() - t1, 5)})
         else:
             clone._exec_query()
             if clone.count() > 1:
@@ -490,7 +527,7 @@ class DBObjects(object):
                                                       self.index_name,
                                                       **solr_params)
                 if settings.DEBUG:
-                    sys._debug_solr_queries.append({
+                    sys._debug_db_queries.append({
                         'QUERY': self.compiled_query,
                         'BUCKET': self.index_name,
                         'QUERY_PARAMS': solr_params,
