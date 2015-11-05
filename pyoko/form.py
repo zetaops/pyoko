@@ -11,6 +11,16 @@ both from models or standalone forms
 import six
 from pyoko.field import BaseField
 from pyoko.lib.utils import un_camel, to_camel
+from .field import *
+
+
+class Button(BaseField):
+    def __init__(self, *args, **kwargs):
+        self.cmd = kwargs.pop('cmd', None)
+        super(Button, self).__init__(*args, **kwargs)
+
+    solr_type = 'button'
+    pass
 
 
 class ModelForm(object):
@@ -61,7 +71,7 @@ class ModelForm(object):
                 linked_model = self.model._linked_models[name][0](self.model.context).objects.get(
                     val)
                 setattr(new_instance, name, linked_model)
-            elif isinstance(val, six.string_types):  # field
+            elif isinstance(val, (six.string_types, bool)):  # field
                 setattr(new_instance, key, val)
             elif isinstance(val, dict):  # Node
                 node = getattr(new_instance, key)
@@ -148,8 +158,9 @@ class ModelForm(object):
                            'type': self.customize_types.get(name,
                                                             field.solr_type),
                            'value': self.model._field_values.get(name, ''),
-                           'required': field.required,
+                           'required': False if field.solr_type is 'boolean' else field.required,
                            'choices': getattr(field, 'choices', None),
+                           'cmd': getattr(field, 'cmd', None),
                            'title': field.title,
                            'default': field.default() if callable(
                                field.default) else field.default,
