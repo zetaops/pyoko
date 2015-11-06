@@ -8,10 +8,8 @@ both from models or standalone forms
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
+from .fields import *
 import six
-from pyoko.field import BaseField
-from pyoko.lib.utils import un_camel, to_camel
-from .field import *
 
 
 class Button(BaseField):
@@ -211,7 +209,7 @@ class Form(ModelForm):
     """
 
     def __init__(self, *args, **kwargs):
-        self.current = kwargs.get('current')
+        self.context = kwargs.get('current')
         self._nodes = {}
         self._fields = {}
         self._linked_models = {}

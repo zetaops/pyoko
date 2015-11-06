@@ -7,4 +7,5 @@
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 
-from pyoko.model import Model, ListNode, Node, field
+from .model import Model, ListNode, Node
+from . import fields as field

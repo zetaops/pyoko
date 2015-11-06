@@ -12,10 +12,10 @@ import logging
 from uuid import uuid4
 from six import add_metaclass
 import six
-from pyoko import field
-from pyoko.conf import settings
-from pyoko.db.base import DBObjects
-from pyoko.lib.utils import un_camel, un_camel_id, lazy_property, pprnt
+from . import fields as field
+from .conf import settings
+from .db.base import DBObjects
+from .lib.utils import un_camel, un_camel_id, lazy_property, pprnt
 import weakref
 import lazy_object_proxy
 

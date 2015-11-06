@@ -32,19 +32,15 @@ received_data = {
 
 
 class LoginForm(Form):
-    TYPE_OVERRIDES = {
-        'password': 'password'
-    }
     username = field.String("Username")
-    password = field.String("Password")
+    password = field.String("Password", type="password")
 
 
 serialized_login_form = [
-    {'value': '', 'name': 'password', 'default': None,
-     'type': 'password', 'required': True, 'title': 'Password'},
-    {'value': '', 'name': 'username', 'default': None,
-     'type': 'string', 'required': True, 'title': 'Username'}
-]
+    {'type': 'password', 'title': 'Password', 'required': True, 'choices': None, 'cmd': None,
+     'value': '', 'default': None, 'name': 'password'},
+    {'type': 'string', 'title': 'Username', 'required': True, 'choices': None, 'cmd': None,
+     'value': '', 'default': None, 'name': 'username'}]
 
 
 # noinspection PyMethodMayBeStatic

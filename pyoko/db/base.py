@@ -19,7 +19,7 @@ from pyoko.conf import settings
 from pyoko.db.connection import client
 import riak
 from pyoko.exceptions import MultipleObjectsReturned, ObjectDoesNotExist, PyokoError
-from pyoko.field import DATE_FORMAT, DATE_TIME_FORMAT
+from ..fields import DATE_FORMAT, DATE_TIME_FORMAT
 # from pyoko.lib.py2map import Dictomap
 from pyoko.lib.utils import grayed
 import traceback
