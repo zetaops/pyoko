@@ -9,14 +9,23 @@ both from models or standalone forms
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 import six
-from pyoko.fields import BaseField
+from pyoko.field import BaseField
 from pyoko.lib.utils import un_camel, to_camel
+from .field import *
+
+
+class Button(BaseField):
+    def __init__(self, *args, **kwargs):
+        self.cmd = kwargs.pop('cmd', None)
+        super(Button, self).__init__(*args, **kwargs)
+
+    solr_type = 'button'
+    pass
 
 
 class ModelForm(object):
     # FIXME: Permission checks
     class Meta:
-        title = None
         customize_types = {}
         help_text = ''
 
@@ -62,7 +71,7 @@ class ModelForm(object):
                 linked_model = self.model._linked_models[name][0](self.model.context).objects.get(
                     val)
                 setattr(new_instance, name, linked_model)
-            elif isinstance(val, six.string_types):  # field
+            elif isinstance(val, (six.string_types, bool)):  # field
                 setattr(new_instance, key, val)
             elif isinstance(val, dict):  # Node
                 node = getattr(new_instance, key)
@@ -149,7 +158,9 @@ class ModelForm(object):
                            'type': self.customize_types.get(name,
                                                             field.solr_type),
                            'value': self.model._field_values.get(name, ''),
-                           'required': field.required,
+                           'required': False if field.solr_type is 'boolean' else field.required,
+                           'choices': getattr(field, 'choices', None),
+                           'cmd': getattr(field, 'cmd', None),
                            'title': field.title,
                            'default': field.default() if callable(
                                field.default) else field.default,
@@ -196,15 +207,15 @@ class ModelForm(object):
 class Form(ModelForm):
     """
     A base class for a custom form with pyoko.fields.
-    Has some fake dicts to simulate model object
+    Has some fake properties to simulate model object
     """
 
     def __init__(self, *args, **kwargs):
+        self.current = kwargs.get('current')
         self._nodes = {}
         self._fields = {}
         self._linked_models = {}
         self._field_values = {}
-        self.context = None
         self.key = None
         for key, val in self.__class__.__dict__.items():
             if isinstance(val, BaseField):

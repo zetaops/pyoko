@@ -1,6 +1,8 @@
 # -*-  coding: utf-8 -*-
 """
-"""  # Copyright (C) 2015 ZetaOps Inc.
+"""
+
+# Copyright (C) 2015 ZetaOps Inc.
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
@@ -10,7 +12,7 @@ import logging
 from uuid import uuid4
 from six import add_metaclass
 import six
-from pyoko import fields as field
+from pyoko import field
 from pyoko.conf import settings
 from pyoko.db.base import DBObjects
 from pyoko.lib.utils import un_camel, un_camel_id, lazy_property, pprnt
@@ -18,11 +20,13 @@ import weakref
 import lazy_object_proxy
 
 
+
 class LazyModel(lazy_object_proxy.Proxy):
     key = None
 
     def __init__(self, wrapped):
         super(LazyModel, self).__init__(wrapped)
+
 
 
 class FakeContext(object):

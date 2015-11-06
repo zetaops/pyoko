@@ -17,7 +17,10 @@ class Settings(object):
         Proxy object for both static and dynamic app settings
         :return:
         """
+        self.DEBUG = False
         self.SEARCH_INDEXES = {}
+        self.DATE_DEFAULT_FORMAT = ""
+        self.DATETIME_DEFAULT_FORMAT = ""
         self.SETTINGS_MODULE = os.environ.get('PYOKO_SETTINGS')
         self.MODELS_MODULE = '.'.join(
             self.SETTINGS_MODULE.split('.')[:1]) + '.models'
@@ -34,8 +37,12 @@ class Settings(object):
             if setting.isupper():
                 setting_value = getattr(mod, setting)
                 setattr(self, setting, setting_value)
+        if self.DEBUG:
+            import sys
+            # Will be used to store solr query logs
+            sys._debug_db_queries = []
 
-    # def get_index(self, bucket_name):
+            # def get_index(self, bucket_name):
     #     """
     #     returns index name of given bucket (model)
     #     if index can not found in SEARCH_INDEX dict of settings instance
