@@ -69,7 +69,7 @@ class ModelForm(object):
                 linked_model = self.model._linked_models[name][0](self.model.context).objects.get(
                     val)
                 setattr(new_instance, name, linked_model)
-            elif isinstance(val, (six.string_types, bool)):  # field
+            elif isinstance(val, (six.string_types, bool, int, float)):  # field
                 setattr(new_instance, key, val)
             elif isinstance(val, dict):  # Node
                 node = getattr(new_instance, key)
