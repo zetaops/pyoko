@@ -12,48 +12,41 @@ from .fields import *
 import six
 
 
-class Button(BaseField):
-    def __init__(self, *args, **kwargs):
-        self.cmd = kwargs.pop('cmd', None)
-        super(Button, self).__init__(*args, **kwargs)
-
-    solr_type = 'button'
-    pass
-
-
 class ModelForm(object):
-    # FIXME: Permission checks
     class Meta:
         customize_types = {}
         help_text = ''
 
-    def __init__(self, model=None, **kwargs):
+    def __init__(self, model=None, exclude=None, include=None, types=None, title=None, **kwargs):
         """
-        keyword arguments:
-            fields = True
-            nodes = True
-            linked_models = True
-            list_nodes = False
-            types = {'field_name':'type', 'password':'password'} modify type of fields.
-        :param pyoko.Model model: A pyoko model instance, may be empty or full.
-        :param dict kwargs: configuration options
+        A serializer / deserializer for models and custom
+        forms that built with pyoko.fields
+
+        .. note:: *include* and *exclude* does not support fields that placed in nodes.
+
+        :param pyoko.Model model: A pyoko model instance, may be empty
+        :param list exclude: list of fields to be excluded from serialization
+        :param list include: list of fields to be included into serialization
+        :param dict types: override type of fields
         """
-        # FIXME: Permission checks
-        self.model = model or self
-        if not kwargs or 'all' in kwargs:
-            kwargs.update({'fields': True, 'nodes': True, 'models': True})
-            if 'all' in kwargs:
-                kwargs['list_nodes'] = True
-        if 'nodes' not in kwargs or 'models' not in kwargs or 'fields' not in kwargs:
-            kwargs['fields'] = True
-        self.config = kwargs
-        self.customize_types = kwargs.get('types', getattr(self.Meta, 'customize_types', {}))
+        self._model = model or self
+        self._config = {'fields': True, 'nodes': True, 'models': True, 'list_nodes': True}
+        self.exclude = exclude
+        self.include = include
+
+        self.customize_types = types or getattr(self.Meta, 'customize_types', {})
+        self.help_text = types or getattr(self.Meta, 'customize_types', {})
+
+        if hasattr(self.Meta, 'help_text'):
+            self.help_text = self.Meta.help_text
+        else:
+            self.help_text = getattr(self._model.Meta, 'help_text', None)
+
         if hasattr(self.Meta, 'title'):
             self.title = self.Meta.title
         else:
-            self.title = kwargs.get('title',
-                                         getattr(self.model.Meta, 'verbose_name',
-                                                 self.model.__class__.__name__))
+            self.title = title or getattr(self._model.Meta, 'verbose_name',
+                                          self._model.__class__.__name__)
 
     def deserialize(self, data):
         """
@@ -61,14 +54,15 @@ class ModelForm(object):
 
         :param dict data: received form data from client
         """
-        # TODO: investigate and integrate necessary security precautions on received data
-        # TODO: Add listnode support
-        new_instance = self.model.__class__(self.model.context)
-        new_instance.key = self.model.key
+        # FIXME: investigate and integrate necessary security precautions on received data
+        # ie: received keys should  be defined in the form
+        # compare with output of self._serialize()
+        new_instance = self._model.__class__(self._model.context)
+        new_instance.key = self._model.key
         for key, val in data.items():
             if key.endswith('_id'):  # linked model
                 name = key[:-3]
-                linked_model = self.model._linked_models[name][0](self.model.context).objects.get(
+                linked_model = self._model._linked_models[name][0](self._model.context).objects.get(
                     val)
                 setattr(new_instance, name, linked_model)
             elif isinstance(val, (six.string_types, bool, int, float)):  # field
@@ -85,7 +79,7 @@ class ModelForm(object):
                         if k.endswith('_id'):  # linked model in a ListNode
                             name = k[:-3]
                             kwargs[name] = getattr(list_node, name).__class__(
-                                self.model.context).objects.get(ln_item_data[k])
+                                self._model.context).objects.get(ln_item_data[k])
                         else:
                             kwargs[k] = ln_item_data[k]
                     list_node(**kwargs)
@@ -93,38 +87,58 @@ class ModelForm(object):
 
     def _serialize(self):
         """
+        returns serialized version of all parts of the model or form
+
         :return: list of serialized model fields
         :rtype: list
         """
         result = []
-        if 'fields' in self.config:
-            self.get_fields(result)
-        if 'models' in self.config:
-            self.get_models(result)
-        if 'nodes' in self.config or 'list_nodes' in self.config:
-            self.get_nodes(result)
+        if 'fields' in self._config:
+            self._get_fields(result, self._model)
+        if self is not self._model:  # to allow additional fields
+            self._get_fields(result, self)
+        if 'models' in self._config:
+            self._get_models(result)
+        if 'nodes' in self._config or 'list_nodes' in self._config:
+            self._get_nodes(result)
+
         return result
 
-    def get_nodes(self, result):
-        for node_name in self.model._nodes:
-            instance_node = getattr(self.model, node_name)
+    def _filter_out(self, name):
+        """
+        returns true if given name should be
+        filtered out from serialization.
+
+        :param name: field, node or model name.
+        :return:
+        """
+        if self.exclude and name in self.exclude:
+            return True
+        if self.include and name not in self.include:
+            return True
+
+    def _get_nodes(self, result):
+        for node_name in self._model._nodes:
+            if self._filter_out(node_name):
+                continue
+            instance_node = getattr(self._model, node_name)
             node_type = instance_node.__class__.__base__.__name__
             node_data = None
             if (instance_node._is_auto_created or
-                    (node_type == 'Node' and 'nodes' not in self.config) or
-                    (node_type == 'ListNode' and 'list_nodes' not in self.config)):
+                    (node_type == 'Node' and 'nodes' not in self._config) or
+                    (node_type == 'ListNode' and 'list_nodes' not in self._config)):
                 continue
             if node_type == 'Node':
-                schema = self.node_schema(instance_node, node_name)
-                if self.model.is_in_db():
-                    node_data = self.node_data([instance_node], node_name)
+                schema = self._node_schema(instance_node, node_name)
+                if self._model.is_in_db():
+                    node_data = self._node_data([instance_node], node_name)
             else:  # ListNode
                 # to get schema of empty listnode we need to create an instance of it
                 if len(instance_node) == 0:
                     instance_node()
                 else:
-                    node_data = self.node_data(instance_node, node_name)
-                schema = self.node_schema(instance_node[0], node_name)
+                    node_data = self._node_data(instance_node, node_name)
+                schema = self._node_schema(instance_node[0], node_name)
             result.append({'name': node_name,
                            'type': node_type,
                            'title': instance_node.Meta.verbose_name,
@@ -135,9 +149,11 @@ class ModelForm(object):
                            'default': None,
                            })
 
-    def get_models(self, result):
-        for model_attr_name, (model, one_to_one) in self.model._linked_models.items():
-            model_instance = getattr(self.model, model_attr_name)
+    def _get_models(self, result):
+        for model_attr_name, (model, one_to_one) in self._model._linked_models.items():
+            if self._filter_out(model_attr_name):
+                continue
+            model_instance = getattr(self._model, model_attr_name)
             result.append({'name': "%s_id" % model_attr_name,
                            'model_name': model.__name__,
                            'type': 'model',
@@ -145,19 +161,19 @@ class ModelForm(object):
                            'value': model_instance.key,
                            'content': (list(self.__class__(model_instance,
                                                            fields=True)._serialize())
-                                       if self.model.is_in_db() else None),
+                                       if self._model.is_in_db() else None),
                            'required': None,
                            'default': None,
                            })
 
-    def get_fields(self, result):
-        for name, field in self.model._fields.items():
-            if name in ['deleted', 'timestamp']:
+    def _get_fields(self, result, model_obj):
+        for name, field in model_obj._fields.items():
+            if name in ['deleted', 'timestamp'] or self._filter_out(name):
                 continue
             result.append({'name': name,
                            'type': self.customize_types.get(name,
                                                             field.solr_type),
-                           'value': self.model._field_values.get(name, ''),
+                           'value': model_obj._field_values.get(name, ''),
                            'required': False if field.solr_type is 'boolean' else field.required,
                            'choices': getattr(field, 'choices', None),
                            'cmd': getattr(field, 'cmd', None),
@@ -166,7 +182,7 @@ class ModelForm(object):
                                field.default) else field.default,
                            })
 
-    def node_schema(self, node, parent_name):
+    def _node_schema(self, node, parent_name):
         result = []
 
         # node_data = {'models': [], 'fields': []}
@@ -188,8 +204,7 @@ class ModelForm(object):
             })
         return result
 
-    def node_data(self, nodes, parent_name):
-        # FIXME: Permission checks
+    def _node_data(self, nodes, parent_name):
         results = []
         for real_node in nodes:
             result = {}
@@ -232,3 +247,12 @@ class Form(ModelForm):
         for name in self._fields:
             setattr(self, name, data.get(name))
         return self
+
+
+class Button(BaseField):
+    def __init__(self, *args, **kwargs):
+        self.cmd = kwargs.pop('cmd', None)
+        super(Button, self).__init__(*args, **kwargs)
+
+    solr_type = 'button'
+    pass
