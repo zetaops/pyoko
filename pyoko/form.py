@@ -48,8 +48,10 @@ class ModelForm(object):
             kwargs['fields'] = True
         self.config = kwargs
         self.customize_types = kwargs.get('types', getattr(self.Meta, 'customize_types', {}))
-        if not hasattr(self.Meta, 'title'):
-            self.Meta.title = kwargs.get('title',
+        if hasattr(self.Meta, 'title'):
+            self.title = self.Meta.title
+        else:
+            self.title = kwargs.get('title',
                                          getattr(self.model.Meta, 'verbose_name',
                                                  self.model.__class__.__name__))
 
