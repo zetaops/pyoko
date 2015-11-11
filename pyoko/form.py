@@ -257,6 +257,7 @@ class Form(ModelForm):
 class Button(BaseField):
     def __init__(self, *args, **kwargs):
         self.cmd = kwargs.pop('cmd', None)
+        self.flow = kwargs.pop('flow', None)
         super(Button, self).__init__(*args, **kwargs)
 
     solr_type = 'button'
