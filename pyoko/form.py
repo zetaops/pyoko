@@ -179,6 +179,7 @@ class ModelForm(object):
                            'required': False if field.solr_type is 'boolean' else field.required,
                            'choices': getattr(field, 'choices', None),
                            'cmd': getattr(field, 'cmd', None),
+                           'flow': getattr(field, 'flow', None),
                            'title': field.title,
                            'default': field.default() if callable(
                                field.default) else field.default,
