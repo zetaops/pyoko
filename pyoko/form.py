@@ -8,6 +8,8 @@ both from models or standalone forms
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
+from collections import OrderedDict
+
 from .fields import *
 import six
 
@@ -167,7 +169,7 @@ class ModelForm(object):
                            })
 
     def _get_fields(self, result, model_obj):
-        for name, field in model_obj._fields.items():
+        for name, field in model_obj._ordered_fields:
             if name in ['deleted', 'timestamp'] or self._filter_out(name):
                 continue
             result.append({'name': name,
@@ -232,10 +234,13 @@ class Form(ModelForm):
         self._linked_models = {}
         self._field_values = {}
         self.key = None
+        self._ordered_fields = []
         for key, val in self.__class__.__dict__.items():
             if isinstance(val, BaseField):
                 val.name = key
                 self._fields[key] = val
+        for v in sorted(self._fields.items(), key=lambda x: x[1]._order):
+            self._ordered_fields.append((v[0], v[1]))
         super(Form, self).__init__(*args, **kwargs)
 
     def set_data(self, data):

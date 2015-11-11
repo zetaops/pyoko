@@ -269,6 +269,10 @@ class Node(object):
         self._instantiate_nodes()
         self._set_fields_values(kwargs)
 
+    @lazy_property
+    def _ordered_fields(self):
+        return sorted(self._fields.items(), key=lambda kv: kv[1]._order)
+
     def set_tmp_key(self):
         self.key = "TMP_%s_%s" % (self.__class__.__name__, uuid4().hex[:10])
 

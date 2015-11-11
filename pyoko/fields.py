@@ -28,6 +28,7 @@ EMPTY_DATETIME = '0000-00-00T00:00:00Z'
 class BaseField(object):
     _TYPE = 'Field'
     default_value = None
+    creation_counter = 0
 
     def __init__(self, title='',
                  default=None,
@@ -35,7 +36,10 @@ class BaseField(object):
                  index=False,
                  type=None,
                  store=False,
-                 choices=None):
+                 choices=None,
+                 order=None):
+        self._order = order or self.creation_counter
+        BaseField.creation_counter += 1
         self.required = required
         self.choices = choices
         self.title = title
