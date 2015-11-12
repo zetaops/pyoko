@@ -168,6 +168,14 @@ class ModelForm(object):
                            'default': None,
                            })
 
+    def _serialize_value(self, val):
+        if isinstance(val, datetime.datetime):
+            return val.strftime(DATE_TIME_FORMAT)
+        elif isinstance(val, datetime.date):
+            return val.strftime(DATE_FORMAT)
+        else:
+            return val or ''
+
     def _get_fields(self, result, model_obj):
         for name, field in model_obj._ordered_fields:
             if name in ['deleted', 'timestamp'] or self._filter_out(name):
@@ -175,7 +183,7 @@ class ModelForm(object):
             result.append({'name': name,
                            'type': self.customize_types.get(name,
                                                             field.solr_type),
-                           'value': model_obj._field_values.get(name, ''),
+                           'value': self._serialize_value(model_obj._field_values.get(name)),
                            'required': False if field.solr_type is 'boolean' else field.required,
                            'choices': getattr(field, 'choices', None),
                            'cmd': getattr(field, 'cmd', None),
@@ -217,7 +225,7 @@ class ModelForm(object):
                 result["%s_id" % model_attr_name] = {'key': model_instance.key,
                                                      'verbose_name': model_instance}
             for name, field in real_node._fields.items():
-                result[name] = real_node._field_values.get(name, '')
+                result[name] = self._serialize_value(real_node._field_values.get(name))
             results.append(result)
         return results
 
