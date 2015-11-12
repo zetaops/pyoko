@@ -663,7 +663,7 @@ class ListNode(Node):
             # ins.key = node_data[_name]
             self.node_dict[ins.key] = clone
             break  # only one linked_model can represent an item
-        self.node_stack.append(clone)
+        # self.node_stack.append(clone)
         return clone
 
     def clean_value(self):
