@@ -62,6 +62,8 @@ class ModelForm(object):
         new_instance = self._model.__class__(self._model.context)
         new_instance.key = self._model.key
         for key, val in data.items():
+            if key == 'object_key':
+                continue
             if key.endswith('_id'):  # linked model
                 name = key[:-3]
                 linked_model = self._model._linked_models[name][0](self._model.context).objects.get(
@@ -251,6 +253,9 @@ class Form(ModelForm):
         for v in sorted(self._fields.items(), key=lambda x: x[1]._order):
             self._ordered_fields.append((v[0], v[1]))
         super(Form, self).__init__(*args, **kwargs)
+
+    def is_in_db(self):
+        return False
 
     def set_data(self, data):
         """
