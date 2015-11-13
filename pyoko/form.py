@@ -14,10 +14,39 @@ from .fields import *
 import six
 
 
+class FormMeta(type):
+    _meta = None
+
+    def __new__(mcs, name, bases, attrs):
+        if name == 'ModelForm':
+            FormMeta._meta = attrs['Meta']
+        else:
+            if 'Meta' not in attrs:
+                attrs['Meta'] = type('Meta', (object,), FormMeta._meta.__dict__)
+            else:
+                for k, v in FormMeta._meta.__dict__.items():
+                    if k not in attrs['Meta'].__dict__:
+                        setattr(attrs['Meta'], k, v)
+        new_class = super(FormMeta, mcs).__new__(mcs, name, bases, attrs)
+        return new_class
+
+
+@six.add_metaclass(FormMeta)
 class ModelForm(object):
     class Meta:
+        """
+        attribute customisation:
+        attributes = {
+           # field_name    attrib_name   value(s)
+            'kadro_id': [('filters', {'durum': 1}), ]
+        }
+        """
         customize_types = {}
-        help_text = ''
+        help_text = None
+        title = None
+        include = []
+        exclude = []
+        attributes = {}
 
     def __init__(self, model=None, exclude=None, include=None, types=None, title=None, **kwargs):
         """
@@ -33,22 +62,12 @@ class ModelForm(object):
         """
         self._model = model or self
         self._config = {'fields': True, 'nodes': True, 'models': True, 'list_nodes': True}
-        self.exclude = exclude
-        self.include = include
-
+        self.exclude = exclude or self.Meta.exclude
+        self.include = include or self.Meta.include
         self.customize_types = types or getattr(self.Meta, 'customize_types', {})
-        self.help_text = types or getattr(self.Meta, 'customize_types', {})
-
-        if hasattr(self.Meta, 'help_text'):
-            self.help_text = self.Meta.help_text
-        else:
-            self.help_text = getattr(self._model.Meta, 'help_text', None)
-
-        if hasattr(self.Meta, 'title'):
-            self.title = self.Meta.title
-        else:
-            self.title = title or getattr(self._model.Meta, 'verbose_name',
-                                          self._model.__class__.__name__)
+        self.help_text = self.Meta.help_text or getattr(self._model.Meta, 'help_text', None)
+        self.title = title or self.Meta.title or getattr(self._model.Meta, 'verbose_name',
+                                      self._model.__class__.__name__)
 
     def deserialize(self, data):
         """
@@ -190,6 +209,7 @@ class ModelForm(object):
                            'choices': getattr(field, 'choices', None),
                            'cmd': getattr(field, 'cmd', None),
                            'flow': getattr(field, 'flow', None),
+                           'position': getattr(field, 'position', None),
                            'title': field.title,
                            'default': field.default() if callable(
                                field.default) else field.default,
@@ -271,6 +291,7 @@ class Form(ModelForm):
 class Button(BaseField):
     def __init__(self, *args, **kwargs):
         self.cmd = kwargs.pop('cmd', None)
+        self.position = kwargs.pop('position', 'bottom')
         self.flow = kwargs.pop('flow', None)
         super(Button, self).__init__(*args, **kwargs)
 
