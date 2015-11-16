@@ -8,7 +8,7 @@ both from models or standalone forms
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
-from collections import OrderedDict
+from collections import defaultdict
 
 from .fields import *
 import six
@@ -22,7 +22,7 @@ class FormMeta(type):
             FormMeta._meta = attrs['Meta']
         else:
             if 'Meta' not in attrs:
-                attrs['Meta'] = type('Meta', (object,), FormMeta._meta.__dict__)
+                attrs['Meta'] = type('Meta', (object,), dict(FormMeta._meta.__dict__))
             else:
                 for k, v in FormMeta._meta.__dict__.items():
                     if k not in attrs['Meta'].__dict__:
@@ -46,7 +46,7 @@ class ModelForm(object):
         title = None
         include = []
         exclude = []
-        attributes = {}
+        attributes = defaultdict(list)
 
     def __init__(self, model=None, exclude=None, include=None, types=None, title=None, **kwargs):
         """
