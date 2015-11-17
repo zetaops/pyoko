@@ -46,7 +46,7 @@ class ModelForm(object):
         title = None
         include = []
         exclude = []
-        attributes = defaultdict(list)
+        # attributes = defaultdict(list)
 
     def __init__(self, model=None, exclude=None, include=None, types=None, title=None, **kwargs):
         """
