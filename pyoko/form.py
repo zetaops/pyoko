@@ -62,6 +62,7 @@ class ModelForm(object):
         """
         self._model = model or self
         self._config = {'fields': True, 'nodes': True, 'models': True, 'list_nodes': True}
+        self._config.update(kwargs)
         self.exclude = exclude or self.Meta.exclude
         self.include = include or self.Meta.include
         self.customize_types = types or getattr(self.Meta, 'customize_types', {})
@@ -116,7 +117,7 @@ class ModelForm(object):
         :rtype: list
         """
         result = []
-        if 'fields' in self._config:
+        if self._config['fields']:
             self._get_fields(result, self._model)
         if self is not self._model:  # to allow additional fields
             try:
@@ -124,9 +125,9 @@ class ModelForm(object):
             except AttributeError:
                 # TODO: all "forms" of world, unite!
                 pass
-        if 'models' in self._config:
+        if self._config['models']:
             self._get_models(result)
-        if 'nodes' in self._config or 'list_nodes' in self._config:
+        if self._config['nodes'] or self._config['list_nodes']:
             self._get_nodes(result)
 
         return result
@@ -152,8 +153,8 @@ class ModelForm(object):
             node_type = instance_node.__class__.__base__.__name__
             node_data = None
             if (instance_node._is_auto_created or
-                    (node_type == 'Node' and 'nodes' not in self._config) or
-                    (node_type == 'ListNode' and 'list_nodes' not in self._config)):
+                    (node_type == 'Node' and self._config['nodes'] is None) or
+                    (node_type == 'ListNode' and self._config['list_nodes'] is None)):
                 continue
             if node_type == 'Node':
                 schema = self._node_schema(instance_node, node_name)
@@ -186,8 +187,10 @@ class ModelForm(object):
                            'type': 'model',
                            'title': model.Meta.verbose_name,
                            'value': model_instance.key,
-                           'content': (list(self.__class__(model_instance,
-                                                           fields=True)._serialize())
+                           'content': (self.__class__(model_instance,
+                                                      models=False,
+                                                      list_nodes=False,
+                                                      nodes=False)._serialize()
                                        if self._model.is_in_db() else None),
                            'required': None,
                            'default': None,
