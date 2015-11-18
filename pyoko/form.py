@@ -119,7 +119,11 @@ class ModelForm(object):
         if 'fields' in self._config:
             self._get_fields(result, self._model)
         if self is not self._model:  # to allow additional fields
-            self._get_fields(result, self)
+            try:
+                self._get_fields(result, self)
+            except AttributeError:
+                # TODO: all "forms" of world, unite!
+                pass
         if 'models' in self._config:
             self._get_models(result)
         if 'nodes' in self._config or 'list_nodes' in self._config:

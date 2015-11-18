@@ -350,7 +350,7 @@ class DBObjects(object):
             data.update(kwargs)
             return self.model_class(**data).save(), True
 
-    def get(self, key=None):
+    def get(self, key=None, **kwargs):
         """
         if key param exists, retrieves object from riak,
         otherwise ensures that we got only one doc from solr query
@@ -370,6 +370,8 @@ class DBObjects(object):
                     'KEY': key,
                     'BUCKET': self.index_name,
                     'TIME': round(time.time() - t1, 5)})
+        elif kwargs:
+            return clone.filter(**kwargs).get()
         else:
             clone._exec_query()
             if clone.count() > 1:

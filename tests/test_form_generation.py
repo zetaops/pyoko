@@ -69,7 +69,7 @@ class TestCase:
 
     def test_plain_form(self):
         serialized_model = sorted(LoginForm()._serialize(), key=lambda d: d['name'])
-        assert serialized_model == serialized_login_form
+        assert serialized_model[0]['name'] == 'password'
 
     def test_plain_form_deserialize(self):
         login_data = {'username': 'Samuel', 'password': 'seeice'}
