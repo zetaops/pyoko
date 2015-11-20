@@ -53,7 +53,7 @@ class BaseField(object):
     def __get__(self, instance, cls=None):
         if cls is None:
             return self
-        return instance._field_values.get(self.name, None)
+        return instance._field_values.get(self.name, None) if instance else self.__class__
         # if val or not instance.parent:
         #     return val
         # else:
