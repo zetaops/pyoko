@@ -291,10 +291,7 @@ class DBObjects(object):
         :return: pyoko.Model
         """
         if not data:
-            raise Exception("Returned empty data from Riak\n" +
-                            "Query: %s" % self.compiled_query +
-                            "GET Key: %s" % self.key
-                            )
+            raise Exception("No data returned from Riak\n" + self._get_debug_data())
         model = self.model_class(self.current_context, _pass_perm_checks=self._pass_perm_checks)
         model.key = riak_obj.key if riak_obj else data.get('key')
         return model.set_data(data, from_db=True)
@@ -514,6 +511,13 @@ class DBObjects(object):
                 self._solr_params[key] = val.encode(encoding='UTF-8')
         return self._solr_params
 
+    def _get_debug_data(self):
+        return ("                      ~=QUERY DEBUG=~                              "
+        + six.text_type({
+            'QUERY': self.compiled_query,
+            'BUCKET': self.index_name,
+            'QUERY_PARAMS': solr_params}))
+
     def _exec_query(self):
         """
         executes solr query if it hasn't already executed.
@@ -540,11 +544,7 @@ class DBObjects(object):
                         'QUERY_PARAMS': solr_params,
                         'TIME': round(time.time() - t1, 4)})
             except riak.RiakError as err:
-                err.value += "                      ~=QUERY DEBUG=~                              " \
-                             + six.text_type({
-                    'QUERY': self.compiled_query,
-                    'BUCKET': self.index_name,
-                    'QUERY_PARAMS': solr_params})
+                err.value += self._get_debug_data()
                 raise
             self._solr_locked = True
         return self
