@@ -361,9 +361,9 @@ class Node(object):
         else:
             val = getattr(self, name)
             if isinstance(val, datetime.datetime):
-                return val.strftime(field.DATE_TIME_FORMAT)
+                return val.strftime(settings.DATETIME_DEFAULT_FORMAT or field.DATE_TIME_FORMAT)
             elif isinstance(val, datetime.date):
-                return val.strftime(field.DATE_FORMAT)
+                return val.strftime(settings.DATE_DEFAULT_FORMAT or field.DATE_FORMAT)
             else:
                 return val
 
