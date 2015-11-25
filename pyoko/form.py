@@ -63,6 +63,7 @@ class ModelForm(object):
         self._model = model or self
         self._config = {'fields': True, 'nodes': True, 'models': True, 'list_nodes': True}
         self._config.update(kwargs)
+        self.readable = False
         self.exclude = exclude or self.Meta.exclude
         self.include = include or self.Meta.include
         self.customize_types = types or getattr(self.Meta, 'customize_types', {})
@@ -109,13 +110,16 @@ class ModelForm(object):
                     list_node(**kwargs)
         return new_instance
 
-    def _serialize(self):
+    def _serialize(self, readable=False):
         """
         returns serialized version of all parts of the model or form
 
+        :type readable: create human readable output
+            ie: use get_field_name_display()
         :return: list of serialized model fields
         :rtype: list
         """
+        self.readable = readable
         result = []
         if self._config['fields']:
             self._get_fields(result, self._model)
@@ -208,10 +212,14 @@ class ModelForm(object):
         for name, field in model_obj._ordered_fields:
             if name in ['deleted', 'timestamp'] or self._filter_out(name):
                 continue
+            if self.readable:
+                val = model_obj.get_choice_or_value(name)
+            else:
+                val = self._serialize(getattr(model_obj, name))
             result.append({'name': name,
                            'type': self.customize_types.get(name,
                                                             field.solr_type),
-                           'value': self._serialize_value(model_obj._field_values.get(name)),
+                           'value': val,
                            'required': False if field.solr_type is 'boolean' else field.required,
                            'choices': getattr(field, 'choices', None),
                            'cmd': getattr(field, 'cmd', None),
