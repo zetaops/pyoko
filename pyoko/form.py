@@ -213,9 +213,9 @@ class ModelForm(object):
             if name in ['deleted', 'timestamp'] or self._filter_out(name):
                 continue
             if self.readable:
-                val = model_obj.get_choice_or_value(name)
+                val = model_obj.get_humane_value(name)
             else:
-                val = self._serialize(getattr(model_obj, name))
+                val = self._serialize_value(getattr(model_obj, name))
             result.append({'name': name,
                            'type': self.customize_types.get(name,
                                                             field.solr_type),
