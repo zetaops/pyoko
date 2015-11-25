@@ -7,7 +7,8 @@
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 from collections import defaultdict
-from datetime import datetime
+from copy import copy
+import datetime
 import logging
 from uuid import uuid4
 from six import add_metaclass
@@ -15,7 +16,7 @@ import six
 from . import fields as field
 from .conf import settings
 from .db.base import DBObjects
-from .lib.utils import un_camel, un_camel_id, lazy_property, pprnt
+from .lib.utils import un_camel, un_camel_id, lazy_property, pprnt, get_object_from_path
 import weakref
 import lazy_object_proxy
 
@@ -138,6 +139,7 @@ class ModelMeta(type):
             mcs.process_models(attrs, base_model_class)
         if class_type == 'ListNode':
             mcs.process_listnode(attrs, base_model_class)
+
         mcs.process_attributes(attrs, name)
         new_class = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
         return new_class
@@ -179,7 +181,6 @@ class ModelMeta(type):
         attrs['_lazy_linked_models'] = {}  # property_name: (model, is_one_to_one)
         attrs['_fields'] = {}
         # attrs['_many_to_models'] = []
-
         for key, attr in list(attrs.items()):
             # if it's a class (not instance) and it's type is Node or ListNode
             if hasattr(attr, '__base__') and getattr(attr.__base__, '_TYPE', '') in ['Node',
@@ -253,6 +254,8 @@ class Node(object):
         self.context = kwargs.pop('context', None)
         self._field_values = {}
         self._data = {}
+        self._choice_fields = []
+        self._choices_manager = get_object_from_path(settings.CATALOG_DATA_MANAGER)
 
         # if model has cell_filters that applies to current user,
         # filtered values will be kept in _secured_data dict
@@ -352,6 +355,18 @@ class Node(object):
         self._set_fields_values(kwargs)
         return self
 
+    def get_humane_value(self, name):
+        if name in self._choice_fields:
+            return getattr(self, 'get_%s_display' % name)()
+        else:
+            val = getattr(self, name)
+            if isinstance(val, datetime.datetime):
+                return val.strftime(field.DATE_TIME_FORMAT)
+            elif isinstance(val, datetime.date):
+                return val.strftime(field.DATE_FORMAT)
+            else:
+                return val
+
     def _set_fields_values(self, kwargs):
         """
         fill the fields of this node
@@ -370,6 +385,13 @@ class Node(object):
                         setattr(self, name, val)
                     else:
                         _field._load_data(self, val)
+                    if _field.choices is not None:
+                        self._choice_fields.append(name)
+                        # adding get_%s_display() methods for fields which has "choices" attribute
+                        def foo():
+                            choices, value = copy(_field.choices), copy(val)
+                            return lambda: self._choices_manager(choices, value)
+                        setattr(self, 'get_%s_display' % name, foo())
 
     def _collect_index_fields(self, in_multi=False):
         """
