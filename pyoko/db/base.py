@@ -516,7 +516,7 @@ class DBObjects(object):
         + six.text_type({
             'QUERY': self.compiled_query,
             'BUCKET': self.index_name,
-            'QUERY_PARAMS': solr_params}))
+            'QUERY_PARAMS': self._solr_params}))
 
     def _exec_query(self):
         """
