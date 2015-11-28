@@ -296,7 +296,7 @@ class Node(object):
             # for each linked model
             if data:
                 # data can be came from db or user
-                if name in data:
+                if name in data and isinstance(data[name], Model):
                     # this should be user, and it should be a model instance
                     linked_mdl_ins = data[name]
                     setattr(self, name, linked_mdl_ins)
