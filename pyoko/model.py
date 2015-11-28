@@ -293,27 +293,38 @@ class Node(object):
 
     def _instantiate_linked_models(self, data=None):
         for name, (mdl, o2o) in self._linked_models.items():
-
+            # for each linked model
             if data:
+                # data can be came from db or user
                 if name in data:
+                    # this should be user, and it should be a model instance
                     linked_mdl_ins = data[name]
                     setattr(self, name, linked_mdl_ins)
                     if self.root.is_in_db():
+                        # if root model already saved (has a key),
+                        # update reverse relations of linked model
                         self.root.update_new_linked_model(linked_mdl_ins, name, o2o)
                     else:
+                        # otherwise we should do it after root model saved
                         self.root.new_back_links.append((linked_mdl_ins, name, o2o))
                 else:
-                    _name = un_camel_id(name)
-                    if _name in data:
+                    id_name = un_camel_id(name)
+                    if id_name in data and data[id_name] is not None:
+                        # this is coming from db,
+                        # we're preparing a lazy model loader
                         def fo(modl, context, field_name):
                             return lambda: modl(context).objects.get(field_name)
 
-                        obj = LazyModel(fo(mdl, self.context, data[_name]))
-                        obj.key = data[_name]
+                        obj = LazyModel(fo(mdl, self.context, data[id_name]))
+                        obj.key = data[id_name]
                         setattr(self, name, obj)
                     else:
+                        # creating an lazy proxy for empty linked model
+                        # Note: this should be explicitly saved before root model!
                         setattr(self, name, LazyModel(lambda: mdl(self.context)))
             else:
+                # creating an lazy proxy for empty linked model
+                # Note: this should be explicitly saved before root model!
                 setattr(self, name, LazyModel(lambda: mdl(self.context)))
 
     def _instantiate_node(self, name, klass):
@@ -458,7 +469,8 @@ class Node(object):
     def _clean_linked_model_value(self, dct):
         # get vales of linked models
         for name in self._linked_models:
-            dct[un_camel_id(name)] = getattr(self, name).key
+            lnkd_mdl = getattr(self, name)
+            dct[un_camel_id(name)] = lnkd_mdl.key if lnkd_mdl else None
 
     def clean_field_values(self):
         return dict((un_camel(name), field_ins.clean_value(self._field_values.get(name)))
@@ -598,8 +610,8 @@ class Model(Node):
         return model_registry.back_link_registry[self.__class__]
 
     def update_new_linked_model(self, linked_mdl_ins, name, is_one_to_one):
-        for (local_field_name, kls, remote_field_name,
-             remote_name) in linked_mdl_ins._get_reverse_links():
+        for (local_field_name, kls, remote_field_name, remote_name
+             ) in linked_mdl_ins._get_reverse_links():
             if local_field_name == name and isinstance(self, kls):
                 if not is_one_to_one:
                     remote_set = getattr(linked_mdl_ins, remote_name)
