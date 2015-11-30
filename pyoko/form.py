@@ -284,6 +284,7 @@ class Form(ModelForm):
         self._linked_models = {}
         self._field_values = {}
         self.key = None
+        self._data = {}
         self._ordered_fields = []
         super(Form, self).__init__(*args, **kwargs)
 
@@ -317,6 +318,7 @@ class Button(BaseField):
     def __init__(self, *args, **kwargs):
         self.cmd = kwargs.pop('cmd', None)
         self.position = kwargs.pop('position', 'bottom')
+        self.validation = kwargs.pop('validation', True)
         self.flow = kwargs.pop('flow', None)
         super(Button, self).__init__(*args, **kwargs)
 
