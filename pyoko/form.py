@@ -214,7 +214,7 @@ class ModelForm(object):
 
     def _get_fields(self, result, model_obj):
         for name, field in model_obj._ordered_fields:
-            if name in ['deleted', 'timestamp'] or self._filter_out(name):
+            if not isinstance(field, Button) and (name in ['deleted', 'timestamp'] or self._filter_out(name)):
                 continue
             if self.readable:
                 val = model_obj.get_humane_value(name)
