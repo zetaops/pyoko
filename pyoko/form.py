@@ -66,6 +66,7 @@ class ModelForm(object):
         self.readable = False
         self.exclude = exclude or self.Meta.exclude
         self.include = include or self.Meta.include
+        self.non_data_fields = ['object_key']
         self.customize_types = types or getattr(self.Meta, 'customize_types', {})
         self.help_text = self.Meta.help_text or getattr(self._model.Meta, 'help_text', None)
         self.title = title or self.Meta.title or getattr(self._model.Meta, 'verbose_name',
@@ -84,7 +85,7 @@ class ModelForm(object):
         new_instance = self._model.__class__(self._model.context)
         new_instance.key = self._model.key
         for key, val in data.items():
-            if key == 'object_key':
+            if key in self.non_data_fields:
                 continue
             if key.endswith('_id'):  # linked model
                 name = key[:-3]
@@ -294,6 +295,8 @@ class Form(ModelForm):
             if isinstance(val, BaseField):
                 val.name = key
                 self._fields[key] = val
+            if isinstance(val, (Button, )):
+                self.non_data_fields.append(key)
         for v in sorted(self._fields.items(), key=lambda x: x[1]._order):
             self._ordered_fields.append((v[0], v[1]))
 
