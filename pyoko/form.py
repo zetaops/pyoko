@@ -80,6 +80,7 @@ class ModelForm(object):
         # FIXME: investigate and integrate necessary security precautions on received data
         # ie: received keys should  be defined in the form
         # compare with output of self._serialize()
+        self.prepare_fields()
         new_instance = self._model.__class__(self._model.context)
         new_instance.key = self._model.key
         for key, val in data.items():
@@ -119,6 +120,7 @@ class ModelForm(object):
         :return: list of serialized model fields
         :rtype: list
         """
+        self.prepare_fields()
         self.readable = readable
         result = []
         if self._config['fields']:
@@ -205,6 +207,8 @@ class ModelForm(object):
             return val.strftime(DATE_TIME_FORMAT)
         elif isinstance(val, datetime.date):
             return val.strftime(DATE_FORMAT)
+        elif isinstance(val, BaseField):
+            return None
         else:
             return val or ''
 
@@ -281,13 +285,19 @@ class Form(ModelForm):
         self._field_values = {}
         self.key = None
         self._ordered_fields = []
-        for key, val in self.__class__.__dict__.items():
+        super(Form, self).__init__(*args, **kwargs)
+
+    def prepare_fields(self):
+        _items = list(self.__class__.__dict__.items()) + list(self.__dict__.items())
+        for key, val in _items:
             if isinstance(val, BaseField):
                 val.name = key
                 self._fields[key] = val
         for v in sorted(self._fields.items(), key=lambda x: x[1]._order):
             self._ordered_fields.append((v[0], v[1]))
-        super(Form, self).__init__(*args, **kwargs)
+
+    def get_humane_value(self, name):
+        return name
 
     def is_in_db(self):
         return False
@@ -311,4 +321,3 @@ class Button(BaseField):
         super(Button, self).__init__(*args, **kwargs)
 
     solr_type = 'button'
-    pass
