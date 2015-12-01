@@ -82,7 +82,7 @@ class ModelForm(object):
         # ie: received keys should  be defined in the form
         # compare with output of self._serialize()
         self.prepare_fields()
-        new_instance = self._model.__class__(self._model.context)
+        new_instance = self._model
         new_instance.key = self._model.key
         for key, val in data.items():
             if key in self.non_data_fields:
