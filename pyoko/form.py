@@ -227,12 +227,12 @@ class ModelForm(object):
                            'value': val,
                            'required': False if field.solr_type is 'boolean' else field.required,
                            'choices': getattr(field, 'choices', None),
-                           'cmd': getattr(field, 'cmd', None),
-                           'flow': getattr(field, 'flow', None),
-                           'position': getattr(field, 'position', None),
+                           'kwargs': field.kwargs,
+                           # 'cmd': getattr(field, 'cmd', None),
+                           # 'flow': getattr(field, 'flow', None),
+                           # 'position': getattr(field, 'position', None),
                            'title': field.title,
-                           'default': field.default() if callable(
-                               field.default) else field.default,
+                           'default': field.default() if callable(field.default) else field.default,
                            })
 
     def _node_schema(self, node, parent_name):
@@ -319,10 +319,11 @@ class Form(ModelForm):
 
 class Button(BaseField):
     def __init__(self, *args, **kwargs):
-        self.cmd = kwargs.pop('cmd', None)
-        self.position = kwargs.pop('position', 'bottom')
-        self.validation = kwargs.pop('validation', True)
-        self.flow = kwargs.pop('flow', None)
+        # self.cmd = kwargs.pop('cmd', None)
+        # self.position = kwargs.pop('position', 'bottom')
+        # self.validation = kwargs.pop('validation', True)
+        # self.flow = kwargs.pop('flow', None)
+        self.kwargs = kwargs
         super(Button, self).__init__(*args, **kwargs)
 
     solr_type = 'button'

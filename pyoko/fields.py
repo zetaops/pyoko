@@ -37,7 +37,8 @@ class BaseField(object):
                  type=None,
                  store=False,
                  choices=None,
-                 order=None):
+                 order=None,
+                 **kwargs):
         self._order = order or self.creation_counter
         BaseField.creation_counter += 1
         self.required = required
@@ -49,6 +50,7 @@ class BaseField(object):
         self.store = store
         self.default = default
         self.name = ''
+        self.kwargs = kwargs
 
     def __get__(self, instance, cls=None):
         if cls is None:
