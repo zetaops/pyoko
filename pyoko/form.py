@@ -265,7 +265,7 @@ class ModelForm(object):
             for model_attr_name in real_node._linked_models:
                 model_instance = getattr(real_node, model_attr_name)
                 result["%s_id" % model_attr_name] = {'key': model_instance.key,
-                                                     'verbose_name': model_instance}
+                                                     'verbose_name': model_instance.Meta.verbose_name}
             for name, field in real_node._fields.items():
                 result[name] = self._serialize_value(real_node._field_values.get(name))
             results.append(result)
