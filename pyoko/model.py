@@ -21,13 +21,11 @@ import weakref
 import lazy_object_proxy
 
 
-
 class LazyModel(lazy_object_proxy.Proxy):
     key = None
 
     def __init__(self, wrapped):
         super(LazyModel, self).__init__(wrapped)
-
 
 
 class FakeContext(object):
@@ -80,7 +78,6 @@ class Registry(object):
                     else:
                         self.link_registry[model].append((name, klass, klass_name, klass_name))
                     self._process_one_to_many(klass, klass_name, model)
-
 
     def _process_one_to_one(self, klass, klass_name, linked_model):
         klass_instance = klass(one_to_one=True)
@@ -312,9 +309,8 @@ class Node(object):
                     if id_name in data and data[id_name] is not None:
                         # this is coming from db,
                         # we're preparing a lazy model loader
-                        def fo(modl, context, field_name):
-                            return lambda: modl(context).objects.get(field_name)
-
+                        def fo(modl, context, key):
+                            return lambda: modl(context).objects.get(key)
                         obj = LazyModel(fo(mdl, self.context, data[id_name]))
                         obj.key = data[id_name]
                         setattr(self, name, obj)
@@ -398,10 +394,12 @@ class Node(object):
                         _field._load_data(self, val)
                     if _field.choices is not None:
                         self._choice_fields.append(name)
+
                         # adding get_%s_display() methods for fields which has "choices" attribute
                         def foo():
                             choices, value = copy(_field.choices), copy(val)
                             return lambda: self._choices_manager(choices, value)
+
                         setattr(self, 'get_%s_display' % name, foo())
 
     def _collect_index_fields(self, in_multi=False):
@@ -428,7 +426,7 @@ class Node(object):
                            multi))
         for mdl_ins in self._nodes:
             result.extend(
-                getattr(self, mdl_ins)._collect_index_fields(multi))
+                    getattr(self, mdl_ins)._collect_index_fields(multi))
         return result
 
     def _load_data(self, data, from_db=False):
@@ -636,6 +634,7 @@ class Model(Node):
         self.deleted = True
         self.save()
 
+
 class LinkProxy(object):
     _TYPE = 'Link'
 
@@ -645,11 +644,11 @@ class LinkProxy(object):
         self.verbose_name = verbose_name
         self.reverse_name = reverse_name
 
+
 class ListNode(Node):
     """
     Currently we disregard the ordering when updating items of a ListNode
     """
-
 
     # HASH_BY = '' # calculate __hash__ value by field defined here
     _TYPE = 'ListNode'
