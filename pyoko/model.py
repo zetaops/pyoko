@@ -682,7 +682,12 @@ class ListNode(Node):
             yield self._make_instance(self._data.pop(0))
 
     def _make_instance(self, node_data):
+        """
+        create a ListNode instance from node_data
 
+        :param dict node_data:
+        :return: ListNode item
+        """
         node_data['from_db'] = self._from_db
         clone = self.__call__(**node_data)
         clone.container = self
