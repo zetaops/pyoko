@@ -99,7 +99,11 @@ class ModelForm(object):
                 for k in val:
                     setattr(node, k, val[k])
             elif isinstance(val, list):  # ListNode
+                # get the listnode instance from model
                 list_node = getattr(new_instance, key)
+                # clear out it's existing content
+                list_node.clear()
+                # fill with form input
                 for ln_item_data in val:
                     kwargs = {}
                     for k in ln_item_data:
@@ -265,7 +269,9 @@ class ModelForm(object):
             for model_attr_name in real_node._linked_models:
                 model_instance = getattr(real_node, model_attr_name)
                 result["%s_id" % model_attr_name] = {'key': model_instance.key,
-                                                     'verbose_name': model_instance.Meta.verbose_name}
+                                                     'verbose_name': model_instance.Meta.verbose_name,
+                                                     'unicode': six.text_type(model_instance)
+                                                     }
             for name, field in real_node._fields.items():
                 result[name] = self._serialize_value(real_node._field_values.get(name))
             results.append(result)
