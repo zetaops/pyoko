@@ -277,6 +277,9 @@ class DBObjects(object):
                     'BUCKET': self.index_name,
                     'TIME': round(time.time() - t1, 5)})
         if self._cfg['rtype'] == ReturnType.Model:
+            if not self._riak_cache[0].exists:
+                raise ObjectDoesNotExist("%s %s" % (self.index_name,
+                                                    self._riak_cache[0].key))
             return self._make_model(self._riak_cache[0].data,
                                     self._riak_cache[0])
         elif self._cfg['rtype'] == ReturnType.Object:
