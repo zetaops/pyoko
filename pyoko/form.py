@@ -87,7 +87,7 @@ class ModelForm(object):
         for key, val in data.items():
             if key in self.non_data_fields:
                 continue
-            if key.endswith('_id'):  # linked model
+            if key.endswith('_id') and val:  # linked model
                 name = key[:-3]
                 linked_model = self._model._linked_models[name][0](self._model.context).objects.get(
                     val)

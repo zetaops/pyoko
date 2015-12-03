@@ -289,7 +289,7 @@ class DBObjects(object):
             self._exec_query()
         if not self._riak_cache and self._cfg['rtype'] != ReturnType.Solr:
             if not self._solr_cache['docs']:
-                raise ObjectDoesNotExist()
+                raise ObjectDoesNotExist("%s %s" % (self.index_name, self.compiled_query))
             if settings.DEBUG:
                 t1 = time.time()
             self._riak_cache = [self.bucket.get(self._solr_cache['docs'][0]['_yz_rk'])]
