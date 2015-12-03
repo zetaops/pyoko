@@ -10,9 +10,18 @@ this module contains a base class for other db access classes
 import copy
 
 # noinspection PyCompatibility
+import json
 from datetime import date
 import time
 from datetime import datetime
+
+from riak.util import bytes_to_str
+
+try:
+    from urllib.request import urlopen
+except ImportError:
+    from urllib2 import urlopen
+
 from enum import Enum
 import six
 from pyoko.conf import settings
@@ -89,7 +98,7 @@ class DBObjects(object):
         :return:
         """
         print(grayed("results : ", len(
-            self._solr_cache.get('docs', [])) if brief else self._solr_cache))
+                self._solr_cache.get('docs', [])) if brief else self._solr_cache))
         print(grayed("query : ", self._solr_query))
         print(grayed("params : ", self._solr_params))
         print(grayed("riak_cache : ",
@@ -97,6 +106,20 @@ class DBObjects(object):
         print(grayed("return_type : ", self._cfg['rtype']))
         print(" ")
         return self
+
+    def facet(self, field):
+        url = 'http://%s:8093/internal_solr/%s/select?q=-deleted%%3ATrue&wt=json&facet=true&facet.field=%s' % (
+            settings.RIAK_SERVER, self.index_name, field)
+        result = json.loads(bytes_to_str(urlopen(url).read()))
+        dct = {}
+        fresult = result['facet_counts']['facet_fields'][field]
+        for i in range(0, len(fresult), 2):
+            if i == len(fresult) - 1:
+                break
+            if fresult[i + 1]:
+                dct[fresult[i]] = fresult[i + 1]
+        return dct
+
 
     def _clear_bucket(self):
         """
@@ -228,7 +251,6 @@ class DBObjects(object):
         if model:
             self.model = model
 
-
         if settings.DEBUG:
             t1 = time.time()
         clean_value = self.model.clean_value()
@@ -342,8 +364,8 @@ class DBObjects(object):
         if count:
             if count > 1:
                 raise MultipleObjectsReturned(
-                    "%s objects returned for %s" % (count,
-                                                    self.model_class.__name__))
+                        "%s objects returned for %s" % (count,
+                                                        self.model_class.__name__))
             return existing[0], False
         else:
             data = defaults or {}
@@ -376,8 +398,8 @@ class DBObjects(object):
             clone._exec_query()
             if clone.count() > 1:
                 raise MultipleObjectsReturned(
-                    "%s objects returned for %s" % (clone.count(),
-                                                    self.model_class.__name__))
+                        "%s objects returned for %s" % (clone.count(),
+                                                        self.model_class.__name__))
         return clone._get()
 
     def count(self):
@@ -516,7 +538,7 @@ class DBObjects(object):
 
     def _get_debug_data(self):
         return ("                      ~=QUERY DEBUG=~                              "
-        + six.text_type({
+                + six.text_type({
             'QUERY': self.compiled_query,
             'BUCKET': self.index_name,
             'QUERY_PARAMS': self._solr_params}))
@@ -528,7 +550,7 @@ class DBObjects(object):
         """
         if not self._solr_cache and self._cfg['rtype'] != ReturnType.Solr:
             self.set_params(
-                fl='_yz_rk')  # we're going to riak, fetch only keys
+                    fl='_yz_rk')  # we're going to riak, fetch only keys
         if not self._solr_locked:
             if not self.compiled_query:
                 self._compile_query()
