@@ -540,6 +540,14 @@ class Model(Node):
         """
         return self.key and not self.key.startswith('TMP_')
 
+    def get_choices_for(self, field):
+
+        choices = self._fields[field].choices
+        if isinstance(choices, six.string_types):
+            return self._choices_manager.get_all(choices)
+        else:
+            return choices
+
     @classmethod
     def get_search_index(cls):
         if not cls._SEARCH_INDEX:
