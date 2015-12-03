@@ -108,6 +108,7 @@ class DBObjects(object):
         return self
 
     def facet(self, field):
+        # FIXME: Add support for query filters
         url = 'http://%s:8093/internal_solr/%s/select?q=-deleted%%3ATrue&wt=json&facet=true&facet.field=%s' % (
             settings.RIAK_SERVER, self.index_name, field)
         result = json.loads(bytes_to_str(urlopen(url).read()))
