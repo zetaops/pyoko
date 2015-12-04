@@ -211,7 +211,9 @@ class ModelMeta(type):
         DEFAULT_META = {'bucket_type': settings.DEFAULT_BUCKET_TYPE,
                         'field_permissions': {},
                         'app': 'main',
-                        'list_fields': []}
+                        'list_fields': [],
+                        'list_filters': [],
+                        }
         if 'Meta' not in attrs:
             attrs['Meta'] = type('Meta', (object,), DEFAULT_META)
         else:
