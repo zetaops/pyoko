@@ -121,7 +121,6 @@ class DBObjects(object):
                 dct[fresult[i]] = fresult[i + 1]
         return dct
 
-
     def _clear_bucket(self):
         """
         only for development purposes
@@ -226,23 +225,6 @@ class DBObjects(object):
         self.index_name = "%s_%s" % (self._cfg['bucket_type'], self._cfg['bucket_name'])
         return self
 
-        # def save(self, data, key=None):
-        #     """
-        #     saves data to riak with optional key.
-        #     converts python dict to riak map if needed.
-        #     :param dict data: data to be saved
-        #     :param str key: riak object key
-        #     :return:
-        #     """
-        #     if self._data_type == 'map' and isinstance(data, dict):
-        #         return Dictomap(self.bucket, data, str(key)).map.store()
-        #     else:
-        # if key is None:
-        #     return self.bucket.new(data=data).store()
-        # else:
-        #     obj = self.bucket.get(key)
-        #     obj.data = data
-        #     return obj.store()
 
     def save_model(self, model=None):
         """
@@ -324,10 +306,10 @@ class DBObjects(object):
 
     def __repr__(self):
         try:
-            return "%s | %s | %s " % (self.model_class.__name__,
-                                      self._solr_query,
-                                      self._solr_params)
-            # return [obj for obj in self[:10]].__repr__()
+            # return "%s | %s | %s " % (self.model_class.__name__,
+            #                           self._solr_query,
+            #                           self._solr_params)
+            return [obj for obj in self[:10]].__repr__()
         except AssertionError as e:
             return e.msg
         except TypeError:
@@ -380,7 +362,6 @@ class DBObjects(object):
         :type key: builtins.NoneType
         :rtype: pyoko.Model
         """
-        # print("Get %s from %s" % (key, self.model_class))
         clone = copy.deepcopy(self)
         if key:
             self.key = key
@@ -478,6 +459,7 @@ class DBObjects(object):
         this will support "OR" and maybe other more advanced queries as well
         :return: Solr query string
         """
+
         # https://wiki.apache.org/solr/SolrQuerySyntax
         # http://lucene.apache.org/core/2_9_4/queryparsersyntax.html
         # TODO: escape following chars: + - && || ! ( ) { } [ ] ^ " ~ * ? : \
@@ -487,7 +469,7 @@ class DBObjects(object):
         if filtered_query is not None:
             self._solr_query += filtered_query._solr_query
         for key, val in self._solr_query:
-            key = key.replace('__', '.')
+
             # querying on a linked model by model instance
             # it should be a Model, not a Node!
             if hasattr(val, '_TYPE'):
@@ -499,6 +481,10 @@ class DBObjects(object):
                 val = val.strftime(DATE_TIME_FORMAT)
             # if it's not one of the expected objects, it should be a string
             # solr wants quotes when query has spaces
+            elif key.endswith('__in'):
+                key = key[:-4]
+                val = ' OR '.join(['%s:%s'%(key, v) for v in val])
+                key = 'NOKEY'
             elif ' ' in str(val):
                 # val = '"' + val + '"'
                 val = val.replace(' ', "\ ")
@@ -511,6 +497,8 @@ class DBObjects(object):
             elif key.endswith('_gte'):
                 key = key[:-4]
                 val = '[%s TO *]' % val
+            # in (or) query
+
             # as long as not explicity asked for,
             # we filter out records with deleted flag
             elif key == 'deleted':
@@ -519,7 +507,12 @@ class DBObjects(object):
             elif val is None:
                 key = '-%s' % key
                 val = '[* TO *]'
-            query.append("%s:%s" % (key, val))
+
+            key = key.replace('__', '.')
+            if key == 'NOKEY':
+                query.append("(%s)" % val)
+            else:
+                query.append("%s:%s" % (key, val))
 
         if not want_deleted:
             query.append('-deleted:True')
