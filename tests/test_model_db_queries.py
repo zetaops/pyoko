@@ -143,8 +143,8 @@ class TestCase:
         TimeTable(week_day=5, hours=1).save()
         TimeTable(week_day=3, hours=6).save()
         sleep(1)
-        assert TimeTable.objects.filter(hours_gte=4).count() == 2
-        assert TimeTable.objects.filter(hours_lte=4).count() == 3
+        assert TimeTable.objects.filter(hours__gte=4).count() == 2
+        assert TimeTable.objects.filter(hours__lte=4).count() == 3
 
     def test_or_queries(self):
         d = {'s1': ['ali', 'veli'],
