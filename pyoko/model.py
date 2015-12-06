@@ -213,6 +213,7 @@ class ModelMeta(type):
                         'app': 'main',
                         'list_fields': [],
                         'list_filters': [],
+                        'search_fields': [],
                         }
         if 'Meta' not in attrs:
             attrs['Meta'] = type('Meta', (object,), DEFAULT_META)
