@@ -454,6 +454,26 @@ class DBObjects(object):
             clone._solr_params = params
         return clone
 
+    def or_filter(self, **filters):
+        """
+        applies query filters to queryset with OR operator.
+        :param dict filters: query  filter parameters filter(email='a@a.co',...)
+        :return: DBObjects
+        """
+        clone = copy.deepcopy(self)
+        clone._solr_query.extend(("OR_QRY", filters))
+        return clone
+
+    def search_on(self, query, *fields):
+        """
+        search for query on given fields
+        :param dict filters: query  filter parameters filter(email='a@a.co',...)
+        :return: DBObjects
+        """
+        clone = copy.deepcopy(self)
+        clone._solr_query.extend(("OR_QRY", dict([(f,query) for f in fields])))
+        return clone
+
     def _compile_query(self):
         """
         this will support "OR" and maybe other more advanced queries as well
@@ -481,6 +501,9 @@ class DBObjects(object):
                 val = val.strftime(DATE_TIME_FORMAT)
             # if it's not one of the expected objects, it should be a string
             # solr wants quotes when query has spaces
+            elif key == 'OR_QRY':
+                key = 'NOKEY'
+                val = ' OR '.join(['%s:%s' % (k, v) for k, v in val.items()])
             elif key.endswith('__in'):
                 key = key[:-4]
                 val = ' OR '.join(['%s:%s'%(key, v) for v in val])
