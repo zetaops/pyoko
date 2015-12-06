@@ -201,7 +201,9 @@ class DBObjects(object):
                 obj.__dict__[k] = []
             elif k == '_solr_cache':
                 obj.__dict__[k] = {}
-            elif k.endswith(('current_context', 'solr_query', 'bucket', '_client', 'model', 'model_class')):
+            elif k == '_solr_query':
+                obj.__dict__[k] = v[:]
+            elif k.endswith(('current_context', 'bucket', '_client', 'model', 'model_class')):
                 obj.__dict__[k] = v
             else:
                 obj.__dict__[k] = copy.deepcopy(v, memo)
@@ -471,7 +473,7 @@ class DBObjects(object):
         :return: DBObjects
         """
         clone = copy.deepcopy(self)
-        clone._solr_query.extend(("OR_QRY", dict([(f,query) for f in fields])))
+        clone._solr_query.append(("OR_QRY", dict([(f, query) for f in fields])))
         return clone
 
     def _compile_query(self):
@@ -488,6 +490,7 @@ class DBObjects(object):
         filtered_query = self.model_class.row_level_access(self.current_context, self)
         if filtered_query is not None:
             self._solr_query += filtered_query._solr_query
+        # print(self._solr_query)
         for key, val in self._solr_query:
 
             # querying on a linked model by model instance
