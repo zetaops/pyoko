@@ -511,17 +511,28 @@ class DBObjects(object):
                 key = key[:-4]
                 val = ' OR '.join(['%s:%s'%(key, v) for v in val])
                 key = 'NOKEY'
-            elif ' ' in str(val):
+
+            if ' ' in str(val):
                 # val = '"' + val + '"'
                 val = val.replace(' ', "\ ")
 
             # lower than or equal
-            if key.endswith('_lte'):
-                key = key[:-4]
+            if key.endswith('__contains'):
+                key = key[:-10]
+                val = '*%s*' % val
+            if key.endswith('__startswith'):
+                key = key[:-12]
+                val = '%s*' % val
+            if key.endswith('__endswith'):
+                key = key[:-10]
+                val = '*%s' % val
+            # lower than or equal
+            if key.endswith('__lte'):
+                key = key[:-5]
                 val = '[* TO %s]' % val
             # greater than or equal
-            elif key.endswith('_gte'):
-                key = key[:-4]
+            elif key.endswith('__gte'):
+                key = key[:-5]
                 val = '[%s TO *]' % val
             # in (or) query
 
