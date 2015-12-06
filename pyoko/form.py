@@ -8,10 +8,14 @@ both from models or standalone forms
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
+import os
+
 from collections import defaultdict
 
 from .fields import *
 import six
+
+BYPASS_REQUIRED_FIELDS = os.getenv('BYPASS_REQUIRED_FIELDS')
 
 
 class FormMeta(type):
@@ -70,7 +74,7 @@ class ModelForm(object):
         self.customize_types = types or getattr(self.Meta, 'customize_types', {})
         self.help_text = self.Meta.help_text or getattr(self._model.Meta, 'help_text', None)
         self.title = title or self.Meta.title or getattr(self._model.Meta, 'verbose_name',
-                                      self._model.__class__.__name__)
+                                                         self._model.__class__.__name__)
 
     def deserialize(self, data):
         """
@@ -89,8 +93,9 @@ class ModelForm(object):
                 continue
             if key.endswith('_id') and val:  # linked model
                 name = key[:-3]
-                linked_model = self._model._linked_models[name][0](self._model.context).objects.get(
-                    val)
+                linked_model = self._model._linked_models[name][0](
+                    self._model.context).objects.get(
+                        val)
                 setattr(new_instance, name, linked_model)
             elif isinstance(val, (six.string_types, bool, int, float)):  # field
                 setattr(new_instance, key, val)
@@ -110,7 +115,7 @@ class ModelForm(object):
                         if k.endswith('_id'):  # linked model in a ListNode
                             name = k[:-3]
                             kwargs[name] = getattr(list_node, name).__class__(
-                                self._model.context).objects.get(ln_item_data[k])
+                                    self._model.context).objects.get(ln_item_data[k])
                         else:
                             kwargs[k] = ln_item_data[k]
                     list_node(**kwargs)
@@ -219,7 +224,8 @@ class ModelForm(object):
 
     def _get_fields(self, result, model_obj):
         for name, field in model_obj._ordered_fields:
-            if not isinstance(field, Button) and (name in ['deleted', 'timestamp'] or self._filter_out(name)):
+            if not isinstance(field, Button) and (
+                    name in ['deleted', 'timestamp'] or self._filter_out(name)):
                 continue
             if self.readable:
                 val = model_obj.get_humane_value(name)
@@ -229,14 +235,13 @@ class ModelForm(object):
                            'type': self.customize_types.get(name,
                                                             field.solr_type),
                            'value': val,
-                           'required': False if field.solr_type is 'boolean' else field.required,
+                           'required': (False if BYPASS_REQUIRED_FIELDS or
+                                                 field.solr_type is 'boolean' else field.required),
                            'choices': getattr(field, 'choices', None),
                            'kwargs': field.kwargs,
-                           # 'cmd': getattr(field, 'cmd', None),
-                           # 'flow': getattr(field, 'flow', None),
-                           # 'position': getattr(field, 'position', None),
                            'title': field.title,
-                           'default': field.default() if callable(field.default) else field.default,
+                           'default': field.default() if callable(
+                               field.default) else field.default,
                            })
 
     def _node_schema(self, node, parent_name):
@@ -249,7 +254,7 @@ class ModelForm(object):
                            'model_name': model_instance.__class__.__name__,
                            'type': 'model',
                            'title': model_instance.Meta.verbose_name,
-                           'required': None, })
+                           'required': None,})
         for name, field in node._fields.items():
             result.append({
                 'name': name,
@@ -304,7 +309,7 @@ class Form(ModelForm):
             if isinstance(val, BaseField):
                 val.name = key
                 self._fields[key] = val
-            if isinstance(val, (Button, )):
+            if isinstance(val, (Button,)):
                 self.non_data_fields.append(key)
         for v in sorted(self._fields.items(), key=lambda x: x[1]._order):
             self._ordered_fields.append((v[0], v[1]))
