@@ -201,7 +201,7 @@ class DBObjects(object):
                 obj.__dict__[k] = []
             elif k == '_solr_cache':
                 obj.__dict__[k] = {}
-            elif k.endswith(('current_context', 'bucket', '_client', 'model', 'model_class')):
+            elif k.endswith(('current_context', 'solr_query', 'bucket', '_client', 'model', 'model_class')):
                 obj.__dict__[k] = v
             else:
                 obj.__dict__[k] = copy.deepcopy(v, memo)
@@ -499,7 +499,7 @@ class DBObjects(object):
                 val = '[%s TO *]' % val
             # in (or) query
 
-            # as long as not explicity asked for,
+            # as long as not explicitly asked for,
             # we filter out records with deleted flag
             elif key == 'deleted':
                 want_deleted = True
