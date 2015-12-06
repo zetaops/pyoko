@@ -261,6 +261,9 @@ class ModelForm(object):
             })
         return result
 
+    def prepare_fields(self):
+        pass
+
     def _node_data(self, nodes, parent_name):
         results = []
         for real_node in nodes:
