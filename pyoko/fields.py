@@ -11,6 +11,7 @@ import time
 import uuid
 import six
 from pyoko.exceptions import ValidationError
+from pyoko.conf import settings
 
 DATE_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 DATE_FORMAT = "%Y-%m-%dT00:00:00Z"
@@ -27,14 +28,21 @@ EMPTY_DATETIME = '0000-00-00T00:00:00Z'
 class BaseField(object):
     _TYPE = 'Field'
     default_value = None
+    creation_counter = 0
 
     def __init__(self, title='',
                  default=None,
                  required=True,
                  index=False,
                  type=None,
-                 store=False,):
+                 store=False,
+                 choices=None,
+                 order=None,
+                 **kwargs):
+        self._order = order or self.creation_counter
+        BaseField.creation_counter += 1
         self.required = required
+        self.choices = choices
         self.title = title
         if type:
             self.solr_type = type
@@ -42,11 +50,12 @@ class BaseField(object):
         self.store = store
         self.default = default
         self.name = ''
+        self.kwargs = kwargs
 
     def __get__(self, instance, cls=None):
         if cls is None:
             return self
-        return instance._field_values.get(self.name, None)
+        return instance._field_values.get(self.name, None) if instance else self.__class__
         # if val or not instance.parent:
         #     return val
         # else:
@@ -129,7 +138,7 @@ class DateTime(BaseField):
     solr_type = 'date'
 
     def __init__(self, *args, **kwargs):
-        self.format = kwargs.pop('format', DATE_TIME_FORMAT)
+        self.format = kwargs.pop('format', settings.DATETIME_DEFAULT_FORMAT or DATE_TIME_FORMAT)
         super(DateTime, self).__init__(*args, **kwargs)
         if self.default is None:
             self.default = EMPTY_DATETIME
@@ -159,7 +168,7 @@ class Date(BaseField):
     solr_type = 'date'
 
     def __init__(self, *args, **kwargs):
-        self.format = kwargs.pop('format', DATE_FORMAT)
+        self.format = kwargs.pop('format', settings.DATE_DEFAULT_FORMAT or DATE_FORMAT)
         super(Date, self).__init__(*args, **kwargs)
         if self.default is None:
             self.default = EMPTY_DATETIME

@@ -8,52 +8,73 @@ both from models or standalone forms
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
+import os
+
+from collections import defaultdict
+
+from .fields import *
 import six
-from pyoko.field import BaseField
-from pyoko.lib.utils import un_camel, to_camel
-from .field import *
+
+BYPASS_REQUIRED_FIELDS = os.getenv('BYPASS_REQUIRED_FIELDS')
 
 
-class Button(BaseField):
-    def __init__(self, *args, **kwargs):
-        self.cmd = kwargs.pop('cmd', None)
-        super(Button, self).__init__(*args, **kwargs)
+class FormMeta(type):
+    _meta = None
 
-    solr_type = 'button'
-    pass
+    def __new__(mcs, name, bases, attrs):
+        if name == 'ModelForm':
+            FormMeta._meta = attrs['Meta']
+        else:
+            if 'Meta' not in attrs:
+                attrs['Meta'] = type('Meta', (object,), dict(FormMeta._meta.__dict__))
+            else:
+                for k, v in FormMeta._meta.__dict__.items():
+                    if k not in attrs['Meta'].__dict__:
+                        setattr(attrs['Meta'], k, v)
+        new_class = super(FormMeta, mcs).__new__(mcs, name, bases, attrs)
+        return new_class
 
 
+@six.add_metaclass(FormMeta)
 class ModelForm(object):
-    # FIXME: Permission checks
     class Meta:
+        """
+        attribute customisation:
+        attributes = {
+           # field_name    attrib_name   value(s)
+            'kadro_id': [('filters', {'durum': 1}), ]
+        }
+        """
         customize_types = {}
-        help_text = ''
+        help_text = None
+        title = None
+        include = []
+        exclude = []
+        # attributes = defaultdict(list)
 
-    def __init__(self, model=None, **kwargs):
+    def __init__(self, model=None, exclude=None, include=None, types=None, title=None, **kwargs):
         """
-        keyword arguments:
-            fields = True
-            nodes = True
-            linked_models = True
-            list_nodes = False
-            types = {'field_name':'type', 'password':'password'} modify type of fields.
-        :param pyoko.Model model: A pyoko model instance, may be empty or full.
-        :param dict kwargs: configuration options
+        A serializer / deserializer for models and custom
+        forms that built with pyoko.fields
+
+        .. note:: *include* and *exclude* does not support fields that placed in nodes.
+
+        :param pyoko.Model model: A pyoko model instance, may be empty
+        :param list exclude: list of fields to be excluded from serialization
+        :param list include: list of fields to be included into serialization
+        :param dict types: override type of fields
         """
-        # FIXME: Permission checks
-        self.model = model or self
-        if not kwargs or 'all' in kwargs:
-            kwargs.update({'fields': True, 'nodes': True, 'models': True})
-            if 'all' in kwargs:
-                kwargs['list_nodes'] = True
-        if 'nodes' not in kwargs or 'models' not in kwargs or 'fields' not in kwargs:
-            kwargs['fields'] = True
-        self.config = kwargs
-        self.customize_types = kwargs.get('types', getattr(self.Meta, 'customize_types', {}))
-        if not hasattr(self.Meta, 'title'):
-            self.Meta.title = kwargs.get('title',
-                                         getattr(self.model.Meta, 'verbose_name',
-                                                 self.model.__class__.__name__))
+        self._model = model or self
+        self._config = {'fields': True, 'nodes': True, 'models': True, 'list_nodes': True}
+        self._config.update(kwargs)
+        self.readable = False
+        self.exclude = exclude or self.Meta.exclude
+        self.include = include or self.Meta.include
+        self.non_data_fields = ['object_key']
+        self.customize_types = types or getattr(self.Meta, 'customize_types', {})
+        self.help_text = self.Meta.help_text or getattr(self._model.Meta, 'help_text', None)
+        self.title = title or self.Meta.title or getattr(self._model.Meta, 'verbose_name',
+                                                         self._model.__class__.__name__)
 
     def deserialize(self, data):
         """
@@ -61,70 +82,107 @@ class ModelForm(object):
 
         :param dict data: received form data from client
         """
-        # TODO: investigate and integrate necessary security precautions on received data
-        # TODO: Add listnode support
-        new_instance = self.model.__class__(self.model.context)
-        new_instance.key = self.model.key
+        # FIXME: investigate and integrate necessary security precautions on received data
+        # ie: received keys should  be defined in the form
+        # compare with output of self._serialize()
+        self.prepare_fields()
+        new_instance = self._model
+        new_instance.key = self._model.key
         for key, val in data.items():
-            if key.endswith('_id'):  # linked model
+            if key in self.non_data_fields:
+                continue
+            if key.endswith('_id') and val:  # linked model
                 name = key[:-3]
-                linked_model = self.model._linked_models[name][0](self.model.context).objects.get(
-                    val)
+                linked_model = self._model._linked_models[name][0](
+                    self._model.context).objects.get(
+                        val)
                 setattr(new_instance, name, linked_model)
-            elif isinstance(val, (six.string_types, bool)):  # field
+            elif isinstance(val, (six.string_types, bool, int, float)):  # field
                 setattr(new_instance, key, val)
             elif isinstance(val, dict):  # Node
                 node = getattr(new_instance, key)
                 for k in val:
                     setattr(node, k, val[k])
             elif isinstance(val, list):  # ListNode
+                # get the listnode instance from model
                 list_node = getattr(new_instance, key)
+                # clear out it's existing content
+                list_node.clear()
+                # fill with form input
                 for ln_item_data in val:
                     kwargs = {}
                     for k in ln_item_data:
                         if k.endswith('_id'):  # linked model in a ListNode
                             name = k[:-3]
                             kwargs[name] = getattr(list_node, name).__class__(
-                                self.model.context).objects.get(ln_item_data[k])
+                                    self._model.context).objects.get(ln_item_data[k])
                         else:
                             kwargs[k] = ln_item_data[k]
                     list_node(**kwargs)
         return new_instance
 
-    def _serialize(self):
+    def _serialize(self, readable=False):
         """
+        returns serialized version of all parts of the model or form
+
+        :type readable: create human readable output
+            ie: use get_field_name_display()
         :return: list of serialized model fields
         :rtype: list
         """
+        self.prepare_fields()
+        self.readable = readable
         result = []
-        if 'fields' in self.config:
-            self.get_fields(result)
-        if 'models' in self.config:
-            self.get_models(result)
-        if 'nodes' in self.config or 'list_nodes' in self.config:
-            self.get_nodes(result)
+        if self._config['fields']:
+            self._get_fields(result, self._model)
+        if self is not self._model:  # to allow additional fields
+            try:
+                self._get_fields(result, self)
+            except AttributeError:
+                # TODO: all "forms" of world, unite!
+                pass
+        if self._config['models']:
+            self._get_models(result)
+        if self._config['nodes'] or self._config['list_nodes']:
+            self._get_nodes(result)
+
         return result
 
-    def get_nodes(self, result):
-        for node_name in self.model._nodes:
-            instance_node = getattr(self.model, node_name)
+    def _filter_out(self, name):
+        """
+        returns true if given name should be
+        filtered out from serialization.
+
+        :param name: field, node or model name.
+        :return:
+        """
+        if self.exclude and name in self.exclude:
+            return True
+        if self.include and name not in self.include:
+            return True
+
+    def _get_nodes(self, result):
+        for node_name in self._model._nodes:
+            if self._filter_out(node_name):
+                continue
+            instance_node = getattr(self._model, node_name)
             node_type = instance_node.__class__.__base__.__name__
             node_data = None
             if (instance_node._is_auto_created or
-                    (node_type == 'Node' and 'nodes' not in self.config) or
-                    (node_type == 'ListNode' and 'list_nodes' not in self.config)):
+                    (node_type == 'Node' and self._config['nodes'] is None) or
+                    (node_type == 'ListNode' and self._config['list_nodes'] is None)):
                 continue
             if node_type == 'Node':
-                schema = self.node_schema(instance_node, node_name)
-                if self.model.is_in_db():
-                    node_data = self.node_data([instance_node], node_name)
+                schema = self._node_schema(instance_node, node_name)
+                if self._model.is_in_db():
+                    node_data = self._node_data([instance_node], node_name)
             else:  # ListNode
                 # to get schema of empty listnode we need to create an instance of it
                 if len(instance_node) == 0:
                     instance_node()
                 else:
-                    node_data = self.node_data(instance_node, node_name)
-                schema = self.node_schema(instance_node[0], node_name)
+                    node_data = self._node_data(instance_node, node_name)
+                schema = self._node_schema(instance_node[0], node_name)
             result.append({'name': node_name,
                            'type': node_type,
                            'title': instance_node.Meta.verbose_name,
@@ -135,38 +193,58 @@ class ModelForm(object):
                            'default': None,
                            })
 
-    def get_models(self, result):
-        for model_attr_name, (model, one_to_one) in self.model._linked_models.items():
-            model_instance = getattr(self.model, model_attr_name)
+    def _get_models(self, result):
+        for model_attr_name, (model, one_to_one) in self._model._linked_models.items():
+            if self._filter_out(model_attr_name):
+                continue
+            model_instance = getattr(self._model, model_attr_name)
             result.append({'name': "%s_id" % model_attr_name,
                            'model_name': model.__name__,
                            'type': 'model',
                            'title': model.Meta.verbose_name,
                            'value': model_instance.key,
-                           'content': (list(self.__class__(model_instance,
-                                                           fields=True)._serialize())
-                                       if self.model.is_in_db() else None),
+                           'content': (self.__class__(model_instance,
+                                                      models=False,
+                                                      list_nodes=False,
+                                                      nodes=False)._serialize()
+                                       if self._model.is_in_db() else None),
                            'required': None,
                            'default': None,
                            })
 
-    def get_fields(self, result):
-        for name, field in self.model._fields.items():
-            if name in ['deleted', 'timestamp']:
+    def _serialize_value(self, val):
+        if isinstance(val, datetime.datetime):
+            return val.strftime(DATE_TIME_FORMAT)
+        elif isinstance(val, datetime.date):
+            return val.strftime(DATE_FORMAT)
+        elif isinstance(val, BaseField):
+            return None
+        else:
+            return val or ''
+
+    def _get_fields(self, result, model_obj):
+        for name, field in model_obj._ordered_fields:
+            if not isinstance(field, Button) and (
+                    name in ['deleted', 'timestamp'] or self._filter_out(name)):
                 continue
+            if self.readable:
+                val = model_obj.get_humane_value(name)
+            else:
+                val = self._serialize_value(getattr(model_obj, name))
             result.append({'name': name,
                            'type': self.customize_types.get(name,
                                                             field.solr_type),
-                           'value': self.model._field_values.get(name, ''),
-                           'required': False if field.solr_type is 'boolean' else field.required,
+                           'value': val,
+                           'required': (False if BYPASS_REQUIRED_FIELDS or
+                                                 field.solr_type is 'boolean' else field.required),
                            'choices': getattr(field, 'choices', None),
-                           'cmd': getattr(field, 'cmd', None),
+                           'kwargs': field.kwargs,
                            'title': field.title,
                            'default': field.default() if callable(
                                field.default) else field.default,
                            })
 
-    def node_schema(self, node, parent_name):
+    def _node_schema(self, node, parent_name):
         result = []
 
         # node_data = {'models': [], 'fields': []}
@@ -176,7 +254,7 @@ class ModelForm(object):
                            'model_name': model_instance.__class__.__name__,
                            'type': 'model',
                            'title': model_instance.Meta.verbose_name,
-                           'required': None, })
+                           'required': None,})
         for name, field in node._fields.items():
             result.append({
                 'name': name,
@@ -188,8 +266,10 @@ class ModelForm(object):
             })
         return result
 
-    def node_data(self, nodes, parent_name):
-        # FIXME: Permission checks
+    def prepare_fields(self):
+        pass
+
+    def _node_data(self, nodes, parent_name):
         results = []
         for real_node in nodes:
             result = {}
@@ -197,9 +277,11 @@ class ModelForm(object):
             for model_attr_name in real_node._linked_models:
                 model_instance = getattr(real_node, model_attr_name)
                 result["%s_id" % model_attr_name] = {'key': model_instance.key,
-                                                     'verbose_name': model_instance}
+                                                     'verbose_name': model_instance.Meta.verbose_name,
+                                                     'unicode': six.text_type(model_instance)
+                                                     }
             for name, field in real_node._fields.items():
-                result[name] = real_node._field_values.get(name, '')
+                result[name] = self._serialize_value(real_node._field_values.get(name))
             results.append(result)
         return results
 
@@ -211,17 +293,32 @@ class Form(ModelForm):
     """
 
     def __init__(self, *args, **kwargs):
-        self.current = kwargs.get('current')
+        self.context = kwargs.get('current')
         self._nodes = {}
         self._fields = {}
         self._linked_models = {}
         self._field_values = {}
         self.key = None
-        for key, val in self.__class__.__dict__.items():
+        self._data = {}
+        self._ordered_fields = []
+        super(Form, self).__init__(*args, **kwargs)
+
+    def prepare_fields(self):
+        _items = list(self.__class__.__dict__.items()) + list(self.__dict__.items())
+        for key, val in _items:
             if isinstance(val, BaseField):
                 val.name = key
                 self._fields[key] = val
-        super(Form, self).__init__(*args, **kwargs)
+            if isinstance(val, (Button,)):
+                self.non_data_fields.append(key)
+        for v in sorted(self._fields.items(), key=lambda x: x[1]._order):
+            self._ordered_fields.append((v[0], v[1]))
+
+    def get_humane_value(self, name):
+        return name
+
+    def is_in_db(self):
+        return False
 
     def set_data(self, data):
         """
@@ -232,3 +329,15 @@ class Form(ModelForm):
         for name in self._fields:
             setattr(self, name, data.get(name))
         return self
+
+
+class Button(BaseField):
+    def __init__(self, *args, **kwargs):
+        # self.cmd = kwargs.pop('cmd', None)
+        # self.position = kwargs.pop('position', 'bottom')
+        # self.validation = kwargs.pop('validation', True)
+        # self.flow = kwargs.pop('flow', None)
+        self.kwargs = kwargs
+        super(Button, self).__init__(*args, **kwargs)
+
+    solr_type = 'button'

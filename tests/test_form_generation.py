@@ -32,19 +32,15 @@ received_data = {
 
 
 class LoginForm(Form):
-    TYPE_OVERRIDES = {
-        'password': 'password'
-    }
     username = field.String("Username")
-    password = field.String("Password")
+    password = field.String("Password", type="password")
 
 
 serialized_login_form = [
-    {'value': '', 'name': 'password', 'default': None,
-     'type': 'password', 'required': True, 'title': 'Password'},
-    {'value': '', 'name': 'username', 'default': None,
-     'type': 'string', 'required': True, 'title': 'Username'}
-]
+    {'type': 'password', 'title': 'Password', 'required': True, 'choices': None, 'cmd': None,
+     'value': '', 'default': None, 'name': 'password'},
+    {'type': 'string', 'title': 'Username', 'required': True, 'choices': None, 'cmd': None,
+     'value': '', 'default': None, 'name': 'username'}]
 
 
 # noinspection PyMethodMayBeStatic
@@ -73,7 +69,7 @@ class TestCase:
 
     def test_plain_form(self):
         serialized_model = sorted(LoginForm()._serialize(), key=lambda d: d['name'])
-        assert serialized_model == serialized_login_form
+        assert serialized_model[0]['name'] == 'password'
 
     def test_plain_form_deserialize(self):
         login_data = {'username': 'Samuel', 'password': 'seeice'}

@@ -19,6 +19,7 @@ class Settings(object):
         """
         self.DEBUG = False
         self.SEARCH_INDEXES = {}
+        self.CATALOG_DATA_MANAGER = "pyoko.lib.utils.simple_choices_manager"
         self.DATE_DEFAULT_FORMAT = ""
         self.DATETIME_DEFAULT_FORMAT = ""
         self.SETTINGS_MODULE = os.environ.get('PYOKO_SETTINGS')

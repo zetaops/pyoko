@@ -39,12 +39,31 @@ class CommandRegistry(type):
 
 @add_metaclass(CommandRegistry)
 class Command(object):
-    # name of your command
-    # CMD_NAME = ''
-    # parameters, can be accessed from self.manager.args
-    # PARAMS = [(param_name, is_required, description),...]
+    """
+    Command object is a thin wrapper around Python's powerful argparse module.
+
+    ::Class Properties::
+
+    *CMD_NAME*: name of your command
+    *HELP*: help texts starts with "R|" will be parsed as raw text
+    *PARAMS*: = [{
+        'name': name of parameter
+        'help': help text for parameter. Parsed as raw if starts with "R|"
+        'required': Optional. Set True if this  is a required parameter.
+        'default': Optional. Define a default value for the parameter
+        'action': 'store_true' see the official argparse
+            *documentation for more info
+    }]
+    * https://docs.python.org/2/howto/argparse.html
+    * https://docs.python.org/2/library/argparse.html
+
+    """
 
     def __init__(self, manager):
+        """
+        :param manager: holds the given cli parameters in self.manager.args
+        :return:
+        """
         self.manager = manager
 
     def run(self):
@@ -83,7 +102,6 @@ class FlushDB(Command):
               ]
 
     def run(self):
-        from pyoko.db.schema_update import SchemaUpdater
         from pyoko.conf import settings
         from importlib import import_module
         import_module(settings.MODELS_MODULE)
