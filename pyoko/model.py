@@ -7,15 +7,16 @@
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 from collections import defaultdict
-from datetime import datetime
+from copy import copy
+import datetime
 import logging
 from uuid import uuid4
 from six import add_metaclass
 import six
-from pyoko import field
-from pyoko.conf import settings
-from pyoko.db.base import DBObjects
-from pyoko.lib.utils import un_camel, un_camel_id, lazy_property, pprnt
+from . import fields as field
+from .conf import settings
+from .db.base import DBObjects
+from .lib.utils import un_camel, un_camel_id, lazy_property, pprnt, get_object_from_path
 import weakref
 import lazy_object_proxy
 
@@ -244,7 +245,10 @@ class ModelMeta(type):
         DEFAULT_META = {'bucket_type': settings.DEFAULT_BUCKET_TYPE,
                         'field_permissions': {},
                         'app': 'main',
-                        'list_fields': []}
+                        'list_fields': [],
+                        'list_filters': [],
+                        'search_fields': [],
+                        }
         if 'Meta' not in attrs:
             attrs['Meta'] = type('Meta', (object,), DEFAULT_META)
         else:
@@ -284,6 +288,8 @@ class Node(object):
         self.context = kwargs.pop('context', None)
         self._field_values = {}
         self._data = {}
+        self._choice_fields = []
+        self._choices_manager = get_object_from_path(settings.CATALOG_DATA_MANAGER)
 
         # if model has cell_filters that applies to current user,
         # filtered values will be kept in _secured_data dict
@@ -299,6 +305,10 @@ class Node(object):
         self._instantiate_linked_models(kwargs)
         self._instantiate_nodes()
         self._set_fields_values(kwargs)
+
+    @lazy_property
+    def _ordered_fields(self):
+        return sorted(self._fields.items(), key=lambda kv: kv[1]._order)
 
     @classmethod
     def _add_linked_model(cls, mdl, o2o=False, field=None, reverse=None, verbose=None):
@@ -329,28 +339,36 @@ class Node(object):
         for field_name, vals in self._linked_models.items():
             for v in vals:
                 if data:
-                    if field_name in data:
-                        # this means we've got a new model instance assigned
-                        # with field_name. we should update other side too
+                    # data can be came from db or user
+                    if field_name in data and isinstance(data[field_name], Model):
+                        # this should be user, and it should be a model instance
                         linked_mdl_ins = data[field_name]
                         setattr(self, field_name, linked_mdl_ins)
                         if self.root.is_in_db():
+                            # if root model already saved (has a key),
+                            # update reverse relations of linked model
                             self.root.update_new_linked_model(linked_mdl_ins, field_name, v['o2o'])
                         else:
-                            # we have to wait till instance's saved to db
+                            # otherwise we should do it after root model saved
                             self.root.new_back_links.append((linked_mdl_ins, field_name, v['o2o']))
                     else:
                         _name = un_camel_id(field_name)
-                        if _name in data:
-                            def fo(modl, context, field_name):
-                                return lambda: modl(context).objects.get(field_name)
+                        if _name in data and data[_name] is not None:
+                            # this is coming from db,
+                            # we're preparing a lazy model loader
+                            def fo(modl, context, key):
+                                return lambda: modl(context).objects.get(key)
 
                             obj = LazyModel(fo(v['mdl'], self.context, data[_name]))
                             obj.key = data[_name]
                             setattr(self, field_name, obj)
                         else:
+                            # creating an lazy proxy for empty linked model
+                            # Note: this should be explicitly saved before root model!
                             setattr(self, field_name, LazyModel(lambda: v['mdl'](self.context)))
                 else:
+                    # creating an lazy proxy for empty linked model
+                    # Note: this should be explicitly saved before root model!
                     setattr(self, field_name, LazyModel(lambda: v['mdl'](self.context)))
 
     def _instantiate_node(self, name, klass):
@@ -392,6 +410,18 @@ class Node(object):
         self._set_fields_values(kwargs)
         return self
 
+    def get_humane_value(self, name):
+        if name in self._choice_fields:
+            return getattr(self, 'get_%s_display' % name)()
+        else:
+            val = getattr(self, name)
+            if isinstance(val, datetime.datetime):
+                return val.strftime(settings.DATETIME_DEFAULT_FORMAT or field.DATE_TIME_FORMAT)
+            elif isinstance(val, datetime.date):
+                return val.strftime(settings.DATE_DEFAULT_FORMAT or field.DATE_FORMAT)
+            else:
+                return val
+
     def _set_fields_values(self, kwargs):
         """
         fill the fields of this node
@@ -410,6 +440,15 @@ class Node(object):
                         setattr(self, name, val)
                     else:
                         _field._load_data(self, val)
+                    if _field.choices is not None:
+                        self._choice_fields.append(name)
+
+                        # adding get_%s_display() methods for fields which has "choices" attribute
+                        def foo():
+                            choices, value = copy(_field.choices), copy(val)
+                            return lambda: self._choices_manager(choices, value)
+
+                        setattr(self, 'get_%s_display' % name, foo())
 
     def _collect_index_fields(self, in_multi=False):
         """
@@ -476,7 +515,8 @@ class Node(object):
     def _clean_linked_model_value(self, dct):
         # get vales of linked models
         for name in self._linked_models:
-            dct[un_camel_id(name)] = getattr(self, name).key
+            lnkd_mdl = getattr(self, name)
+            dct[un_camel_id(name)] = lnkd_mdl.key if lnkd_mdl else None
 
     def clean_field_values(self):
         return dict((un_camel(name), field_ins.clean_value(self._field_values.get(name)))
@@ -547,6 +587,14 @@ class Model(Node):
         :return:
         """
         return self.key and not self.key.startswith('TMP_')
+
+    def get_choices_for(self, field):
+
+        choices = self._fields[field].choices
+        if isinstance(choices, six.string_types):
+            return self._choices_manager.get_all(choices)
+        else:
+            return choices
 
     @classmethod
     def get_search_index(cls):
@@ -685,7 +733,12 @@ class ListNode(Node):
             yield self._make_instance(self._data.pop(0))
 
     def _make_instance(self, node_data):
+        """
+        create a ListNode instance from node_data
 
+        :param dict node_data:
+        :return: ListNode item
+        """
         node_data['from_db'] = self._from_db
         clone = self.__call__(**node_data)
         clone.container = self
@@ -694,10 +747,13 @@ class ListNode(Node):
             _name = un_camel(name)
             if _name in node_data:  # check for partial data
                 getattr(clone, name)._load_data(node_data[_name])
-        if self._linked_models:
-            # first found linked model represents the this item
-            self.node_dict[getattr(clone, self._linked_models.keys()[0])]
-        self.node_stack.append(clone)
+        for name, (model, is_one_to_one) in self._linked_models.items():
+            _name = un_camel_id(name)
+            ins = getattr(clone, name)
+            # ins.key = node_data[_name]
+            self.node_dict[ins.key] = clone
+            break  # only one linked_model can represent an item
+        # self.node_stack.append(clone)
         return clone
 
     def clean_value(self):
