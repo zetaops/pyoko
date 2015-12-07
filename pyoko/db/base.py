@@ -479,8 +479,8 @@ class DBObjects(object):
         :return: DBObjects
         """
         clone = copy.deepcopy(self)
-        search_type = query.keys()[0]
-        query = val = self._parse_query_type(search_type, query[search_type])
+        search_type = list(query.keys())[0]
+        query~ = self._parse_query_type(search_type, query[search_type])
         clone._solr_query.append(("OR_QRY", dict([(f, query) for f in fields])))
         return clone
 
