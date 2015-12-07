@@ -480,7 +480,7 @@ class DBObjects(object):
         """
         clone = copy.deepcopy(self)
         search_type = list(query.keys())[0]
-        query~ = self._parse_query_type(search_type, query[search_type])
+        query = self._parse_query_type(search_type, query[search_type])
         clone._solr_query.append(("OR_QRY", dict([(f, query) for f in fields])))
         return clone
 
