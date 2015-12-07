@@ -148,7 +148,7 @@ class TestCase:
 
     def test_or_queries(self):
         d = {'s1': ['ali', 'veli'],
-             's2': ['john', 'doe'],
+             's2': ['joe', 'roby'],
              's3': ['rob', 'zombie'],
              's4': ['go', 'jira']}
         if not Student.objects.filter(name=d['s2'][0]):
@@ -161,3 +161,5 @@ class TestCase:
         assert 3 == Student.objects.filter(
                 name__in=(d['s1'][0], d['s2'][0], d['s3'][0])).filter(
                 surname__in=(d['s1'][1], d['s2'][1], d['s3'][1])).count()
+
+        assert 2 == Student.objects.search_on('name', 'surname', contains='rob').count()
