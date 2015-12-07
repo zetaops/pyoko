@@ -466,15 +466,38 @@ class DBObjects(object):
         clone._solr_query.extend(("OR_QRY", filters))
         return clone
 
-    def search_on(self, query, *fields):
+    def search_on(self, *fields, **query):
         """
-        search for query on given fields
-        :param dict filters: query  filter parameters filter(email='a@a.co',...)
+        search for query on given fields,
+        search type can be: exact, contains, startswith, endswith
+        eg:
+        .search_on('name, 'surname', contains='john')
+        .search_on('name, 'surname', startswith='jo')
+
+        :param fields: field list to be searched on
+        :param query:  search query
         :return: DBObjects
         """
         clone = copy.deepcopy(self)
+        search_type = query.keys()[0]
+        query = val = self._parse_query_type(search_type, query[search_type])
         clone._solr_query.append(("OR_QRY", dict([(f, query) for f in fields])))
         return clone
+
+    def _parse_query_type(self, qtype, query):
+        query = str(query).replace(' ', '\ ')
+        if qtype == 'exact':
+            return query
+        elif qtype == 'contains':
+            return "*%s*" % query
+        elif qtype == 'startswith':
+            return  "%s*" % query
+        elif qtype == 'endswith':
+            return "%s*" % query
+        elif qtype == 'lte':
+            return '[* TO %s]' % query
+        elif qtype == 'gte':
+            return '[%s TO *]' % query
 
     def _compile_query(self):
         """
@@ -512,28 +535,28 @@ class DBObjects(object):
                 val = ' OR '.join(['%s:%s'%(key, v) for v in val])
                 key = 'NOKEY'
 
-            if ' ' in str(val):
+            # val should be converted to a string before this point
+            # if ' ' in str(val):
                 # val = '"' + val + '"'
-                val = val.replace(' ', "\ ")
+                # val = val.replace(' ', "\ ")
 
-            # lower than or equal
             if key.endswith('__contains'):
                 key = key[:-10]
-                val = '*%s*' % val
+                val = self._parse_query_type('contains', val)
             if key.endswith('__startswith'):
                 key = key[:-12]
-                val = '%s*' % val
+                val = self._parse_query_type('startswith', val)
             if key.endswith('__endswith'):
                 key = key[:-10]
-                val = '*%s' % val
+                val = self._parse_query_type('endswith', val)
             # lower than or equal
             if key.endswith('__lte'):
                 key = key[:-5]
-                val = '[* TO %s]' % val
+                val = self._parse_query_type('lte', val)
             # greater than or equal
             elif key.endswith('__gte'):
                 key = key[:-5]
-                val = '[%s TO *]' % val
+                val = self._parse_query_type('gte', val)
             # in (or) query
 
             # as long as not explicitly asked for,
@@ -557,6 +580,8 @@ class DBObjects(object):
         joined_query = anded
         if joined_query == '':
             joined_query = '*:*'
+        # if settings.DEBUG:
+        print("QRY => %s" % joined_query)
         self.compiled_query = joined_query
 
     def _process_params(self):
