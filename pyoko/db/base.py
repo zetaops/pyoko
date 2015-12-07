@@ -469,7 +469,7 @@ class DBObjects(object):
     def search_on(self, *fields, **query):
         """
         search for query on given fields,
-        search type can be: exact, contains, startswith, endswith
+        search type can be: exact, contains, startswith, endswith, range
         eg:
         .search_on('name, 'surname', contains='john')
         .search_on('name, 'surname', startswith='jo')
@@ -485,19 +485,25 @@ class DBObjects(object):
         return clone
 
     def _parse_query_type(self, qtype, query):
-        query = str(query).replace(' ', '\ ')
-        if qtype == 'exact':
-            return query
-        elif qtype == 'contains':
-            return "*%s*" % query
-        elif qtype == 'startswith':
-            return  "%s*" % query
-        elif qtype == 'endswith':
-            return "%s*" % query
-        elif qtype == 'lte':
-            return '[* TO %s]' % query
-        elif qtype == 'gte':
-            return '[%s TO *]' % query
+        if qtype == 'range':
+            start = query[0] or '*'
+            end = query[1] or '*'
+            query = '[%s TO %s]' % (start, end)
+        else:
+            query = str(query).replace(' ', '\ ')
+            if qtype == 'exact':
+                query = query
+            elif qtype == 'contains':
+                query = "*%s*" % query
+            elif qtype == 'startswith':
+                query =  "%s*" % query
+            elif qtype == 'endswith':
+                query = "%s*" % query
+            elif qtype == 'lte':
+                query = '[* TO %s]' % query
+            elif qtype == 'gte':
+                query = '[%s TO *]' % query
+        return query
 
     def _compile_query(self):
         """
@@ -526,7 +532,6 @@ class DBObjects(object):
             elif isinstance(val, datetime):
                 val = val.strftime(DATE_TIME_FORMAT)
             # if it's not one of the expected objects, it should be a string
-            # solr wants quotes when query has spaces
             elif key == 'OR_QRY':
                 key = 'NOKEY'
                 val = ' OR '.join(['%s:%s' % (k, v) for k, v in val.items()])
@@ -543,6 +548,9 @@ class DBObjects(object):
             if key.endswith('__contains'):
                 key = key[:-10]
                 val = self._parse_query_type('contains', val)
+            if key.endswith('__range'):
+                key = key[:-7]
+                val = self._parse_query_type('range', val)
             if key.endswith('__startswith'):
                 key = key[:-12]
                 val = self._parse_query_type('startswith', val)
@@ -581,7 +589,7 @@ class DBObjects(object):
         if joined_query == '':
             joined_query = '*:*'
         # if settings.DEBUG:
-        print("QRY => %s" % joined_query)
+        # print("QRY => %s" % joined_query)
         self.compiled_query = joined_query
 
     def _process_params(self):
