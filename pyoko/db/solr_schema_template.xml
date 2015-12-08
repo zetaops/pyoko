@@ -24,12 +24,24 @@
 
     <!--<fieldType name="string" class="solr.StrField" sortMissingLast="true" />-->
 
-     <fieldType name="string" class="solr.TextField" sortMissingLast="true" omitNorms="true">
-         <analyzer type="query">
-             <tokenizer class="solr.KeywordTokenizerFactory"/>
-             <filter class="solr.LowerCaseFilterFactory"/>
-         </analyzer>
+     <!--<fieldType name="string" class="solr.TextField" sortMissingLast="true" omitNorms="true">-->
+         <!--<analyzer type="query">-->
+             <!--<tokenizer class="solr.KeywordTokenizerFactory"/>-->
+             <!--<filter class="solr.LowerCaseFilterFactory"/>-->
+         <!--</analyzer>-->
+     <!--</fieldType>-->
+
+     <fieldType name="string" class="solr.TextField" positionIncrementGap="100">
+       <analyzer type="index">
+         <tokenizer class="solr.KeywordTokenizerFactory"/>
+         <filter class="solr.LowerCaseFilterFactory"/>
+       </analyzer>
+       <analyzer type="query">
+         <tokenizer class="solr.KeywordTokenizerFactory"/>
+         <filter class="solr.LowerCaseFilterFactory"/>
+       </analyzer>
      </fieldType>
+
 
 
 
