@@ -484,13 +484,19 @@ class DBObjects(object):
         clone._solr_query.append(("OR_QRY", dict([(f, query) for f in fields])))
         return clone
 
+    def _escape_query(self, query):
+        # for e in ['+', '-', '&&', '||', '!', '(', ')', '{', '}', '[', ']', '^', '"', '~', '*',
+        #           '?', ':', ' ']:
+        #     query = query.replace(e, "\\%s" % e)
+        return query
+
     def _parse_query_type(self, qtype, query):
         if qtype == 'range':
-            start = query[0] or '*'
-            end = query[1] or '*'
+            start = self._escape_query(query[0]) or '*'
+            end = self._escape_query(query[1]) or '*'
             query = '[%s TO %s]' % (start, end)
         else:
-            query = str(query).replace(' ', '\ ')
+            query = self._escape_query(query)
             if qtype == 'exact':
                 query = query
             elif qtype == 'contains':
@@ -575,6 +581,8 @@ class DBObjects(object):
             elif val is None:
                 key = '-%s' % key
                 val = '[* TO *]'
+            else:
+                val = self._parse_query_type('exact', val)
 
             key = key.replace('__', '.')
             if key == 'NOKEY':
