@@ -317,6 +317,12 @@ class DBObjects(object):
         except TypeError:
             return str("queryset: %s" % self._solr_query)
 
+    def _add_query(self, filters):
+        # for f in filters:
+        #     if len(f) == 2:
+        #         f.append(False)  # mark as not escaped
+        self._solr_query.extend([f if len(f) == 3 else (f[0], f[1], False) for f in filters])
+
     def filter(self, **filters):
         """
         applies query filters to queryset.
@@ -324,7 +330,7 @@ class DBObjects(object):
         :return: DBObjects
         """
         clone = copy.deepcopy(self)
-        clone._solr_query.extend(filters.items())
+        clone._add_query(filters.items())
         return clone
 
     def exclude(self, **filters):
@@ -463,7 +469,7 @@ class DBObjects(object):
         :return: DBObjects
         """
         clone = copy.deepcopy(self)
-        clone._solr_query.extend(("OR_QRY", filters))
+        clone._add_query([("OR_QRY", filters)])
         return clone
 
     def search_on(self, *fields, **query):
@@ -480,23 +486,26 @@ class DBObjects(object):
         """
         clone = copy.deepcopy(self)
         search_type = list(query.keys())[0]
-        query = self._parse_query_type(search_type, query[search_type])
-        clone._solr_query.append(("OR_QRY", dict([(f, query) for f in fields])))
+        parsed_query = self._parse_query_type(search_type, self._escape_query(query[search_type]))
+        clone._add_query([("OR_QRY", dict([(f, parsed_query) for f in fields]), True)])
         return clone
 
-    def _escape_query(self, query):
-        # for e in ['+', '-', '&&', '||', '!', '(', ')', '{', '}', '[', ']', '^', '"', '~', '*',
-        #           '?', ':', ' ']:
-        #     query = query.replace(e, "\\%s" % e)
+    def _escape_query(self, query, escaped=False):
+        if escaped:
+            return query
+        query = six.text_type(query)
+        for e in ['+', '-', '&&', '||', '!', '(', ')', '{', '}', '[', ']', '^', '"', '~', '*',
+                  '?', ':', ' ']:
+            query = query.replace(e, "\\%s" % e)
         return query
 
     def _parse_query_type(self, qtype, query):
         if qtype == 'range':
-            start = self._escape_query(query[0]) or '*'
-            end = self._escape_query(query[1]) or '*'
+            start = query[0] or '*'
+            end = query[1] or '*'
             query = '[%s TO %s]' % (start, end)
         else:
-            query = self._escape_query(query)
+            query = query
             if qtype == 'exact':
                 query = query
             elif qtype == 'contains':
@@ -510,6 +519,9 @@ class DBObjects(object):
             elif qtype == 'gte':
                 query = '[%s TO *]' % query
         return query
+
+
+
 
     def _compile_query(self):
         """
@@ -526,7 +538,7 @@ class DBObjects(object):
         if filtered_query is not None:
             self._solr_query += filtered_query._solr_query
         # print(self._solr_query)
-        for key, val in self._solr_query:
+        for key, val, is_escaped in self._solr_query:
 
             # querying on a linked model by model instance
             # it should be a Model, not a Node!
@@ -540,11 +552,13 @@ class DBObjects(object):
             # if it's not one of the expected objects, it should be a string
             elif key == 'OR_QRY':
                 key = 'NOKEY'
-                val = ' OR '.join(['%s:%s' % (k, v) for k, v in val.items()])
+                val = ' OR '.join(['%s:%s' % (k, self._escape_query(v, is_escaped)) for k, v in val.items()])
             elif key.endswith('__in'):
                 key = key[:-4]
-                val = ' OR '.join(['%s:%s'%(key, v) for v in val])
+                val = ' OR '.join(['%s:%s' % (key, self._escape_query(v, is_escaped)) for v in val])
                 key = 'NOKEY'
+            else:
+                val = self._escape_query(val, is_escaped)
 
             # val should be converted to a string before this point
             # if ' ' in str(val):
@@ -554,17 +568,17 @@ class DBObjects(object):
             if key.endswith('__contains'):
                 key = key[:-10]
                 val = self._parse_query_type('contains', val)
-            if key.endswith('__range'):
+            elif key.endswith('__range'):
                 key = key[:-7]
                 val = self._parse_query_type('range', val)
-            if key.endswith('__startswith'):
+            elif key.endswith('__startswith'):
                 key = key[:-12]
                 val = self._parse_query_type('startswith', val)
-            if key.endswith('__endswith'):
+            elif key.endswith('__endswith'):
                 key = key[:-10]
                 val = self._parse_query_type('endswith', val)
             # lower than or equal
-            if key.endswith('__lte'):
+            elif key.endswith('__lte'):
                 key = key[:-5]
                 val = self._parse_query_type('lte', val)
             # greater than or equal
@@ -581,8 +595,8 @@ class DBObjects(object):
             elif val is None:
                 key = '-%s' % key
                 val = '[* TO *]'
-            else:
-                val = self._parse_query_type('exact', val)
+            # else:
+            #     val = self._parse_query_type('exact', val)
 
             key = key.replace('__', '.')
             if key == 'NOKEY':
@@ -596,8 +610,8 @@ class DBObjects(object):
         joined_query = anded
         if joined_query == '':
             joined_query = '*:*'
-        # if settings.DEBUG:
-        # print("QRY => %s" % joined_query)
+        if settings.DEBUG:
+            print("QRY => %s" % joined_query)
         self.compiled_query = joined_query
 
     def _process_params(self):
