@@ -225,6 +225,7 @@ class DumpData(Command):
             outfile = codecs.open(self.manager.args.path, 'w', encoding='utf-8')
         data = defaultdict(list)
         for mdl in models:
+            print("Dumping %s" % mdl.__name__)
             model = mdl(super_context)
             count = model.objects.count()
             rounds = int(count / batch_size) + 1
@@ -236,6 +237,7 @@ class DumpData(Command):
                                                     sort="timestamp asc",
                                                     rows=batch_size,
                                                     start=i * batch_size):
+                    # print("Object %s" % obj.key)
                     if obj.data is not None:
                         if typ == self.JSON:
                             out = json.dumps((bucket.name, obj.key, obj.data))
