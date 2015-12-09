@@ -40,25 +40,11 @@ class ModelMeta(type):
                 mcs.Meta.bucket_name = un_camel(mcs.__name__)
 
     @staticmethod
-    def process_listnode(attrs, base_model):
-        attrs['idx'] = field.Id()
-
-    @staticmethod
-    def process_objects(kls):
-        # first add a Meta object if not exists
-        if 'Meta' not in kls.__dict__:
-            kls.Meta = type('Meta', (object,), {})
-        # set verbose_name(s) if not already set
-        if 'verbose_name' not in kls.Meta.__dict__:
-            kls.Meta.verbose_name = kls.__name__
-        if 'verbose_name_plural' not in kls.Meta.__dict__:
-            kls.Meta.verbose_name_plural = kls.Meta.verbose_name + 's'
-
-    @staticmethod
-    def process_attributes(attrs, model_name):
+    def process_attributes(attrs, node_name):
         """
-        we're iterating over attributes of the soon to be created class object.
+        prepare the model fields, nodes and relations
 
+        :param node_name: name of the node we are currently processing
         :param dict attrs: attribute dict
         """
         attrs['_nodes'] = {}
@@ -67,6 +53,7 @@ class ModelMeta(type):
         attrs['_fields'] = {}
         # attrs['_many_to_models'] = []
 
+        # iterating over attributes of the soon to be created class object.
         for key, attr in list(attrs.items()):
             # if it's a class (not instance) and it's type is Node or ListNode
             if hasattr(attr, '__base__') and getattr(attr.__base__, '_TYPE', '') in ['Node',
@@ -89,7 +76,7 @@ class ModelMeta(type):
                     attrs['_fields'][key] = attr
                 elif attr_type == 'Link':
                     lzy_lnk = attrs.pop(key)
-                    attrs['_lazy_linked_models'][key].append({'from': model_name,
+                    attrs['_lazy_linked_models'][key].append({'from': node_name,
                                                               'to': lzy_lnk.link_to,
                                                               'o2o': lzy_lnk.one_to_one,
                                                               'verbose': lzy_lnk.verbose_name,
@@ -118,3 +105,18 @@ class ModelMeta(type):
             for k, v in DEFAULT_META.items():
                 if k not in attrs['Meta'].__dict__:
                     setattr(attrs['Meta'], k, v)
+
+    @staticmethod
+    def process_listnode(attrs, base_model):
+        attrs['idx'] = field.Id()
+
+    @staticmethod
+    def process_objects(kls):
+        # first add a Meta object if not exists
+        if 'Meta' not in kls.__dict__:
+            kls.Meta = type('Meta', (object,), {})
+        # set verbose_name(s) if not already set
+        if 'verbose_name' not in kls.Meta.__dict__:
+            kls.Meta.verbose_name = kls.__name__
+        if 'verbose_name_plural' not in kls.Meta.__dict__:
+            kls.Meta.verbose_name_plural = kls.Meta.verbose_name + 's'

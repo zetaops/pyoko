@@ -12,6 +12,7 @@ from . import fields as field
 from .db.base import DBObjects
 from .lib.utils import un_camel, lazy_property, pprnt
 import weakref
+from .modelmeta import model_registry
 
 super_context = FakeContext()
 

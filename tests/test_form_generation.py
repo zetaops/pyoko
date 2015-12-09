@@ -48,8 +48,8 @@ class TestCase:
     cleaned_up = False
 
     @classmethod
-    def clean(cls):
-        if not cls.cleaned_up:
+    def clean(cls, force=False):
+        if force or not cls.cleaned_up:
             for model in [Student, ]:
                 model.objects._clear_bucket()
             sleep(2)
@@ -78,7 +78,7 @@ class TestCase:
         assert model.username == login_data["username"]
 
     def test_modelform_deserialize_simple(self):
-        self.clean()
+        self.clean(force=True)
         student = ModelForm(Student()).deserialize(received_data)
         student.save()
         sleep(2)

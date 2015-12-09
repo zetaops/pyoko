@@ -6,7 +6,12 @@
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
+import datetime
+from copy import copy
+
 import lazy_object_proxy
+import six
+
 from six import add_metaclass
 from uuid import uuid4
 
@@ -189,14 +194,15 @@ class Node(object):
         return self
 
     def get_humane_value(self, name):
+        from . import fields
         if name in self._choice_fields:
             return getattr(self, 'get_%s_display' % name)()
         else:
             val = getattr(self, name)
             if isinstance(val, datetime.datetime):
-                return val.strftime(settings.DATETIME_DEFAULT_FORMAT or field.DATE_TIME_FORMAT)
+                return val.strftime(settings.DATETIME_DEFAULT_FORMAT or fields.DATE_TIME_FORMAT)
             elif isinstance(val, datetime.date):
-                return val.strftime(settings.DATE_DEFAULT_FORMAT or field.DATE_FORMAT)
+                return val.strftime(settings.DATE_DEFAULT_FORMAT or fields.DATE_FORMAT)
             else:
                 return val
 
@@ -238,6 +244,7 @@ class Node(object):
         result = []
         # if not model_name:
         #     model_name = self._get_bucket_name()
+        from .listnode import ListNode
         multi = in_multi or isinstance(self, ListNode)
         for name in self._linked_models:
             # obj = getattr(self, name) ### obj.has_many_values()
