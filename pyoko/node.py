@@ -118,8 +118,8 @@ class Node(object):
                                            prop]))).replace(root._get_bucket_name() + '.', '')
 
     def _instantiate_linked_models(self, data=None):
-        for field_name, vals in self._linked_models.items():
-            for v in vals:
+        for field_name, links in self._linked_models.items():
+            for lnk in links:
                 if data:
                     # data can be came from db or user
                     from .model import Model
@@ -131,10 +131,10 @@ class Node(object):
                         if self.root.is_in_db():
                             # if root model already saved (has a key),
                             # update reverse relations of linked model
-                            self.root.update_new_linked_model(linked_mdl_ins, field_name, v['o2o'])
+                            self.root.update_new_linked_model(linked_mdl_ins, field_name, lnk['o2o'])
                         else:
                             # otherwise we should do it after root model saved
-                            self.root.new_back_links.append((linked_mdl_ins, field_name, v['o2o']))
+                            self.root.new_back_links.append((linked_mdl_ins, field_name, lnk['o2o']))
                     else:
                         _name = un_camel_id(field_name)
                         if _name in data and data[_name] is not None:
@@ -143,17 +143,17 @@ class Node(object):
                             def fo(modl, context, key):
                                 return lambda: modl(context).objects.get(key)
 
-                            obj = LazyModel(fo(v['mdl'], self.context, data[_name]))
+                            obj = LazyModel(fo(lnk['mdl'], self.context, data[_name]))
                             obj.key = data[_name]
                             setattr(self, field_name, obj)
                         else:
                             # creating an lazy proxy for empty linked model
                             # Note: this should be explicitly saved before root model!
-                            setattr(self, field_name, LazyModel(lambda: v['mdl'](self.context)))
+                            setattr(self, field_name, LazyModel(lambda: lnk['mdl'](self.context)))
                 else:
                     # creating an lazy proxy for empty linked model
                     # Note: this should be explicitly saved before root model!
-                    setattr(self, field_name, LazyModel(lambda: v['mdl'](self.context)))
+                    setattr(self, field_name, LazyModel(lambda: lnk['mdl'](self.context)))
 
     def _instantiate_node(self, name, klass):
         # instantiate given node, pass path and root info
