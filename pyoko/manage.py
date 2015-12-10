@@ -351,7 +351,7 @@ and .js extensions will be loaded."""},
         data = json.loads(file.read())
         for bucket_name in data.keys():
             for key, val in data[bucket_name]:
-                self.save_obj(bucket_name, key, val)
+                self.save_obj(bucket_name, key, json.dumps(val))
 
     def read_per_line(self, file):
         for line in file:
@@ -361,7 +361,7 @@ and .js extensions will be loaded."""},
     def read_json_per_line(self, file):
         for line in file:
             bucket_name, key, val = json.loads(line)
-            self.save_obj(bucket_name, key, val)
+            self.save_obj(bucket_name, key, json.dumps(val))
 
     def save_obj(self, bucket_name, key, val):
         key = key or None

@@ -69,7 +69,8 @@ class ModelMeta(type):
                         'o2o': lnk_mdl_ins._is_one_to_one,
                         'reverse': lnk_mdl_ins.reverse_name,
                         'verbose': lnk_mdl_ins.verbose_name,
-                        'field': key
+                        'field': key,
+                        'is_set': False
                     })
                 elif attr_type == 'Field':
                     attr.name = key

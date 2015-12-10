@@ -72,7 +72,8 @@ class Registry(object):
                         lnk['mdl']._add_linked_model(source_mdl,
                                                      o2o=False,
                                                      field=reverse_name,
-                                                     reverse=lnk['field'])
+                                                     reverse=lnk['field'],
+                                                     is_set=True)
                         self._create_one_to_many(source_mdl,
                                                  target_mdl=lnk['mdl'],
                                                  listnode_name=lnk['reverse'])
