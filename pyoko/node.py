@@ -122,9 +122,10 @@ class Node(object):
             for v in vals:
                 if data:
                     # data can be came from db or user
-                    from pyoko import Model
+                    from .model import Model
                     if field_name in data and isinstance(data[field_name], Model):
-                        # this should be user, and it should be a model instance
+                        # this should be coming from user,
+                        # and it should be a model instance
                         linked_mdl_ins = data[field_name]
                         setattr(self, field_name, linked_mdl_ins)
                         if self.root.is_in_db():

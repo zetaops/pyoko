@@ -69,10 +69,10 @@ class Registry(object):
                         # Role.Permisions(permission=Permission()) -->
                         # --> Permission.role_set (or if given, custom
                         #  reverse name)
-                        lnk['mdl']._add_linked_model(source_mdl,
-                                                     o2o=False,
-                                                     field=reverse_name,
-                                                     reverse=lnk['field'])
+                        # lnk['mdl']._add_linked_model(source_mdl,
+                        #                              o2o=False,
+                        #                              field=reverse_name,
+                        #                              reverse=lnk['field'])
                         self._create_one_to_many(source_mdl,
                                                  target_mdl=lnk['mdl'],
                                                  listnode_name=lnk['reverse'])

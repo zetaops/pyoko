@@ -137,13 +137,13 @@ class Model(Node):
     #     return model_registry.link_registry[self.__class__]
 
     def update_new_linked_model(self, linked_mdl_ins, name, o2o):
-        for field, vals in linked_mdl_ins._linked_models.items():
-            for val in vals:
-                mdl = val['mdl']
-                local_field_name = val['field']
-                remote_name = val['reverse']
+        for links in linked_mdl_ins._linked_models.values():
+            for lnk in links:
+                mdl = lnk['mdl']
+                local_field_name = lnk['field']
+                remote_name = lnk['reverse']
                 remote_field_name = un_camel(mdl.__name__)
-                if val['field'] == name and isinstance(self, mdl):
+                if lnk['field'] == name and isinstance(self, mdl):
                     if not o2o:
                         remote_set = getattr(linked_mdl_ins, remote_field_name)
                         if self not in remote_set:
