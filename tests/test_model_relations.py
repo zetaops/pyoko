@@ -77,8 +77,8 @@ class TestCase:
         role = Role(usr=user, abstract_role=abs_role, active=True)
         role.save()
         user_db = User.objects.get(user.key)
-        assert role.key == user_db.role_set[0].role.key
-        role_node = user_db.role_set[0]
+        assert role.key == user_db.roller[0].role.key
+        role_node = user_db.roller[0]
         db_user_role_abs_role = role_node.role.abstract_role
         assert abs_role.name == db_user_role_abs_role.name
         db_abs_role = AbstractRole.objects.get(abs_role.key)

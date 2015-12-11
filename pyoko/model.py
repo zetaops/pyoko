@@ -145,17 +145,14 @@ class Model(Node):
                 local_field_name = lnk['field']
                 remote_name = lnk['reverse']
                 remote_field_name = un_camel(mdl.__name__)
-                if lnk['field'] == local_field_name:
-                    if not o2o:
-                        remote_set = getattr(linked_mdl_ins, local_field_name)
-                        if self not in remote_set:
-                            remote_set(**{remote_field_name: self.root})
-                            linked_mdl_ins.save()
-                    else:
-                        setattr(linked_mdl_ins, remote_name, self.root)
+                if not o2o:
+                    remote_set = getattr(linked_mdl_ins, local_field_name)
+                    if self not in remote_set:
+                        remote_set(**{remote_field_name: self.root})
                         linked_mdl_ins.save()
-                # else:
-                #     pass
+                else:
+                    setattr(linked_mdl_ins, remote_field_name, self.root)
+                    linked_mdl_ins.save()
 
     def save(self):
         self.objects.save_model(self)

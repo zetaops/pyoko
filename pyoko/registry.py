@@ -57,6 +57,7 @@ class Registry(object):
                 self._create_one_to_many(source_mdl, target_mdl, lm['reverse'])
 
     def _process_links_from_nodes(self, source_mdl):
+        print(source_mdl)
         for node in source_mdl._nodes.values():
             for lnkd_models in node._linked_models.values():
                 for lnk in lnkd_models:
@@ -69,6 +70,7 @@ class Registry(object):
                         # Role.Permisions(permission=Permission()) -->
                         # --> Permission.role_set (or if given, custom
                         #  reverse name)
+                        print(lnk)
                         lnk['mdl']._add_linked_model(source_mdl,
                                                      o2o=False,
                                                      field=reverse_name,
@@ -78,6 +80,7 @@ class Registry(object):
                                                  target_mdl=lnk['mdl'],
                                                  listnode_name=lnk['reverse'])
                     else:
+
                         lnk['mdl']._add_linked_model(source_mdl,
                                                      o2o=True,
                                                      field=reverse_name,
@@ -105,10 +108,10 @@ class Registry(object):
         source_instance._is_auto_created = True
         # create a new class which extends ListNode
         listnode = type(listnode_name, (ListNode,),
-                        {source_mdl.__name__: source_instance,
+                        {un_camel(source_mdl.__name__): source_instance,
                          '_is_auto_created': True})
         listnode._add_linked_model(source_mdl, o2o=False, field=listnode_name,
-                                   reverse=source_mdl.__name__)
+                                   reverse=un_camel(source_mdl.__name__))
         # source_mdl._add_linked_model(target_mdl, o2o=False, )
         target_mdl._nodes[listnode_name] = listnode
         # add just created model_set to model instances that
