@@ -292,8 +292,11 @@ class Node(object):
                                            prop]))).replace(root._get_bucket_name() + '.', '')
 
     def _instantiate_linked_models(self, data=None):
+        def foo_model(modl, context):
+            return LazyModel(lambda: modl(context))
         for name, (mdl, o2o) in self._linked_models.items():
             # for each linked model
+
             if data:
                 # data can be came from db or user
                 if name in data and isinstance(data[name], Model):
@@ -320,11 +323,13 @@ class Node(object):
                     else:
                         # creating an lazy proxy for empty linked model
                         # Note: this should be explicitly saved before root model!
-                        setattr(self, name, LazyModel(lambda: mdl(self.context)))
+                        setattr(self, name, foo_model(mdl, self.context))
+                        # setattr(self, name, LazyModel((lambda: lambda: mdl(self.context))()))
             else:
                 # creating an lazy proxy for empty linked model
                 # Note: this should be explicitly saved before root model!
-                setattr(self, name, LazyModel(lambda: mdl(self.context)))
+                setattr(self, name, foo_model(mdl, self.context))
+                # setattr(self, name, LazyModel((lambda: lambda: mdl(self.context))()))
 
     def _instantiate_node(self, name, klass):
         # instantiate given node, pass path and root info
