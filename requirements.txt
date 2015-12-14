@@ -8,3 +8,5 @@ six
 fake-factory
 pytest
 fabric
+pytest-ordering
+ipython

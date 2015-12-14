@@ -14,6 +14,8 @@ import json
 
 from os import environ
 import os
+
+from pyoko.conf import settings
 from riak.client import binary_json_decoder, binary_json_encoder
 from sys import argv
 from six import add_metaclass, PY2
@@ -68,6 +70,29 @@ class Command(object):
 
     def run(self):
         raise NotImplemented("You should override this method in your command class")
+
+
+class Shell(Command):
+    CMD_NAME = 'shell'
+    PARAMS = [
+              {'name': 'no_model', 'action': 'store_true',
+               'help': 'Do not import models'},
+              ]
+    HELP = 'Run IPython shell'
+
+    def run(self):
+        if not self.manager.args.no_model:
+            exec('from %s import *' % settings.MODELS_MODULE)
+        try:
+            from IPython import embed
+            embed()
+        except:
+            import readline
+            import code
+            vars = globals().copy()
+            vars.update(locals())
+            shell = code.InteractiveConsole(vars)
+            shell.interact()
 
 
 class SchemaUpdate(Command):
