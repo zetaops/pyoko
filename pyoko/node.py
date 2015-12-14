@@ -119,6 +119,8 @@ class Node(object):
                                            prop]))).replace(root._get_bucket_name() + '.', '')
 
     def _instantiate_linked_models(self, data=None):
+        def foo_model(modl, context):
+            return LazyModel(lambda: modl(context))
         for field_name, links in self._linked_models.items():
             for lnk in links:
                 if lnk['is_set']:
@@ -152,11 +154,13 @@ class Node(object):
                         else:
                             # creating a lazy proxy for empty linked model
                             # Note: this should be explicitly saved before root model!
+                            setattr(self, field_name, foo_model(lnk['mdl'], self.context))
                             setattr(self, field_name, LazyModel(lambda: lnk['mdl'](self.context)))
                 else:
                     # creating an lazy proxy for empty linked model
                     # Note: this should be explicitly saved before root model!
-                    setattr(self, field_name, LazyModel(lambda: lnk['mdl'](self.context)))
+                    setattr(self, field_name, foo_model(lnk['mdl'], self.context))
+                    # setattr(self, field_name, LazyModel(lambda: lnk['mdl'](self.context)))
 
     def _instantiate_node(self, name, klass):
         # instantiate given node, pass path and root info
