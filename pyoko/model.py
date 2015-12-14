@@ -143,14 +143,15 @@ class Model(Node):
                 if not isinstance(self, mdl):
                     continue
                 local_field_name = lnk['field']
-                remote_name = lnk['reverse'] or un_camel(mdl.__name__)
+                remote_name = lnk['reverse']
+                remote_field_name = un_camel(mdl.__name__)
                 if not o2o:
                     remote_set = getattr(linked_mdl_ins, local_field_name)
                     if self not in remote_set:
-                        remote_set(**{remote_name: self.root})
+                        remote_set(**{remote_field_name: self.root})
                         linked_mdl_ins.save()
                 else:
-                    setattr(linked_mdl_ins, remote_name, self.root)
+                    setattr(linked_mdl_ins, remote_field_name   , self.root)
                     linked_mdl_ins.save()
 
     def save(self):
