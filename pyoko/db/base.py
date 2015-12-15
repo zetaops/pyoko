@@ -555,6 +555,9 @@ class DBObjects(object):
                 key = key[:-4]
                 val = ' OR '.join(['%s:%s' % (key, self._escape_query(v, is_escaped)) for v in val])
                 key = 'NOKEY'
+            elif val is None:
+                key = ('-%s' % key).replace('--', '')
+                val = '[* TO *]'
             else:
                 val = self._escape_query(val, is_escaped)
 
@@ -590,9 +593,7 @@ class DBObjects(object):
             elif key == 'deleted':
                 want_deleted = True
             # filter out records that contain any value for this field
-            elif val is None:
-                key = '-%s' % key
-                val = '[* TO *]'
+
             # else:
             #     val = self._parse_query_type('exact', val)
 
