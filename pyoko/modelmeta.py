@@ -66,7 +66,7 @@ class ModelMeta(type):
 
                 if attr_type == 'Model':
                     lnk_mdl_ins = attrs.pop(key)
-                    attrs['_linked_models'][key].append({
+                    attrs['_linked_models'][attr.__class__.__name__].append({
                         'mdl': lnk_mdl_ins.__class__,
                         'o2o': lnk_mdl_ins._is_one_to_one,
                         'reverse': lnk_mdl_ins.reverse_name,

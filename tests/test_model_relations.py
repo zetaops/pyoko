@@ -49,7 +49,7 @@ class TestCase:
         employee_from_db = Employee.objects.get(employee.key)
         assert employee_from_db.usr.name == user_from_db.name
 
-    @pytest.mark.first
+    @pytest.mark.second
     def test_many_to_many_simple(self):
         self.prepare_testbed()
 
@@ -67,7 +67,7 @@ class TestCase:
         assert db_sc_tt2.lecture != db_sc_tt1.lecture
         assert tt1.lecture == db_tt1.lecture
 
-    @pytest.mark.first
+    @pytest.mark.second
     def test_many_to_many_to_one(self):
         self.prepare_testbed()
         perm = Permission(name="Can see employee data",
@@ -92,12 +92,23 @@ class TestCase:
         # but this would fail, cause denormalization doesn't reach this far, yet!
         # assert perm.codename == db_user_role_abs_role.Permissions[0].permission.codename
 
-    @pytest.mark.first
+    @pytest.mark.second
     def test_missing_relations_simple(self):
         self.prepare_testbed()
         u = User(name="Foo").save()
         r = Role(usr=u, name="Foo Frighters").save()
         assert Role.objects.get(r.key).usr.name == u.name
+
+
+    @pytest.mark.first
+    def test_lazy_links(self):
+        self.prepare_testbed()
+        u = User(name="Foo").save()
+        mate = User(name="Mate").save()
+        r = Role(usr=u, teammate=mate, name="Foo Frighters").save()
+        db_role = Role.objects.get(r.key)
+        assert db_role.teammate.name == mate.name
+        assert db_role.usr.name == u.name
 
 
 

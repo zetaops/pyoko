@@ -15,7 +15,7 @@ from pyoko.lib.utils import un_camel
 class Registry(object):
     def __init__(self):
         self.registry = {}
-        self.lazy_models = {}
+        self.lazy_models = defaultdict(list)
         self.app_registry = defaultdict(dict)
         # self.link_registry = defaultdict(list)
 
@@ -24,7 +24,7 @@ class Registry(object):
             self.registry[mdl.__name__] = mdl
             self.app_registry[mdl.Meta.app][mdl.__name__] = mdl
             self._process_links_from_nodes_of_mdl(mdl)
-            # self._process_lazy_links(mdl)
+            self._pre_process_lazy_links(mdl)
             self._process_links(mdl)
 
     def _process_links(self, mdl):
@@ -49,19 +49,29 @@ class Registry(object):
                                                  field=reverse_name, is_set=True)
                     self._create_one_to_many(mdl, lnk['mdl'], reverse_name)
 
-    def _process_lazy_links(self, target_mdl):
-        if target_mdl.__name__ in self.lazy_models:
-            for lm in self.lazy_models[target_mdl.__name__]:
-                source_mdl = self.registry[lm['from']]
-                source_mdl._add_linked_model(target_mdl,
-                                             o2o=lm['o2o'],
-                                             field=lm['field'],
-                                             reverse=lm['reverse'],
-                                             verbose=lm['verbose'])
-                target_mdl._add_linked_model(source_mdl,
-                                             reverse=lm['field'],
-                                             field=lm['reverse'])
-                self._create_one_to_many(source_mdl, target_mdl, lm['reverse'])
+    def _pre_process_lazy_links(self, mdl):
+        for links in mdl._lazy_linked_models.values():
+            for lzy_lnk in links:
+                self.lazy_models[lzy_lnk['to']].append(lzy_lnk)
+                if lzy_lnk['to'] in self.registry:
+                    self._process_lazy_links(self.registry[lzy_lnk['to']])
+        self._process_lazy_links(mdl)
+
+
+    def _process_lazy_links(self, mdl):
+        print("%s in %s: %s" %(mdl.__name__, list(self.lazy_models.keys()), mdl.__name__ in self.lazy_models))
+        if mdl.__name__ in self.lazy_models:
+            for lm in self.lazy_models[mdl.__name__]:
+                target_mdl = self.registry[lm['from']]
+                target_mdl._add_linked_model(mdl,
+                                      reverse=lm['reverse'],
+                                      field=lm['field'])
+                mdl._add_linked_model(target_mdl,
+                                      reverse=lm['field'],
+                                      field=lm['reverse'],
+                                      is_set=True)
+                self._create_one_to_many(target_mdl, mdl, lm['reverse'])
+                setattr(target_mdl, lm['field'], mdl)
 
     def _process_links_from_nodes_of_mdl(self, source_mdl):
         # print("Node: %s" % source_mdl.__name__)

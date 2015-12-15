@@ -254,13 +254,14 @@ class ModelForm(object):
         result = []
 
         # node_data = {'models': [], 'fields': []}
-        for model_attr_name in node._linked_models:
-            model_instance = getattr(node, model_attr_name)
-            result.append({'name': "%s_id" % model_attr_name,
-                           'model_name': model_instance.__class__.__name__,
-                           'type': 'model',
-                           'title': model_instance.Meta.verbose_name,
-                           'required': None,})
+        for links in node._linked_models.values():
+            for lnk in links:
+                model_instance = getattr(node, lnk['field'])
+                result.append({'name': un_camel_id(lnk['field']),
+                               'model_name': model_instance.__class__.__name__,
+                               'type': 'model',
+                               'title': model_instance.Meta.verbose_name,
+                               'required': None,})
         for name, field in node._fields.items():
             result.append({
                 'name': name,

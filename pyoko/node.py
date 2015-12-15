@@ -95,7 +95,7 @@ class Node(object):
     @classmethod
     def _add_linked_model(cls, mdl, o2o=False, field=None, reverse=None,
                           verbose=None, is_set=False, **kwargs):
-        name = kwargs.get('field', mdl.__name__)
+        # name = kwargs.get('field', mdl.__name__)
         lnk = {
             'o2o': o2o,
             'mdl': mdl,
@@ -105,7 +105,8 @@ class Node(object):
             'is_set': is_set
         }
         lnk.update(kwargs)
-        cls._linked_models[name].append(lnk)
+        if lnk not in cls._linked_models[mdl.__name__]:
+            cls._linked_models[mdl.__name__].append(lnk)
 
     def set_tmp_key(self):
         self.key = "TMP_%s_%s" % (self.__class__.__name__, uuid4().hex[:10])
