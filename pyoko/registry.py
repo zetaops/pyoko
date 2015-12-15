@@ -62,7 +62,8 @@ class Registry(object):
                 target_mdl = self.registry[lm['from']]
                 target_mdl._add_linked_model(mdl,
                                       reverse=lm['reverse'],
-                                      field=lm['field'])
+                                      field=lm['field'],
+                                      verbose=lm['verbose'])
                 mdl._add_linked_model(target_mdl,
                                       reverse=lm['field'],
                                       field=lm['reverse'],
@@ -104,7 +105,7 @@ class Registry(object):
                 setattr(mdl, field_name, mdl_instance)
                 # target_mdl._add_linked_model(source_mdl, o2o=True, field=field_name)
 
-    def _create_one_to_many(self, source_mdl, target_mdl, listnode_name=None):
+    def _create_one_to_many(self, source_mdl, target_mdl, listnode_name=None, verbose_name=None):
         # other side of n-to-many should be a ListNode
         # with our source model as the sole element
         if not listnode_name:

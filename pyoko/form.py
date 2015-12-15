@@ -198,7 +198,7 @@ class ModelForm(object):
                            })
 
     def _get_models(self, result):
-        for lnk in self._model.get_links():
+        for lnk in self._model.get_links(is_set=False):
             if self._filter_out(lnk['field']):
                 continue
             model = lnk['mdl']
@@ -307,7 +307,7 @@ class Form(ModelForm):
         self._ordered_fields = []
         super(Form, self).__init__(*args, **kwargs)
 
-    def get_links(self):
+    def get_links(self, **kw):
         """
         just to imitate real model
         :return:
