@@ -93,15 +93,19 @@ class Node(object):
         return sorted(self._fields.items(), key=lambda kv: kv[1]._order)
 
     @classmethod
-    def _add_linked_model(cls, mdl, o2o=False, field=None, reverse=None, verbose=None, is_set=False):
-        cls._linked_models[field or mdl.__name__].append({
+    def _add_linked_model(cls, mdl, o2o=False, field=None, reverse=None,
+                          verbose=None, is_set=False, **kwargs):
+        name = kwargs.get('field', mdl.__name__)
+        lnk = {
             'o2o': o2o,
             'mdl': mdl,
             'field': field,
             'reverse': reverse,
             'verbose': verbose,
             'is_set': is_set
-        })
+        }
+        lnk.update(kwargs)
+        cls._linked_models[name].append(lnk)
 
     def set_tmp_key(self):
         self.key = "TMP_%s_%s" % (self.__class__.__name__, uuid4().hex[:10])
@@ -119,15 +123,16 @@ class Node(object):
                                            prop]))).replace(root._get_bucket_name() + '.', '')
 
     def _instantiate_linked_models(self, data=None):
+        from .model import Model
         def foo_model(modl, context):
             return LazyModel(lambda: modl(context))
-        for field_name, links in self._linked_models.items():
+        for name, links in self._linked_models.items():
             for lnk in links:
+                field_name = lnk.get('field', un_camel(name))
                 if lnk['is_set']:
                     continue
                 if data:
                     # data can be came from db or user
-                    from .model import Model
                     if field_name in data and isinstance(data[field_name], Model):
                         # this should be coming from user,
                         # and it should be a model instance
@@ -155,7 +160,7 @@ class Node(object):
                             # creating a lazy proxy for empty linked model
                             # Note: this should be explicitly saved before root model!
                             setattr(self, field_name, foo_model(lnk['mdl'], self.context))
-                            setattr(self, field_name, LazyModel(lambda: lnk['mdl'](self.context)))
+                            # setattr(self, field_name, LazyModel(lambda: lnk['mdl'](self.context)))
                 else:
                     # creating an lazy proxy for empty linked model
                     # Note: this should be explicitly saved before root model!
@@ -307,9 +312,11 @@ class Node(object):
 
     def _clean_linked_model_value(self, dct):
         # get vales of linked models
-        for name in self._linked_models:
-            lnkd_mdl = getattr(self, name)
-            dct[un_camel_id(name)] = lnkd_mdl.key if lnkd_mdl else None
+        for lnks in self._linked_models.values():
+            for lnk in lnks:
+                lnkd_mdl = getattr(self, lnk['field'])
+                if lnkd_mdl._TYPE == 'Model':
+                    dct[un_camel_id(lnk['field'])] = lnkd_mdl.key if lnkd_mdl else None
 
     def clean_field_values(self):
         return dict((un_camel(name), field_ins.clean_value(self._field_values.get(name)))

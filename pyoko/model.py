@@ -137,6 +137,15 @@ class Model(Node):
     #     return model_registry.link_registry[self.__class__]
 
     def update_new_linked_model(self, linked_mdl_ins, name, o2o):
+        """
+        this method works on _linked_models dict of given linked model instance
+        for each relation list it looks for "self"
+
+        :param linked_mdl_ins:
+        :param name:
+        :param o2o:
+        :return:
+        """
         for links in linked_mdl_ins._linked_models.values():
             for lnk in links:
                 mdl = lnk['mdl']
@@ -147,7 +156,7 @@ class Model(Node):
                 remote_field_name = un_camel(mdl.__name__)
                 if not o2o:
                     remote_set = getattr(linked_mdl_ins, local_field_name)
-                    if self not in remote_set:
+                    if remote_set._TYPE == 'ListNode' and self not in remote_set:
                         remote_set(**{remote_field_name: self.root})
                         linked_mdl_ins.save()
                 else:

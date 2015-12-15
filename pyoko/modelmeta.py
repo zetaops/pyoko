@@ -6,6 +6,7 @@
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
+import pprint
 from collections import defaultdict
 
 from pyoko.conf import settings
@@ -25,7 +26,7 @@ class ModelMeta(type):
             mcs.process_models(attrs, base_model_class)
         if class_type == 'ListNode':
             mcs.process_listnode(attrs, base_model_class)
-        mcs.process_attributes(attrs, name)
+        mcs.process_attributes_of_node(attrs, name)
         new_class = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
         return new_class
 
@@ -40,13 +41,14 @@ class ModelMeta(type):
                 mcs.Meta.bucket_name = un_camel(mcs.__name__)
 
     @staticmethod
-    def process_attributes(attrs, node_name):
+    def process_attributes_of_node(attrs, node_name):
         """
         prepare the model fields, nodes and relations
 
         :param node_name: name of the node we are currently processing
         :param dict attrs: attribute dict
         """
+        # print("Node: %s" % node_name)
         attrs['_nodes'] = {}
         attrs['_linked_models'] = defaultdict(list)
         attrs['_lazy_linked_models'] = defaultdict(list)
@@ -83,6 +85,7 @@ class ModelMeta(type):
                                                               'verbose': lzy_lnk.verbose_name,
                                                               'reverse': lzy_lnk.reverse_name,
                                                               'field': key})
+        # print("-- %s" % pprint.pformat(attrs['_linked_models']))
 
     @staticmethod
     def process_models(attrs, base_model_class):

@@ -12,6 +12,8 @@ import os
 
 from collections import defaultdict
 
+from pyoko.lib.utils import un_camel_id
+
 from .fields import *
 import six
 
@@ -68,6 +70,7 @@ class ModelForm(object):
         self._config = {'fields': True, 'nodes': True, 'models': True, 'list_nodes': True}
         self._config.update(kwargs)
         self.readable = False
+        self._ordered_fields = []
         self.exclude = exclude or self.Meta.exclude
         self.include = include or self.Meta.include
         self.non_data_fields = ['object_key']
@@ -194,25 +197,26 @@ class ModelForm(object):
                            })
 
     def _get_models(self, result):
-        for model_attr_name, lnks in self._model._linked_models.items():
-            if self._filter_out(model_attr_name):
-                continue
-            for lnk in lnks:
+        for mdl_name, links in self._model._linked_models.items():
+            for lnk in links:
+                field_name = lnk.get('field', mdl_name)
+                if self._filter_out(field_name):
+                    continue
                 model = lnk['mdl']
-            model_instance = getattr(self._model, model_attr_name)
-            result.append({'name': "%s_id" % model_attr_name,
-                           'model_name': model.__name__,
-                           'type': 'model',
-                           'title': model.Meta.verbose_name,
-                           'value': model_instance.key,
-                           'content': (self.__class__(model_instance,
-                                                      models=False,
-                                                      list_nodes=False,
-                                                      nodes=False)._serialize()
-                                       if self._model.is_in_db() else None),
-                           'required': None,
-                           'default': None,
-                           })
+                model_instance = getattr(self._model, field_name)
+                result.append({'name': un_camel_id(field_name),
+                               'model_name': model.__name__,
+                               'type': 'model',
+                               'title': model.Meta.verbose_name,
+                               'value': model_instance.key,
+                               'content': (self.__class__(model_instance,
+                                                          models=False,
+                                                          list_nodes=False,
+                                                          nodes=False)._serialize()
+                                           if self._model.is_in_db() else None),
+                               'required': None,
+                               'default': None,
+                               })
 
     def _serialize_value(self, val):
         if isinstance(val, datetime.datetime):
