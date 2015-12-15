@@ -17,7 +17,7 @@ class Settings(object):
         Proxy object for both static and dynamic app settings
         :return:
         """
-        self.DEBUG = False
+        self.DEBUG = os.environ.get('DEBUG')
         self.SEARCH_INDEXES = {}
         self.CATALOG_DATA_MANAGER = "pyoko.lib.utils.simple_choices_manager"
         self.DATE_DEFAULT_FORMAT = ""

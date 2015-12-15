@@ -24,8 +24,8 @@ class Registry(object):
             self.registry[mdl.__name__] = mdl
             self.app_registry[mdl.Meta.app][mdl.__name__] = mdl
             self._process_links_from_nodes_of_mdl(mdl)
-            self._pre_process_lazy_links(mdl)
             self._process_links(mdl)
+            self._pre_process_lazy_links(mdl)
 
     def _process_links(self, mdl):
         for lnk in mdl.get_links():

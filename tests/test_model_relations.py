@@ -37,6 +37,7 @@ class TestCase:
     def test_one_to_one_simple(self):
         self.prepare_testbed()
         user = User(name='Joe').save()
+        print(user.key)
         employee = Employee(eid='E1', usr=user).save()
         # need to wait a sec because we will query solr in the
         # _save_back_linked_models of User object
@@ -100,7 +101,7 @@ class TestCase:
         assert Role.objects.get(r.key).usr.name == u.name
 
 
-    @pytest.mark.first
+    @pytest.mark.second
     def test_lazy_links(self):
         self.prepare_testbed()
         u = User(name="Foo").save()
@@ -110,6 +111,17 @@ class TestCase:
         assert db_role.teammate.name == mate.name
         assert db_role.usr.name == u.name
 
+
+
+    @pytest.mark.first
+    def test_self_reference(self):
+        self.prepare_testbed()
+        ceo = User(name="CEO").save()
+        mate1 = User(name="Mate", supervisor=ceo).save()
+        mate2 = User(name="Mate2", supervisor=ceo).save()
+        ceo_db = User.objects.get(ceo.key)
+        assert mate1 in ceo_db.workers
+        assert len(ceo_db.workers) == 2
 
 
 

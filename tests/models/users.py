@@ -29,6 +29,7 @@ class AbstractRole(Model):
 
 class User(Model):
     name = field.String('Full Name', index=True)
+    supervisor = LinkProxy('User', verbose_name='Supervisor', reverse_name='workers')
     def __unicode__(self):
         return "User %s" % self.name
 

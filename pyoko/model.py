@@ -51,6 +51,9 @@ class Model(Node):
         self._instance_registry.add(weakref.ref(self))
         self.saved_models = []
 
+    def get_verbose_name(self):
+        return self.verbose_name or self.Meta.verbose_name
+
     def prnt(self):
         try:
             pprnt(self._data)
@@ -159,14 +162,16 @@ class Model(Node):
                     remote_set(**{remote_field_name: self.root})
                     linked_mdl_ins.save()
             else:
-                setattr(linked_mdl_ins, remote_field_name   , self.root)
+                setattr(linked_mdl_ins, remote_field_name, self.root)
                 linked_mdl_ins.save()
 
     def save(self):
         self.objects.save_model(self)
+        print(self, self.key)
         for i in range(len(self.new_back_links)):
             if self.new_back_links:
                 self.update_new_linked_model(*self.new_back_links.pop())
+        print(self, self.key)
         return self
 
     def delete(self):

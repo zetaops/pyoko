@@ -76,8 +76,10 @@ class ModelForm(object):
         self.non_data_fields = ['object_key']
         self.customize_types = types or getattr(self.Meta, 'customize_types', {})
         self.help_text = self.Meta.help_text or getattr(self._model.Meta, 'help_text', None)
-        self.title = title or self.Meta.title or getattr(self._model.Meta, 'verbose_name',
-                                                         self._model.__class__.__name__)
+        self.title = title or self.Meta.title or self._model.get_verbose_name()
+
+    def get_verbose_name(self):
+        return getattr(self._model.Meta, 'verbose_name', self._model.__class__.__name__)
 
     def deserialize(self, data):
         """
@@ -187,7 +189,7 @@ class ModelForm(object):
                 schema = self._node_schema(instance_node[0], node_name)
             result.append({'name': node_name,
                            'type': node_type,
-                           'title': instance_node.Meta.verbose_name,
+                           'title': instance_node.get_verbose_name(),
                            'schema': schema,
                            'value': node_data if not node_data or node_type == 'ListNode'
                            else node_data[0],
@@ -204,7 +206,7 @@ class ModelForm(object):
             result.append({'name': un_camel_id(lnk['field']),
                            'model_name': model.__name__,
                            'type': 'model',
-                           'title': model.Meta.verbose_name,
+                           'title': model_instance.get_verbose_name(),
                            'value': model_instance.key,
                            'content': (self.__class__(model_instance,
                                                       models=False,
@@ -280,7 +282,7 @@ class ModelForm(object):
             for lnk in real_node.get_links():
                 model_instance = getattr(real_node, lnk['field'])
                 result[un_camel_id(lnk['field'])] = {'key': model_instance.key,
-                                                     'verbose_name': model_instance.Meta.verbose_name,
+                                                     'verbose_name': model_instance.get_verbose_name(),
                                                      'unicode': six.text_type(model_instance)
                                                      }
             for name, field in real_node._fields.items():

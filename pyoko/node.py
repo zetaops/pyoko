@@ -25,8 +25,13 @@ from .modelmeta import ModelMeta
 
 class LazyModel(lazy_object_proxy.Proxy):
     key = None
+    verbose_name = None
 
-    def __init__(self, wrapped):
+    def get_verbose_name(self):
+        return self.verbose_name
+
+    def __init__(self, wrapped, verbose_name):
+        self.verbose_name = verbose_name
         super(LazyModel, self).__init__(wrapped)
 
 
@@ -88,6 +93,9 @@ class Node(object):
         self._instantiate_nodes()
         self._set_fields_values(kwargs)
 
+    def get_verbose_name(self):
+        return self.__class__.__name__
+
     @lazy_property
     def _ordered_fields(self):
         return sorted(self._fields.items(), key=lambda kv: kv[1]._order)
@@ -139,8 +147,8 @@ class Node(object):
 
     def _instantiate_linked_models(self, data=None):
         from .model import Model
-        def foo_model(modl, context):
-            return LazyModel(lambda: modl(context))
+        def foo_model(modl, context, verbose_name):
+            return LazyModel(lambda: modl(context), verbose_name)
         for lnk in self.get_links():
             if lnk['is_set']:
                 continue
@@ -164,20 +172,21 @@ class Node(object):
                         # this is coming from db,
                         # we're preparing a lazy model loader
                         def fo(modl, context, key):
-                            return lambda: modl(context).objects.get(key)
+                            return lambda: modl(context,
+                                                verbose_name=lnk['verbose']).objects.get(key)
 
-                        obj = LazyModel(fo(lnk['mdl'], self.context, data[_name]))
+                        obj = LazyModel(fo(lnk['mdl'], self.context, data[_name]), lnk['verbose'])
                         obj.key = data[_name]
                         setattr(self, lnk['field'], obj)
                     else:
                         # creating a lazy proxy for empty linked model
                         # Note: this should be explicitly saved before root model!
-                        setattr(self, lnk['field'], foo_model(lnk['mdl'], self.context))
+                        setattr(self, lnk['field'], foo_model(lnk['mdl'], self.context, lnk['verbose']))
                         # setattr(self, lnk['field'], LazyModel(lambda: lnk['mdl'](self.context)))
             else:
                 # creating an lazy proxy for empty linked model
                 # Note: this should be explicitly saved before root model!
-                setattr(self, lnk['field'], foo_model(lnk['mdl'], self.context))
+                setattr(self, lnk['field'], foo_model(lnk['mdl'], self.context, lnk['verbose']))
                 # setattr(self, lnk['field'], LazyModel(lambda: lnk['mdl'](self.context)))
 
     def _instantiate_node(self, name, klass):
@@ -201,6 +210,7 @@ class Node(object):
             if _name in self._data:
                 # node = self._instantiate_node(name, getattr(self, name).__class__)
                 node = getattr(self, name)
+                print(self._data)
                 node._load_data(self._data[_name], data['from_db'])
 
     def __repr__(self):
