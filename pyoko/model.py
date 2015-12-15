@@ -146,22 +146,21 @@ class Model(Node):
         :param o2o:
         :return:
         """
-        for links in linked_mdl_ins._linked_models.values():
-            for lnk in links:
-                mdl = lnk['mdl']
-                if not isinstance(self, mdl) or lnk['reverse'] != name:
-                    continue
-                local_field_name = lnk['field']
-                # remote_name = lnk['reverse']
-                remote_field_name = un_camel(mdl.__name__)
-                if not o2o:
-                    remote_set = getattr(linked_mdl_ins, local_field_name)
-                    if remote_set._TYPE == 'ListNode' and self not in remote_set:
-                        remote_set(**{remote_field_name: self.root})
-                        linked_mdl_ins.save()
-                else:
-                    setattr(linked_mdl_ins, remote_field_name   , self.root)
+        for lnk in linked_mdl_ins.get_links():
+            mdl = lnk['mdl']
+            if not isinstance(self, mdl) or lnk['reverse'] != name:
+                continue
+            local_field_name = lnk['field']
+            # remote_name = lnk['reverse']
+            remote_field_name = un_camel(mdl.__name__)
+            if not o2o:
+                remote_set = getattr(linked_mdl_ins, local_field_name)
+                if remote_set._TYPE == 'ListNode' and self not in remote_set:
+                    remote_set(**{remote_field_name: self.root})
                     linked_mdl_ins.save()
+            else:
+                setattr(linked_mdl_ins, remote_field_name   , self.root)
+                linked_mdl_ins.save()
 
     def save(self):
         self.objects.save_model(self)

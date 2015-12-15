@@ -123,50 +123,62 @@ class Node(object):
         return ('.'.join(list(self.path + [un_camel(self.__class__.__name__),
                                            prop]))).replace(root._get_bucket_name() + '.', '')
 
+    @classmethod
+    def get_link(cls, **kw):
+        return cls.get_links(**kw)[0]
+
+    @classmethod
+    def get_links(cls, **kw):
+        constraint = list(kw.items())
+        models = []
+        for links in cls._linked_models.values():
+            for lnk in links:
+                if not constraint or constraint[0] in list(lnk.items()):
+                    models.append(lnk)
+        return models
+
     def _instantiate_linked_models(self, data=None):
         from .model import Model
         def foo_model(modl, context):
             return LazyModel(lambda: modl(context))
-        for name, links in self._linked_models.items():
-            for lnk in links:
-                field_name = lnk.get('field', un_camel(name))
-                if lnk['is_set']:
-                    continue
-                if data:
-                    # data can be came from db or user
-                    if field_name in data and isinstance(data[field_name], Model):
-                        # this should be coming from user,
-                        # and it should be a model instance
-                        linked_mdl_ins = data[field_name]
-                        setattr(self, field_name, linked_mdl_ins)
-                        if self.root.is_in_db():
-                            # if root model already saved (has a key),
-                            # update reverse relations of linked model
-                            self.root.update_new_linked_model(linked_mdl_ins, field_name, lnk['o2o'])
-                        else:
-                            # otherwise we should do it after root model saved
-                            self.root.new_back_links.append((linked_mdl_ins, field_name, lnk['o2o']))
+        for lnk in self.get_links():
+            if lnk['is_set']:
+                continue
+            if data:
+                # data can be came from db or user
+                if lnk['field'] in data and isinstance(data[lnk['field']], Model):
+                    # this should be coming from user,
+                    # and it should be a model instance
+                    linked_mdl_ins = data[lnk['field']]
+                    setattr(self, lnk['field'], linked_mdl_ins)
+                    if self.root.is_in_db():
+                        # if root model already saved (has a key),
+                        # update reverse relations of linked model
+                        self.root.update_new_linked_model(linked_mdl_ins, lnk['field'], lnk['o2o'])
                     else:
-                        _name = un_camel_id(field_name)
-                        if _name in data and data[_name] is not None:
-                            # this is coming from db,
-                            # we're preparing a lazy model loader
-                            def fo(modl, context, key):
-                                return lambda: modl(context).objects.get(key)
-
-                            obj = LazyModel(fo(lnk['mdl'], self.context, data[_name]))
-                            obj.key = data[_name]
-                            setattr(self, field_name, obj)
-                        else:
-                            # creating a lazy proxy for empty linked model
-                            # Note: this should be explicitly saved before root model!
-                            setattr(self, field_name, foo_model(lnk['mdl'], self.context))
-                            # setattr(self, field_name, LazyModel(lambda: lnk['mdl'](self.context)))
+                        # otherwise we should do it after root model saved
+                        self.root.new_back_links.append((linked_mdl_ins, lnk['field'], lnk['o2o']))
                 else:
-                    # creating an lazy proxy for empty linked model
-                    # Note: this should be explicitly saved before root model!
-                    setattr(self, field_name, foo_model(lnk['mdl'], self.context))
-                    # setattr(self, field_name, LazyModel(lambda: lnk['mdl'](self.context)))
+                    _name = un_camel_id(lnk['field'])
+                    if _name in data and data[_name] is not None:
+                        # this is coming from db,
+                        # we're preparing a lazy model loader
+                        def fo(modl, context, key):
+                            return lambda: modl(context).objects.get(key)
+
+                        obj = LazyModel(fo(lnk['mdl'], self.context, data[_name]))
+                        obj.key = data[_name]
+                        setattr(self, lnk['field'], obj)
+                    else:
+                        # creating a lazy proxy for empty linked model
+                        # Note: this should be explicitly saved before root model!
+                        setattr(self, lnk['field'], foo_model(lnk['mdl'], self.context))
+                        # setattr(self, lnk['field'], LazyModel(lambda: lnk['mdl'](self.context)))
+            else:
+                # creating an lazy proxy for empty linked model
+                # Note: this should be explicitly saved before root model!
+                setattr(self, lnk['field'], foo_model(lnk['mdl'], self.context))
+                # setattr(self, lnk['field'], LazyModel(lambda: lnk['mdl'](self.context)))
 
     def _instantiate_node(self, name, klass):
         # instantiate given node, pass path and root info
@@ -260,11 +272,8 @@ class Node(object):
         #     model_name = self._get_bucket_name()
         from .listnode import ListNode
         multi = in_multi or isinstance(self, ListNode)
-        for links in self._linked_models.values():
-            for lnk in links:
-                if not lnk['is_set']:
-                    result.append((self._path_of(un_camel_id(lnk['field'])),
-                                   'string', True, False, multi))
+        for lnk in self.get_links(is_set=False):
+            result.append((self._path_of(un_camel_id(lnk['field'])), 'string', True, False, multi))
 
         for name, field_ins in self._fields.items():
             field_name = self._path_of(name)
@@ -314,11 +323,10 @@ class Node(object):
 
     def _clean_linked_model_value(self, dct):
         # get vales of linked models
-        for lnks in self._linked_models.values():
-            for lnk in lnks:
-                lnkd_mdl = getattr(self, lnk['field'])
-                if lnkd_mdl._TYPE == 'Model':
-                    dct[un_camel_id(lnk['field'])] = lnkd_mdl.key if lnkd_mdl else None
+        for lnk in self.get_links():
+            lnkd_mdl = getattr(self, lnk['field'])
+            if lnkd_mdl._TYPE == 'Model':
+                dct[un_camel_id(lnk['field'])] = lnkd_mdl.key if lnkd_mdl else None
 
     def clean_field_values(self):
         return dict((un_camel(name), field_ins.clean_value(self._field_values.get(name)))

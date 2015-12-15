@@ -96,10 +96,9 @@ class ModelForm(object):
                 continue
             if key.endswith('_id') and val:  # linked model
                 name = key[:-3]
-                linked_model = self._model._linked_models[name][0](
-                    self._model.context).objects.get(
-                        val)
-                setattr(new_instance, name, linked_model)
+                linked_model = self._model.get_link(name)['mdl']
+                linked_model_instance = linked_model(self._model.context).objects.get(val)
+                setattr(new_instance, name, linked_model_instance)
             elif isinstance(val, (six.string_types, bool, int, float)):  # field
                 setattr(new_instance, key, val)
             elif isinstance(val, dict):  # Node
@@ -197,26 +196,24 @@ class ModelForm(object):
                            })
 
     def _get_models(self, result):
-        for mdl_name, links in self._model._linked_models.items():
-            for lnk in links:
-                field_name = lnk.get('field', mdl_name)
-                if self._filter_out(field_name):
-                    continue
-                model = lnk['mdl']
-                model_instance = getattr(self._model, field_name)
-                result.append({'name': un_camel_id(field_name),
-                               'model_name': model.__name__,
-                               'type': 'model',
-                               'title': model.Meta.verbose_name,
-                               'value': model_instance.key,
-                               'content': (self.__class__(model_instance,
-                                                          models=False,
-                                                          list_nodes=False,
-                                                          nodes=False)._serialize()
-                                           if self._model.is_in_db() else None),
-                               'required': None,
-                               'default': None,
-                               })
+        for lnk in self._model.get_links():
+            if self._filter_out(lnk['field']):
+                continue
+            model = lnk['mdl']
+            model_instance = getattr(self._model, lnk['field'])
+            result.append({'name': un_camel_id(lnk['field']),
+                           'model_name': model.__name__,
+                           'type': 'model',
+                           'title': model.Meta.verbose_name,
+                           'value': model_instance.key,
+                           'content': (self.__class__(model_instance,
+                                                      models=False,
+                                                      list_nodes=False,
+                                                      nodes=False)._serialize()
+                                       if self._model.is_in_db() else None),
+                           'required': None,
+                           'default': None,
+                           })
 
     def _serialize_value(self, val):
         if isinstance(val, datetime.datetime):
@@ -254,14 +251,13 @@ class ModelForm(object):
         result = []
 
         # node_data = {'models': [], 'fields': []}
-        for links in node._linked_models.values():
-            for lnk in links:
-                model_instance = getattr(node, lnk['field'])
-                result.append({'name': un_camel_id(lnk['field']),
-                               'model_name': model_instance.__class__.__name__,
-                               'type': 'model',
-                               'title': model_instance.Meta.verbose_name,
-                               'required': None,})
+        for lnk in node.get_links():
+            model_instance = getattr(node, lnk['field'])
+            result.append({'name': un_camel_id(lnk['field']),
+                           'model_name': model_instance.__class__.__name__,
+                           'type': 'model',
+                           'title': model_instance.Meta.verbose_name,
+                           'required': None,})
         for name, field in node._fields.items():
             result.append({
                 'name': name,
@@ -281,9 +277,9 @@ class ModelForm(object):
         for real_node in nodes:
             result = {}
             # node_data = {'models': [], 'fields': []}
-            for model_attr_name in real_node._linked_models:
-                model_instance = getattr(real_node, model_attr_name)
-                result["%s_id" % model_attr_name] = {'key': model_instance.key,
+            for lnk in real_node.get_links():
+                model_instance = getattr(real_node, lnk['field'])
+                result[un_camel_id(lnk['field'])] = {'key': model_instance.key,
                                                      'verbose_name': model_instance.Meta.verbose_name,
                                                      'unicode': six.text_type(model_instance)
                                                      }
@@ -303,12 +299,18 @@ class Form(ModelForm):
         self.context = kwargs.get('current')
         self._nodes = {}
         self._fields = {}
-        self._linked_models = {}
         self._field_values = {}
         self.key = None
         self._data = {}
         self._ordered_fields = []
         super(Form, self).__init__(*args, **kwargs)
+
+    def get_links(self):
+        """
+        just to imitate real model
+        :return:
+        """
+        return []
 
     def prepare_fields(self):
         _items = list(self.__class__.__dict__.items()) + list(self.__dict__.items())
