@@ -260,9 +260,11 @@ class Node(object):
         #     model_name = self._get_bucket_name()
         from .listnode import ListNode
         multi = in_multi or isinstance(self, ListNode)
-        for name in self._linked_models:
-            # obj = getattr(self, name) ### obj.has_many_values()
-            result.append((self._path_of(un_camel_id(name)), 'string', True, False, multi))
+        for links in self._linked_models.values():
+            for lnk in links:
+                if not lnk['is_set']:
+                    result.append((self._path_of(un_camel_id(lnk['field'])),
+                                   'string', True, False, multi))
 
         for name, field_ins in self._fields.items():
             field_name = self._path_of(name)
@@ -272,8 +274,7 @@ class Node(object):
                            field_ins.store,
                            multi))
         for mdl_ins in self._nodes:
-            result.extend(
-                    getattr(self, mdl_ins)._collect_index_fields(multi))
+            result.extend(getattr(self, mdl_ins)._collect_index_fields(multi))
         return result
 
     def _load_data(self, data, from_db=False):

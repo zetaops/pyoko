@@ -149,10 +149,10 @@ class Model(Node):
         for links in linked_mdl_ins._linked_models.values():
             for lnk in links:
                 mdl = lnk['mdl']
-                if not isinstance(self, mdl):
+                if not isinstance(self, mdl) or lnk['reverse'] != name:
                     continue
                 local_field_name = lnk['field']
-                remote_name = lnk['reverse']
+                # remote_name = lnk['reverse']
                 remote_field_name = un_camel(mdl.__name__)
                 if not o2o:
                     remote_set = getattr(linked_mdl_ins, local_field_name)

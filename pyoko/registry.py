@@ -59,7 +59,6 @@ class Registry(object):
 
 
     def _process_lazy_links(self, mdl):
-        print("%s in %s: %s" %(mdl.__name__, list(self.lazy_models.keys()), mdl.__name__ in self.lazy_models))
         if mdl.__name__ in self.lazy_models:
             for lm in self.lazy_models[mdl.__name__]:
                 target_mdl = self.registry[lm['from']]
