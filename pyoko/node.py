@@ -210,7 +210,6 @@ class Node(object):
             if _name in self._data:
                 # node = self._instantiate_node(name, getattr(self, name).__class__)
                 node = getattr(self, name)
-                print(self._data)
                 node._load_data(self._data[_name], data['from_db'])
 
     def __repr__(self):

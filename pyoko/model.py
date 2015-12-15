@@ -167,11 +167,11 @@ class Model(Node):
 
     def save(self):
         self.objects.save_model(self)
-        print(self, self.key)
+        # print(self, self.key)
         for i in range(len(self.new_back_links)):
             if self.new_back_links:
                 self.update_new_linked_model(*self.new_back_links.pop())
-        print(self, self.key)
+        # print(self, self.key)
         return self
 
     def delete(self):
