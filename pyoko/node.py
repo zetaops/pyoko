@@ -28,7 +28,7 @@ class LazyModel(lazy_object_proxy.Proxy):
     verbose_name = None
 
     def get_verbose_name(self):
-        return self.verbose_name
+        return self.verbose_name or self.Meta.verbose_name
 
     def __init__(self, wrapped, verbose_name):
         self.verbose_name = verbose_name

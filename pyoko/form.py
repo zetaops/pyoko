@@ -52,6 +52,8 @@ class ModelForm(object):
         title = None
         include = []
         exclude = []
+        grouping = {}
+        constaints = {}
         # attributes = defaultdict(list)
 
     def __init__(self, model=None, exclude=None, include=None, types=None, title=None, **kwargs):
@@ -98,7 +100,7 @@ class ModelForm(object):
                 continue
             if key.endswith('_id') and val:  # linked model
                 name = key[:-3]
-                linked_model = self._model.get_link(name)['mdl']
+                linked_model = self._model.get_link(field=name)['mdl']
                 linked_model_instance = linked_model(self._model.context).objects.get(val)
                 setattr(new_instance, name, linked_model_instance)
             elif isinstance(val, (six.string_types, bool, int, float)):  # field
