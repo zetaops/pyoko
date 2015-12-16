@@ -114,6 +114,7 @@ def pprnt(input, return_data=False):
     UNDERLINE = '\033[4m'
     import json, re
     result = json.dumps(input, sort_keys=True, indent=4)
+    result = re.sub(r'(")(\w*?_id)(":)', r'\1%s%s\2%s\3' % (BOLD, HEADER, ENDC), result)
     result = re.sub(r'(")(\w*?_set)(":)', r'\1%s%s\2%s\3' % (BOLD, HEADER, ENDC), result)
     result = re.sub(r'(\n *?")(\w*?)(":)', r'\1%s%s\2%s\3' % (BOLD, OKGREEN, ENDC), result)
     if not return_data:

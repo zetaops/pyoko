@@ -233,24 +233,20 @@ class DBObjects(object):
         saves the model instance to riak
         :return:
         """
-        if model:
-            self.model = model
-
+        # if model:
+        #     self.model = model
         if settings.DEBUG:
             t1 = time.time()
-        clean_value = self.model.clean_value()
+        clean_value = model.clean_value()
         if settings.DEBUG:
             t2 = time.time()
-        if not self.model.is_in_db():
-            self.model.key = None
-        # riak_object = self.save(clean_value, self.model.key)
-        if not self.model.key:
-            obj = self.bucket.new(data=clean_value, key=self.model.key).store()
-            self.model.key = obj.key
+        if not model.is_in_db():
+            obj = self.bucket.new(data=clean_value).store()
+            model.key = obj.key
             new_obj = True
         else:
             new_obj = False
-            obj = self.bucket.get(self.model.key)
+            obj = self.bucket.get(model.key)
             obj.data = clean_value
             obj.store()
         if settings.DEBUG:
@@ -262,6 +258,7 @@ class DBObjects(object):
                 'SERIALIZATION_TIME': round(t2 - t1, 5),
                 'TIME': round(time.time() - t2, 5)
             })
+        return model
 
     def _get(self):
         """
@@ -315,6 +312,7 @@ class DBObjects(object):
         except AssertionError as e:
             return e.msg
         except TypeError:
+            raise
             return str("queryset: %s" % self._solr_query)
 
     def _add_query(self, filters):
@@ -557,6 +555,9 @@ class DBObjects(object):
                 key = key[:-4]
                 val = ' OR '.join(['%s:%s' % (key, self._escape_query(v, is_escaped)) for v in val])
                 key = 'NOKEY'
+            elif val is None:
+                key = ('-%s' % key).replace('--', '')
+                val = '[* TO *]'
             else:
                 val = self._escape_query(val, is_escaped)
 
@@ -592,9 +593,7 @@ class DBObjects(object):
             elif key == 'deleted':
                 want_deleted = True
             # filter out records that contain any value for this field
-            elif val is None:
-                key = '-%s' % key
-                val = '[* TO *]'
+
             # else:
             #     val = self._parse_query_type('exact', val)
 

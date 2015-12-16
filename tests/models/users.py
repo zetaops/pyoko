@@ -29,6 +29,7 @@ class AbstractRole(Model):
 
 class User(Model):
     name = field.String('Full Name', index=True)
+    supervisor = LinkProxy('User', verbose_name='Supervisor', reverse_name='workers')
     def __unicode__(self):
         return "User %s" % self.name
 
@@ -39,7 +40,7 @@ class User(Model):
 
 class Role(Model):
     usr = User(verbose_name='Kul', reverse_name='roller')
-    supervisor = LinkProxy('Role')
+    teammate = LinkProxy('User', verbose_name="Teammate", reverse_name="team")
     abstract_role = AbstractRole()
     name = field.String("Name", index=True)
     active = field.Boolean("Is Active")
