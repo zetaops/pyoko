@@ -26,6 +26,7 @@ from .modelmeta import ModelMeta
 class LazyModel(lazy_object_proxy.Proxy):
     key = None
     verbose_name = None
+    _TYPE = 'Model'
 
     def get_verbose_name(self):
         return self.verbose_name or self.Meta.verbose_name
@@ -102,7 +103,7 @@ class Node(object):
 
     @classmethod
     def _add_linked_model(cls, mdl, o2o=False, field=None, reverse=None,
-                          verbose=None, is_set=False, **kwargs):
+                          verbose=None, is_set=False, m2m=False, **kwargs):
         # name = kwargs.get('field', mdl.__name__)
         lnk = {
             'o2o': o2o,
@@ -110,9 +111,14 @@ class Node(object):
             'field': field,
             'reverse': reverse,
             'verbose': verbose,
-            'is_set': is_set
+            'is_set': is_set,
+            'm2m': m2m,
         }
+        lnksrc = kwargs.pop('lnksrc', '')
         lnk.update(kwargs)
+        debug_lnk = lnk.copy()
+        debug_lnk['lnksrc'] = lnksrc
+        cls._debug_linked_models[mdl.__name__].append(debug_lnk)
         if lnk not in cls._linked_models[mdl.__name__]:
             cls._linked_models[mdl.__name__].append(lnk)
 
@@ -332,10 +338,9 @@ class Node(object):
 
     def _clean_linked_model_value(self, dct):
         # get vales of linked models
-        for lnk in self.get_links():
+        for lnk in self.get_links(is_set=False):
             lnkd_mdl = getattr(self, lnk['field'])
-            if lnkd_mdl._TYPE == 'Model':
-                dct[un_camel_id(lnk['field'])] = lnkd_mdl.key if lnkd_mdl else None
+            dct[un_camel_id(lnk['field'])] = lnkd_mdl.key if lnkd_mdl else None
 
     def clean_field_values(self):
         return dict((un_camel(name), field_ins.clean_value(self._field_values.get(name)))

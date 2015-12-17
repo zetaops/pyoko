@@ -174,6 +174,23 @@ class Model(Node):
         # print(self, self.key)
         return self
 
+    def remove_from_linked_models(self):
+        """
+        this method traverses on all linked models
+        and removes references to this model
+        """
+        for lnk in self.get_links():
+            mdl = lnk['mdl']
+            remote_field_name = un_camel(mdl.__name__)
+            if not lnk['o2o']:
+                remote_set = getattr(mdl, lnk['field'])
+                if remote_set._TYPE == 'ListNode' and self not in remote_set:
+                    remote_set(**{remote_field_name: self.root})
+                    mdl.save()
+            else:
+                delattr(mdl, remote_field_name)
+                mdl.save()
+
     def delete(self):
         """
         this method just flags the object as "deleted" and saves it to db

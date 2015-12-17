@@ -26,7 +26,7 @@ class ModelMeta(type):
             mcs.process_models(attrs, base_model_class)
         if class_type == 'ListNode':
             mcs.process_listnode(attrs, base_model_class)
-        mcs.process_attributes_of_node(attrs, name)
+        mcs.process_attributes_of_node(attrs, name, class_type)
         new_class = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
         return new_class
 
@@ -41,7 +41,7 @@ class ModelMeta(type):
                 mcs.Meta.bucket_name = un_camel(mcs.__name__)
 
     @staticmethod
-    def process_attributes_of_node(attrs, node_name):
+    def process_attributes_of_node(attrs, node_name, class_type):
         """
         prepare the model fields, nodes and relations
 
@@ -51,6 +51,7 @@ class ModelMeta(type):
         # print("Node: %s" % node_name)
         attrs['_nodes'] = {}
         attrs['_linked_models'] = defaultdict(list)
+        attrs['_debug_linked_models'] = defaultdict(list)
         attrs['_lazy_linked_models'] = defaultdict(list)
         attrs['_fields'] = {}
         # attrs['_many_to_models'] = []
@@ -66,14 +67,19 @@ class ModelMeta(type):
 
                 if attr_type == 'Model':
                     lnk_mdl_ins = attrs.pop(key)
-                    attrs['_linked_models'][attr.__class__.__name__].append({
+                    lnk = {
                         'mdl': lnk_mdl_ins.__class__,
                         'o2o': lnk_mdl_ins._is_one_to_one,
+                        'm2m': class_type == 'ListNode',
                         'reverse': lnk_mdl_ins.reverse_name,
                         'verbose': lnk_mdl_ins.verbose_name,
                         'field': key,
-                        'is_set': False
-                    })
+                        'is_set': False,
+                    }
+                    attrs['_linked_models'][attr.__class__.__name__].append(lnk)
+                    debug_lnk = lnk.copy()
+                    debug_lnk['lnksrc']= 'process_attributes_of_node'
+                    attrs['_debug_linked_models'][attr.__class__.__name__].append(debug_lnk)
                 elif attr_type == 'Field':
                     attr.name = key
                     attrs['_fields'][key] = attr

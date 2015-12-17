@@ -62,11 +62,14 @@ class ListNode(Node):
             _name = un_camel(name)
             if _name in node_data:  # check for partial data
                 getattr(clone, name)._load_data(node_data[_name])
-        for lnk in self.get_links():
-            ins = getattr(clone, lnk['field'])
-            self.node_dict[ins.key] = clone
-            break  # only one linked_model can represent an item
+        _key = clone._get_linked_model_key()
+        if _key:
+            self.node_dict[_key] = clone
         return clone
+
+    def _get_linked_model_key(self):
+        for lnk in self.get_links():
+            return getattr(self, lnk['field']).key
 
     def clean_value(self):
         """
@@ -120,6 +123,9 @@ class ListNode(Node):
         clone._is_item = True
         clone.processed_nodes = self.root.processed_nodes
         self.node_stack.append(clone)
+        _key = clone._get_linked_model_key()
+        if _key:
+            self.node_dict[_key] = clone
         return clone
 
     def clear(self):
