@@ -326,6 +326,14 @@ class Form(ModelForm):
                 self.non_data_fields.append(key)
         for v in sorted(self._fields.items(), key=lambda x: x[1]._order):
             self._ordered_fields.append((v[0], v[1]))
+        self.prepare_nodes()
+
+    def prepare_nodes(self):
+        _items = list(self.__class__.__dict__.items()) + list(self.__dict__.items())
+        for key, val in _items:
+            if (hasattr(val, '__base__') and
+                        getattr(val.__base__, '_TYPE', '') in ['Node', 'ListNode']):
+                self._nodes[key] = val
 
     def get_humane_value(self, name):
         return name
