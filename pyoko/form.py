@@ -168,6 +168,7 @@ class ModelForm(object):
             return True
 
     def _get_nodes(self, result):
+        print("Nodes:::::::: %s" % self._nodes)
         for node_name in self._model._nodes:
             if self._filter_out(node_name):
                 continue
@@ -307,6 +308,7 @@ class Form(ModelForm):
         self.key = None
         self._data = {}
         self._ordered_fields = []
+        self.processed_nodes = []
         super(Form, self).__init__(*args, **kwargs)
 
     def get_links(self, **kw):
@@ -331,9 +333,9 @@ class Form(ModelForm):
     def prepare_nodes(self):
         _items = list(self.__class__.__dict__.items()) + list(self.__dict__.items())
         for key, val in _items:
-            if (hasattr(val, '__base__') and
-                        getattr(val.__base__, '_TYPE', '') in ['Node', 'ListNode']):
-                self._nodes[key] = val
+            if getattr(val, '_TYPE', '') in ['Node', 'ListNode']:
+                self._nodes[key] = val(root=self)
+                setattr(self, key, val(root=self))
 
     def get_humane_value(self, name):
         return name
