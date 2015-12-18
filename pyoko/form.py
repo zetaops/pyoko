@@ -9,11 +9,7 @@ both from models or standalone forms
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 import os
-
-from collections import defaultdict
-
 from pyoko.lib.utils import un_camel_id
-
 from .fields import *
 import six
 
@@ -92,7 +88,7 @@ class ModelForm(object):
         # FIXME: investigate and integrate necessary security precautions on received data
         # ie: received keys should  be defined in the form
         # compare with output of self._serialize()
-        self.prepare_fields()
+        self._prepare_fields()
         new_instance = self._model
         new_instance.key = self._model.key
         for key, val in data.items():
@@ -136,7 +132,7 @@ class ModelForm(object):
         :return: list of serialized model fields
         :rtype: list
         """
-        self.prepare_fields()
+        self._prepare_fields()
         self.readable = readable
         result = []
         if self._config['fields']:
@@ -168,7 +164,6 @@ class ModelForm(object):
             return True
 
     def _get_nodes(self, result):
-        print("Nodes:::::::: %s" % self._nodes)
         for node_name in self._model._nodes:
             if self._filter_out(node_name):
                 continue
@@ -233,7 +228,7 @@ class ModelForm(object):
     def _get_fields(self, result, model_obj):
         for name, field in model_obj._ordered_fields:
             if not isinstance(field, Button) and (
-                    name in ['deleted', 'timestamp'] or self._filter_out(name)):
+                            name in ['deleted', 'timestamp'] or self._filter_out(name)):
                 continue
             if self.readable:
                 val = model_obj.get_humane_value(name)
@@ -249,7 +244,7 @@ class ModelForm(object):
                            'kwargs': field.kwargs,
                            'title': field.title,
                            'default': field.default() if callable(
-                               field.default) else field.default,
+                                   field.default) else field.default,
                            })
 
     def _node_schema(self, node, parent_name):
@@ -310,6 +305,7 @@ class Form(ModelForm):
         self._ordered_fields = []
         self.processed_nodes = []
         super(Form, self).__init__(*args, **kwargs)
+        self._prepare_nodes()
 
     def get_links(self, **kw):
         """
@@ -318,7 +314,14 @@ class Form(ModelForm):
         """
         return []
 
-    def prepare_fields(self):
+    def _get_bucket_name(self):
+        return ''
+
+    def get_unpermitted_fields(self):
+        return []
+
+
+    def _prepare_fields(self):
         _items = list(self.__class__.__dict__.items()) + list(self.__dict__.items())
         for key, val in _items:
             if isinstance(val, BaseField):
@@ -328,9 +331,8 @@ class Form(ModelForm):
                 self.non_data_fields.append(key)
         for v in sorted(self._fields.items(), key=lambda x: x[1]._order):
             self._ordered_fields.append((v[0], v[1]))
-        self.prepare_nodes()
 
-    def prepare_nodes(self):
+    def _prepare_nodes(self):
         _items = list(self.__class__.__dict__.items()) + list(self.__dict__.items())
         for key, val in _items:
             if getattr(val, '_TYPE', '') in ['Node', 'ListNode']:
