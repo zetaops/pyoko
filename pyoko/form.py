@@ -12,9 +12,27 @@ import os
 from pyoko.lib.utils import un_camel_id
 from .fields import *
 import six
+from zengine.lib.catalog_data import catalog_data_manager
 
 BYPASS_REQUIRED_FIELDS = os.getenv('BYPASS_REQUIRED_FIELDS')
 
+
+_choices_cache = {}
+
+
+def convert_choices(chc):
+    _id = id(chc)
+    _choices_cache[_id] = [{'name': name, 'value': value} for value, name in chc]
+    return _choices_cache[_id]
+
+
+def get_choices(choices):
+    if callable(choices):
+        return choices()
+    elif not isinstance(choices, (list, tuple)):
+        return catalog_data_manager.get_all(choices)
+    else:
+        return _choices_cache.get(id(choices), convert_choices(choices))
 
 class FormMeta(type):
     _meta = None
@@ -259,14 +277,18 @@ class ModelForm(object):
                            'title': model_instance.Meta.verbose_name,
                            'required': None,})
         for name, field in node._fields.items():
-            result.append({
+            choices =  getattr(field, 'choices', None)
+            typ = 'select' if choices else self.customize_types.get(name, field.solr_type)
+            data = {
                 'name': name,
-                'type': self.customize_types.get(name, field.solr_type),
+                'type': typ,
                 'title': field.title,
                 'required': field.required,
-                'default': field.default() if callable(field.default)
-                else field.default,
-            })
+                'default': field.default() if callable(field.default) else field.default,
+            }
+            if choices:
+                data['titleMap'] = get_choices(choices)
+            result.append(data)
         return result
 
     def prepare_fields(self):
