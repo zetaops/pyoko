@@ -10,6 +10,8 @@ import datetime
 import time
 import uuid
 import six
+from pyoko.lib.utils import lazy_property, get_object_from_path
+
 from pyoko.exceptions import ValidationError
 from pyoko.conf import settings
 
@@ -222,3 +224,35 @@ class TimeStamp(BaseField):
 
     def clean_value(self, val):
         return int(repr(time.time()).replace('.', ''))
+
+
+class File(BaseField):
+    solr_type = 'file'
+
+    @lazy_property
+    def file_manager(self):
+        return get_object_from_path(settings.FILE_MANAGER)
+
+    def __init__(self, *args, **kwargs):
+        self.random_name = kwargs.pop('random_name')
+        # self.file_type = kwargs.pop('type')
+        # self.private = kwargs.pop('private', False)
+        super(File, self).__init__(*args, **kwargs)
+
+    # def __set__(self, instance, value):
+    #     instance._field_values[self.name] = value
+
+    def clean_value(self, val):
+        """
+        val =
+        :param dict val: {"content":"", "name":"", "ext":"", "type":""}
+        :return:
+        """
+        if self.random_name:
+            val['random_name'] = self.random_name
+        return self.file_manager().store_file(**val) if val else None
+
+
+    def _load_data(self, instance, value):
+
+        self.__set__(instance, value)
