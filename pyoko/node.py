@@ -17,15 +17,18 @@ from uuid import uuid4
 
 from collections import defaultdict
 
-
 from .conf import settings
 from .lib.utils import get_object_from_path, lazy_property, un_camel, un_camel_id
 from .modelmeta import ModelMeta
+
+SOLR_SUPPORTED_TYPES = ['string', 'text_general', 'float', 'int', 'boolean',
+                        'date', 'long', 'text_tr']
 
 
 class LazyModel(lazy_object_proxy.Proxy):
     key = None
     verbose_name = None
+    _TYPE = 'Model'
 
     def get_verbose_name(self):
         return self.verbose_name or self.Meta.verbose_name
@@ -43,6 +46,7 @@ class FakeContext(object):
 
     def has_permission(self, perm):
         return True
+
 
 @add_metaclass(ModelMeta)
 class Node(object):
@@ -102,7 +106,7 @@ class Node(object):
 
     @classmethod
     def _add_linked_model(cls, mdl, o2o=False, field=None, reverse=None,
-                          verbose=None, is_set=False, **kwargs):
+                          verbose=None, is_set=False, m2m=False, **kwargs):
         # name = kwargs.get('field', mdl.__name__)
         lnk = {
             'o2o': o2o,
@@ -110,9 +114,14 @@ class Node(object):
             'field': field,
             'reverse': reverse,
             'verbose': verbose,
-            'is_set': is_set
+            'is_set': is_set,
+            'm2m': m2m,
         }
+        lnksrc = kwargs.pop('lnksrc', '')
         lnk.update(kwargs)
+        debug_lnk = lnk.copy()
+        debug_lnk['lnksrc'] = lnksrc
+        cls._debug_linked_models[mdl.__name__].append(debug_lnk)
         if lnk not in cls._linked_models[mdl.__name__]:
             cls._linked_models[mdl.__name__].append(lnk)
 
@@ -132,6 +141,10 @@ class Node(object):
                                            prop]))).replace(root._get_bucket_name() + '.', '')
 
     @classmethod
+    def get_field(cls, field_name):
+        return cls._fields.get(field_name)
+
+    @classmethod
     def get_link(cls, **kw):
         return cls.get_links(**kw)[0]
 
@@ -149,6 +162,7 @@ class Node(object):
         from .model import Model
         def foo_model(modl, context, verbose_name):
             return LazyModel(lambda: modl(context), verbose_name)
+
         for lnk in self.get_links():
             if lnk['is_set']:
                 continue
@@ -181,7 +195,8 @@ class Node(object):
                     else:
                         # creating a lazy proxy for empty linked model
                         # Note: this should be explicitly saved before root model!
-                        setattr(self, lnk['field'], foo_model(lnk['mdl'], self.context, lnk['verbose']))
+                        setattr(self, lnk['field'],
+                                foo_model(lnk['mdl'], self.context, lnk['verbose']))
                         # setattr(self, lnk['field'], LazyModel(lambda: lnk['mdl'](self.context)))
             else:
                 # creating an lazy proxy for empty linked model
@@ -286,8 +301,10 @@ class Node(object):
 
         for name, field_ins in self._fields.items():
             field_name = self._path_of(name)
+            solr_type = (field_ins.solr_type
+                         if field_ins.solr_type in SOLR_SUPPORTED_TYPES else 'ignored')
             result.append((field_name,
-                           field_ins.solr_type,
+                           solr_type,
                            field_ins.index,
                            field_ins.store,
                            multi))
@@ -331,11 +348,10 @@ class Node(object):
         return dct
 
     def _clean_linked_model_value(self, dct):
-        # get vales of linked models
-        for lnk in self.get_links():
+        # get keys of linked models
+        for lnk in self.get_links(is_set=False):
             lnkd_mdl = getattr(self, lnk['field'])
-            if lnkd_mdl._TYPE == 'Model':
-                dct[un_camel_id(lnk['field'])] = lnkd_mdl.key if lnkd_mdl else None
+            dct[un_camel_id(lnk['field'])] = lnkd_mdl.key
 
     def clean_field_values(self):
         return dict((un_camel(name), field_ins.clean_value(self._field_values.get(name)))
