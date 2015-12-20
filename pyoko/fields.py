@@ -248,7 +248,7 @@ class File(BaseField):
         :param dict val: {"content":"", "name":"", "ext":"", "type":""}
         :return:
         """
-        if val:
+        if isinstance(val, dict):
             if self.random_name:
                 val['random_name'] = self.random_name
             return self.file_manager().store_file(**val)
