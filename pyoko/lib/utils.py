@@ -20,8 +20,19 @@ import importlib
 UN_CAMEL_RE = re.compile('((?<=[a-z0-9])[A-Z]|(?!^)[A-Z](?=[a-z]))')
 
 
-def simple_choices_manager(choices, key):
-    return dict(choices).get(key)
+class SimpleChoicesManager(object):
+
+    def __call__(self, choices, key):
+        return dict(choices).get(key)
+
+    @staticmethod
+    def get_all(choices):
+        return choices
+
+class SimpleRiakFileManager(object):
+
+    def store_file(self, **kw):
+        return "%s/|%s" % (kw['ext'], kw['content'])
 
 
 class lazy_property(object):
