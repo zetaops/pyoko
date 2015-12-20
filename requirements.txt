@@ -10,3 +10,7 @@ pytest
 fabric
 pytest-ordering
 ipython
+
+# if you have issues with pip, use "easy_install -a readline" on OSX
+readline
+

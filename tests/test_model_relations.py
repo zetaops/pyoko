@@ -33,7 +33,7 @@ class TestCase:
     # def test_one_to_one_simple_benchmarked(self, benchmark):
     #     benchmark(self.test_one_to_one_simple)
 
-    @pytest.mark.first
+    @pytest.mark.second
     def test_one_to_one_simple(self):
         self.prepare_testbed()
         user = User(name='Joe').save()
@@ -50,7 +50,7 @@ class TestCase:
         employee_from_db = Employee.objects.get(employee.key)
         assert employee_from_db.usr.name == user_from_db.name
 
-    @pytest.mark.second
+    @pytest.mark.first
     def test_many_to_many_simple(self):
         self.prepare_testbed()
 
@@ -113,7 +113,7 @@ class TestCase:
 
 
 
-    @pytest.mark.first
+    @pytest.mark.second
     def test_self_reference(self):
         self.prepare_testbed()
         ceo = User(name="CEO").save()
