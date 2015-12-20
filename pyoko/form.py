@@ -9,30 +9,14 @@ both from models or standalone forms
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 import os
-from pyoko.lib.utils import un_camel_id
+from pyoko.lib.utils import un_camel_id, get_object_from_path, lazy_property
 from .fields import *
 import six
-from zengine.lib.catalog_data import catalog_data_manager
 
 BYPASS_REQUIRED_FIELDS = os.getenv('BYPASS_REQUIRED_FIELDS')
 
 
-_choices_cache = {}
 
-
-def convert_choices(chc):
-    _id = id(chc)
-    _choices_cache[_id] = [{'name': name, 'value': value} for value, name in chc]
-    return _choices_cache[_id]
-
-
-def get_choices(choices):
-    if callable(choices):
-        return choices()
-    elif not isinstance(choices, (list, tuple)):
-        return catalog_data_manager.get_all(choices)
-    else:
-        return _choices_cache.get(id(choices), convert_choices(choices))
 
 class FormMeta(type):
     _meta = None
@@ -119,6 +103,12 @@ class ModelForm(object):
                 setattr(new_instance, name, linked_model_instance)
             elif isinstance(val, (six.string_types, bool, int, float)):  # field
                 setattr(new_instance, key, val)
+            elif isinstance(new_instance.get_field(key), File):  # File field
+                _val = {
+                    'name': val['file_name'],
+                    'content': val['file_content'],
+                }
+                setattr(new_instance, key, _val)
             elif isinstance(val, dict):  # Node
                 node = getattr(new_instance, key)
                 for k in val:
@@ -287,11 +277,33 @@ class ModelForm(object):
                 'default': field.default() if callable(field.default) else field.default,
             }
             if choices:
-                data['titleMap'] = get_choices(choices)
+                data['titleMap'] = self.get_choices(choices)
             result.append(data)
         return result
 
-    def prepare_fields(self):
+
+    @lazy_property
+    def catalog_data_manager(self):
+        return get_object_from_path(settings.CATALOG_DATA_MANAGER)
+
+    _choices_cache = {}
+
+    @classmethod
+    def convert_choices(cls, chc):
+        _id = id(chc)
+        cls._choices_cache[_id] = [{'name': name, 'value': value} for value, name in chc]
+        return cls._choices_cache[_id]
+
+    @classmethod
+    def get_choices(cls, choices):
+        if callable(choices):
+            return choices()
+        elif not isinstance(choices, (list, tuple)):
+            return cls.catalog_data_manager.get_all(choices)
+        else:
+            return cls._choices_cache.get(id(choices), cls.convert_choices(choices))
+
+    def _prepare_fields(self):
         pass
 
     def _node_data(self, nodes, parent_name):
