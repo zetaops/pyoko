@@ -248,9 +248,10 @@ class File(BaseField):
         :param dict val: {"content":"", "name":"", "ext":"", "type":""}
         :return:
         """
-        if self.random_name:
-            val['random_name'] = self.random_name
-        return self.file_manager().store_file(**val) if val else None
+        if val:
+            if self.random_name:
+                val['random_name'] = self.random_name
+            return self.file_manager().store_file(**val)
 
 
     def _load_data(self, instance, value):

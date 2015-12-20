@@ -103,7 +103,7 @@ class ModelForm(object):
                 setattr(new_instance, name, linked_model_instance)
             elif isinstance(val, (six.string_types, bool, int, float)):  # field
                 setattr(new_instance, key, val)
-            elif isinstance(new_instance.get_field(key), File):  # File field
+            elif val and isinstance(new_instance.get_field(key), File):  # File field
                 _val = {
                     'name': val['file_name'],
                     'content': val['file_content'],
