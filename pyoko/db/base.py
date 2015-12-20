@@ -609,8 +609,11 @@ class DBObjects(object):
         joined_query = anded
         if joined_query == '':
             joined_query = '*:*'
-        if settings.DEBUG:
-            print("QRY => %s" % joined_query)
+        try:
+            if settings.DEBUG:
+                print("QRY => %s" % joined_query)
+        except:
+            pass
         self.compiled_query = joined_query
 
     def _process_params(self):
