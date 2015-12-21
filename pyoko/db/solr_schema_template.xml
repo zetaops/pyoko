@@ -22,7 +22,29 @@
     <!-- YZ String: Used for non-analyzed fields -->
     <fieldType name="_yz_str" class="solr.StrField" sortMissingLast="true" />
 
-    <fieldType name="string" class="solr.StrField" sortMissingLast="true" />
+    <!--<fieldType name="string" class="solr.StrField" sortMissingLast="true" />-->
+
+     <!--<fieldType name="string" class="solr.TextField" sortMissingLast="true" omitNorms="true">-->
+         <!--<analyzer type="query">-->
+             <!--<tokenizer class="solr.KeywordTokenizerFactory"/>-->
+             <!--<filter class="solr.LowerCaseFilterFactory"/>-->
+         <!--</analyzer>-->
+     <!--</fieldType>-->
+
+     <fieldType name="string" class="solr.TextField" positionIncrementGap="100">
+       <analyzer type="index">
+         <tokenizer class="solr.StandardTokenizerFactory"/>
+         <filter class="solr.LowerCaseFilterFactory"/>
+       </analyzer>
+       <analyzer type="query">
+         <tokenizer class="solr.StandardTokenizerFactory"/>
+         <filter class="solr.LowerCaseFilterFactory"/>
+       </analyzer>
+     </fieldType>
+
+
+
+
     <fieldType name="boolean" class="solr.BoolField" sortMissingLast="true"/>
 
     <fieldType name="int" class="solr.TrieIntField" precisionStep="0" positionIncrementGap="0"/>

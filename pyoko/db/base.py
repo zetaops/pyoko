@@ -10,9 +10,18 @@ this module contains a base class for other db access classes
 import copy
 
 # noinspection PyCompatibility
+import json
 from datetime import date
 import time
 from datetime import datetime
+
+from riak.util import bytes_to_str
+
+try:
+    from urllib.request import urlopen
+except ImportError:
+    from urllib2 import urlopen
+
 from enum import Enum
 import six
 from pyoko.conf import settings
@@ -89,7 +98,7 @@ class DBObjects(object):
         :return:
         """
         print(grayed("results : ", len(
-            self._solr_cache.get('docs', [])) if brief else self._solr_cache))
+                self._solr_cache.get('docs', [])) if brief else self._solr_cache))
         print(grayed("query : ", self._solr_query))
         print(grayed("params : ", self._solr_params))
         print(grayed("riak_cache : ",
@@ -97,6 +106,20 @@ class DBObjects(object):
         print(grayed("return_type : ", self._cfg['rtype']))
         print(" ")
         return self
+
+    def distinct_values_of(self, field):
+        # FIXME: Add support for query filters
+        url = 'http://%s:8093/internal_solr/%s/select?q=-deleted%%3ATrue&wt=json&facet=true&facet.field=%s' % (
+            settings.RIAK_SERVER, self.index_name, field)
+        result = json.loads(bytes_to_str(urlopen(url).read()))
+        dct = {}
+        fresult = result['facet_counts']['facet_fields'][field]
+        for i in range(0, len(fresult), 2):
+            if i == len(fresult) - 1:
+                break
+            if fresult[i + 1]:
+                dct[fresult[i]] = fresult[i + 1]
+        return dct
 
     def _clear_bucket(self):
         """
@@ -178,6 +201,8 @@ class DBObjects(object):
                 obj.__dict__[k] = []
             elif k == '_solr_cache':
                 obj.__dict__[k] = {}
+            elif k == '_solr_query':
+                obj.__dict__[k] = v[:]
             elif k.endswith(('current_context', 'bucket', '_client', 'model', 'model_class')):
                 obj.__dict__[k] = v
             else:
@@ -202,48 +227,27 @@ class DBObjects(object):
         self.index_name = "%s_%s" % (self._cfg['bucket_type'], self._cfg['bucket_name'])
         return self
 
-        # def save(self, data, key=None):
-        #     """
-        #     saves data to riak with optional key.
-        #     converts python dict to riak map if needed.
-        #     :param dict data: data to be saved
-        #     :param str key: riak object key
-        #     :return:
-        #     """
-        #     if self._data_type == 'map' and isinstance(data, dict):
-        #         return Dictomap(self.bucket, data, str(key)).map.store()
-        #     else:
-        # if key is None:
-        #     return self.bucket.new(data=data).store()
-        # else:
-        #     obj = self.bucket.get(key)
-        #     obj.data = data
-        #     return obj.store()
 
     def save_model(self, model=None):
         """
         saves the model instance to riak
         :return:
         """
-        if model:
-            self.model = model
-
-
+        # if model:
+        #     self.model = model
         if settings.DEBUG:
             t1 = time.time()
-        clean_value = self.model.clean_value()
+        clean_value = model.clean_value()
+        model._data = clean_value
         if settings.DEBUG:
             t2 = time.time()
-        if not self.model.is_in_db():
-            self.model.key = None
-        # riak_object = self.save(clean_value, self.model.key)
-        if not self.model.key:
-            obj = self.bucket.new(data=clean_value, key=self.model.key).store()
-            self.model.key = obj.key
+        if not model.is_in_db():
+            obj = self.bucket.new(data=clean_value).store()
+            model.key = obj.key
             new_obj = True
         else:
             new_obj = False
-            obj = self.bucket.get(self.model.key)
+            obj = self.bucket.get(model.key)
             obj.data = clean_value
             obj.store()
         if settings.DEBUG:
@@ -255,6 +259,7 @@ class DBObjects(object):
                 'SERIALIZATION_TIME': round(t2 - t1, 5),
                 'TIME': round(time.time() - t2, 5)
             })
+        return model
 
     def _get(self):
         """
@@ -266,7 +271,7 @@ class DBObjects(object):
             self._exec_query()
         if not self._riak_cache and self._cfg['rtype'] != ReturnType.Solr:
             if not self._solr_cache['docs']:
-                raise ObjectDoesNotExist()
+                raise ObjectDoesNotExist("%s %s" % (self.index_name, self.compiled_query))
             if settings.DEBUG:
                 t1 = time.time()
             self._riak_cache = [self.bucket.get(self._solr_cache['docs'][0]['_yz_rk'])]
@@ -277,6 +282,9 @@ class DBObjects(object):
                     'BUCKET': self.index_name,
                     'TIME': round(time.time() - t1, 5)})
         if self._cfg['rtype'] == ReturnType.Model:
+            if not self._riak_cache[0].exists:
+                raise ObjectDoesNotExist("%s %s" % (self.index_name,
+                                                    self._riak_cache[0].key))
             return self._make_model(self._riak_cache[0].data,
                                     self._riak_cache[0])
         elif self._cfg['rtype'] == ReturnType.Object:
@@ -298,14 +306,21 @@ class DBObjects(object):
 
     def __repr__(self):
         try:
-            return "%s | %s | %s " % (self.model_class.__name__,
-                                      self._solr_query,
-                                      self._solr_params)
-            # return [obj for obj in self[:10]].__repr__()
+            # return "%s | %s | %s " % (self.model_class.__name__,
+            #                           self._solr_query,
+            #                           self._solr_params)
+            return [obj for obj in self[:10]].__repr__()
         except AssertionError as e:
             return e.msg
         except TypeError:
+            raise
             return str("queryset: %s" % self._solr_query)
+
+    def _add_query(self, filters):
+        # for f in filters:
+        #     if len(f) == 2:
+        #         f.append(False)  # mark as not escaped
+        self._solr_query.extend([f if len(f) == 3 else (f[0], f[1], False) for f in filters])
 
     def filter(self, **filters):
         """
@@ -314,7 +329,7 @@ class DBObjects(object):
         :return: DBObjects
         """
         clone = copy.deepcopy(self)
-        clone._solr_query.extend(filters.items())
+        clone._add_query(filters.items())
         return clone
 
     def exclude(self, **filters):
@@ -339,8 +354,8 @@ class DBObjects(object):
         if count:
             if count > 1:
                 raise MultipleObjectsReturned(
-                    "%s objects returned for %s" % (count,
-                                                    self.model_class.__name__))
+                        "%s objects returned for %s" % (count,
+                                                        self.model_class.__name__))
             return existing[0], False
         else:
             data = defaults or {}
@@ -354,7 +369,6 @@ class DBObjects(object):
         :type key: builtins.NoneType
         :rtype: pyoko.Model
         """
-        # print("Get %s from %s" % (key, self.model_class))
         clone = copy.deepcopy(self)
         if key:
             self.key = key
@@ -373,8 +387,8 @@ class DBObjects(object):
             clone._exec_query()
             if clone.count() > 1:
                 raise MultipleObjectsReturned(
-                    "%s objects returned for %s" % (clone.count(),
-                                                    self.model_class.__name__))
+                        "%s objects returned for %s" % (clone.count(),
+                                                        self.model_class.__name__))
         return clone._get()
 
     def count(self):
@@ -447,11 +461,73 @@ class DBObjects(object):
             clone._solr_params = params
         return clone
 
+    def or_filter(self, **filters):
+        """
+        applies query filters to queryset with OR operator.
+        :param dict filters: query  filter parameters filter(email='a@a.co',...)
+        :return: DBObjects
+        """
+        clone = copy.deepcopy(self)
+        clone._add_query([("OR_QRY", filters)])
+        return clone
+
+    def search_on(self, *fields, **query):
+        """
+        search for query on given fields,
+        search type can be: exact, contains, startswith, endswith, range
+        eg:
+        .search_on('name, 'surname', contains='john')
+        .search_on('name, 'surname', startswith='jo')
+
+        :param fields: field list to be searched on
+        :param query:  search query
+        :return: DBObjects
+        """
+        clone = copy.deepcopy(self)
+        search_type = list(query.keys())[0]
+        parsed_query = self._parse_query_type(search_type, self._escape_query(query[search_type]))
+        clone._add_query([("OR_QRY", dict([(f, parsed_query) for f in fields]), True)])
+        return clone
+
+    def _escape_query(self, query, escaped=False):
+        if escaped:
+            return query
+        query = six.text_type(query)
+        for e in ['+', '-', '&&', '||', '!', '(', ')', '{', '}', '[', ']', '^', '"', '~', '*',
+                  '?', ':', ' ']:
+            query = query.replace(e, "\\%s" % e)
+        return query
+
+    def _parse_query_type(self, qtype, query):
+        if qtype == 'range':
+            start = query[0] or '*'
+            end = query[1] or '*'
+            query = '[%s TO %s]' % (start, end)
+        else:
+            query = query
+            if qtype == 'exact':
+                query = query
+            elif qtype == 'contains':
+                query = "*%s*" % query
+            elif qtype == 'startswith':
+                query =  "%s*" % query
+            elif qtype == 'endswith':
+                query = "%s*" % query
+            elif qtype == 'lte':
+                query = '[* TO %s]' % query
+            elif qtype == 'gte':
+                query = '[%s TO *]' % query
+        return query
+
+
+
+
     def _compile_query(self):
         """
         this will support "OR" and maybe other more advanced queries as well
         :return: Solr query string
         """
+
         # https://wiki.apache.org/solr/SolrQuerySyntax
         # http://lucene.apache.org/core/2_9_4/queryparsersyntax.html
         # TODO: escape following chars: + - && || ! ( ) { } [ ] ^ " ~ * ? : \
@@ -460,8 +536,9 @@ class DBObjects(object):
         filtered_query = self.model_class.row_level_access(self.current_context, self)
         if filtered_query is not None:
             self._solr_query += filtered_query._solr_query
-        for key, val in self._solr_query:
-            key = key.replace('__', '.')
+        # print(self._solr_query)
+        for key, val, is_escaped in self._solr_query:
+
             # querying on a linked model by model instance
             # it should be a Model, not a Node!
             if hasattr(val, '_TYPE'):
@@ -472,28 +549,60 @@ class DBObjects(object):
             elif isinstance(val, datetime):
                 val = val.strftime(DATE_TIME_FORMAT)
             # if it's not one of the expected objects, it should be a string
-            # solr wants quotes when query has spaces
-            elif ' ' in str(val):
-                # val = '"' + val + '"'
-                val = val.replace(' ', "\ ")
+            elif key == 'OR_QRY':
+                key = 'NOKEY'
+                val = ' OR '.join(['%s:%s' % (k, self._escape_query(v, is_escaped)) for k, v in val.items()])
+            elif key.endswith('__in'):
+                key = key[:-4]
+                val = ' OR '.join(['%s:%s' % (key, self._escape_query(v, is_escaped)) for v in val])
+                key = 'NOKEY'
+            elif val is None:
+                key = ('-%s' % key).replace('--', '')
+                val = '[* TO *]'
+            else:
+                val = self._escape_query(val, is_escaped)
 
+            # val should be converted to a string before this point
+            # if ' ' in str(val):
+                # val = '"' + val + '"'
+                # val = val.replace(' ', "\ ")
+
+            if key.endswith('__contains'):
+                key = key[:-10]
+                val = self._parse_query_type('contains', val)
+            elif key.endswith('__range'):
+                key = key[:-7]
+                val = self._parse_query_type('range', val)
+            elif key.endswith('__startswith'):
+                key = key[:-12]
+                val = self._parse_query_type('startswith', val)
+            elif key.endswith('__endswith'):
+                key = key[:-10]
+                val = self._parse_query_type('endswith', val)
             # lower than or equal
-            if key.endswith('_lte'):
-                key = key[:-4]
-                val = '[* TO %s]' % val
+            elif key.endswith('__lte'):
+                key = key[:-5]
+                val = self._parse_query_type('lte', val)
             # greater than or equal
-            elif key.endswith('_gte'):
-                key = key[:-4]
-                val = '[%s TO *]' % val
-            # as long as not explicity asked for,
+            elif key.endswith('__gte'):
+                key = key[:-5]
+                val = self._parse_query_type('gte', val)
+            # in (or) query
+
+            # as long as not explicitly asked for,
             # we filter out records with deleted flag
             elif key == 'deleted':
                 want_deleted = True
             # filter out records that contain any value for this field
-            elif val is None:
-                key = '-%s' % key
-                val = '[* TO *]'
-            query.append("%s:%s" % (key, val))
+
+            # else:
+            #     val = self._parse_query_type('exact', val)
+
+            key = key.replace('__', '.')
+            if key == 'NOKEY':
+                query.append("(%s)" % val)
+            else:
+                query.append("%s:%s" % (key, val))
 
         if not want_deleted:
             query.append('-deleted:True')
@@ -501,6 +610,11 @@ class DBObjects(object):
         joined_query = anded
         if joined_query == '':
             joined_query = '*:*'
+        try:
+            if settings.DEBUG:
+                print("QRY => %s" % joined_query)
+        except:
+            pass
         self.compiled_query = joined_query
 
     def _process_params(self):
@@ -513,7 +627,7 @@ class DBObjects(object):
 
     def _get_debug_data(self):
         return ("                      ~=QUERY DEBUG=~                              "
-        + six.text_type({
+                + six.text_type({
             'QUERY': self.compiled_query,
             'BUCKET': self.index_name,
             'QUERY_PARAMS': self._solr_params}))
@@ -525,7 +639,7 @@ class DBObjects(object):
         """
         if not self._solr_cache and self._cfg['rtype'] != ReturnType.Solr:
             self.set_params(
-                fl='_yz_rk')  # we're going to riak, fetch only keys
+                    fl='_yz_rk')  # we're going to riak, fetch only keys
         if not self._solr_locked:
             if not self.compiled_query:
                 self._compile_query()

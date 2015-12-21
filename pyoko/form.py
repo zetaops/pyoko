@@ -8,10 +8,14 @@ both from models or standalone forms
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
-from collections import defaultdict
-
+import os
+from pyoko.lib.utils import un_camel_id, get_object_from_path, lazy_property
 from .fields import *
 import six
+
+BYPASS_REQUIRED_FIELDS = os.getenv('BYPASS_REQUIRED_FIELDS')
+
+
 
 
 class FormMeta(type):
@@ -46,6 +50,8 @@ class ModelForm(object):
         title = None
         include = []
         exclude = []
+        grouping = {}
+        constraints = {}
         # attributes = defaultdict(list)
 
     def __init__(self, model=None, exclude=None, include=None, types=None, title=None, **kwargs):
@@ -64,13 +70,16 @@ class ModelForm(object):
         self._config = {'fields': True, 'nodes': True, 'models': True, 'list_nodes': True}
         self._config.update(kwargs)
         self.readable = False
+        self._ordered_fields = []
         self.exclude = exclude or self.Meta.exclude
         self.include = include or self.Meta.include
         self.non_data_fields = ['object_key']
         self.customize_types = types or getattr(self.Meta, 'customize_types', {})
         self.help_text = self.Meta.help_text or getattr(self._model.Meta, 'help_text', None)
-        self.title = title or self.Meta.title or getattr(self._model.Meta, 'verbose_name',
-                                      self._model.__class__.__name__)
+        self.title = title or self.Meta.title or self._model.get_verbose_name()
+
+    def get_verbose_name(self):
+        return getattr(self._model.Meta, 'verbose_name', self._model.__class__.__name__)
 
     def deserialize(self, data):
         """
@@ -81,19 +90,25 @@ class ModelForm(object):
         # FIXME: investigate and integrate necessary security precautions on received data
         # ie: received keys should  be defined in the form
         # compare with output of self._serialize()
-        self.prepare_fields()
+        self._prepare_fields()
         new_instance = self._model
         new_instance.key = self._model.key
         for key, val in data.items():
             if key in self.non_data_fields:
                 continue
-            if key.endswith('_id'):  # linked model
+            if key.endswith('_id') and val:  # linked model
                 name = key[:-3]
-                linked_model = self._model._linked_models[name][0](self._model.context).objects.get(
-                    val)
-                setattr(new_instance, name, linked_model)
+                linked_model = self._model.get_link(field=name)['mdl']
+                linked_model_instance = linked_model(self._model.context).objects.get(val)
+                setattr(new_instance, name, linked_model_instance)
             elif isinstance(val, (six.string_types, bool, int, float)):  # field
                 setattr(new_instance, key, val)
+            elif val and isinstance(new_instance.get_field(key), File):  # File field
+                _val = {
+                    'name': val['file_name'],
+                    'content': val['file_content'],
+                }
+                setattr(new_instance, key, _val)
             elif isinstance(val, dict):  # Node
                 node = getattr(new_instance, key)
                 for k in val:
@@ -110,7 +125,7 @@ class ModelForm(object):
                         if k.endswith('_id'):  # linked model in a ListNode
                             name = k[:-3]
                             kwargs[name] = getattr(list_node, name).__class__(
-                                self._model.context).objects.get(ln_item_data[k])
+                                    self._model.context).objects.get(ln_item_data[k])
                         else:
                             kwargs[k] = ln_item_data[k]
                     list_node(**kwargs)
@@ -125,7 +140,7 @@ class ModelForm(object):
         :return: list of serialized model fields
         :rtype: list
         """
-        self.prepare_fields()
+        self._prepare_fields()
         self.readable = readable
         result = []
         if self._config['fields']:
@@ -180,7 +195,7 @@ class ModelForm(object):
                 schema = self._node_schema(instance_node[0], node_name)
             result.append({'name': node_name,
                            'type': node_type,
-                           'title': instance_node.Meta.verbose_name,
+                           'title': instance_node.get_verbose_name(),
                            'schema': schema,
                            'value': node_data if not node_data or node_type == 'ListNode'
                            else node_data[0],
@@ -189,14 +204,15 @@ class ModelForm(object):
                            })
 
     def _get_models(self, result):
-        for model_attr_name, (model, one_to_one) in self._model._linked_models.items():
-            if self._filter_out(model_attr_name):
+        for lnk in self._model.get_links(is_set=False):
+            if self._filter_out(lnk['field']):
                 continue
-            model_instance = getattr(self._model, model_attr_name)
-            result.append({'name': "%s_id" % model_attr_name,
+            model = lnk['mdl']
+            model_instance = getattr(self._model, lnk['field'])
+            result.append({'name': un_camel_id(lnk['field']),
                            'model_name': model.__name__,
                            'type': 'model',
-                           'title': model.Meta.verbose_name,
+                           'title': model_instance.get_verbose_name(),
                            'value': model_instance.key,
                            'content': (self.__class__(model_instance,
                                                       models=False,
@@ -219,7 +235,8 @@ class ModelForm(object):
 
     def _get_fields(self, result, model_obj):
         for name, field in model_obj._ordered_fields:
-            if not isinstance(field, Button) and (name in ['deleted', 'timestamp'] or self._filter_out(name)):
+            if not isinstance(field, Button) and (
+                            name in ['deleted', 'timestamp'] or self._filter_out(name)):
                 continue
             if self.readable:
                 val = model_obj.get_humane_value(name)
@@ -229,47 +246,75 @@ class ModelForm(object):
                            'type': self.customize_types.get(name,
                                                             field.solr_type),
                            'value': val,
-                           'required': False if field.solr_type is 'boolean' else field.required,
+                           'required': (False if BYPASS_REQUIRED_FIELDS or
+                                                 field.solr_type is 'boolean' else field.required),
                            'choices': getattr(field, 'choices', None),
                            'kwargs': field.kwargs,
-                           # 'cmd': getattr(field, 'cmd', None),
-                           # 'flow': getattr(field, 'flow', None),
-                           # 'position': getattr(field, 'position', None),
                            'title': field.title,
-                           'default': field.default() if callable(field.default) else field.default,
+                           'default': field.default() if callable(
+                                   field.default) else field.default,
                            })
 
     def _node_schema(self, node, parent_name):
         result = []
 
         # node_data = {'models': [], 'fields': []}
-        for model_attr_name in node._linked_models:
-            model_instance = getattr(node, model_attr_name)
-            result.append({'name': "%s_id" % model_attr_name,
+        for lnk in node.get_links():
+            model_instance = getattr(node, lnk['field'])
+            result.append({'name': un_camel_id(lnk['field']),
                            'model_name': model_instance.__class__.__name__,
                            'type': 'model',
                            'title': model_instance.Meta.verbose_name,
-                           'required': None, })
+                           'required': None,})
         for name, field in node._fields.items():
-            result.append({
+            choices =  getattr(field, 'choices', None)
+            typ = 'select' if choices else self.customize_types.get(name, field.solr_type)
+            data = {
                 'name': name,
-                'type': self.customize_types.get(name, field.solr_type),
+                'type': typ,
                 'title': field.title,
                 'required': field.required,
-                'default': field.default() if callable(field.default)
-                else field.default,
-            })
+                'default': field.default() if callable(field.default) else field.default,
+            }
+            if choices:
+                data['titleMap'] = self.get_choices(choices)
+            result.append(data)
         return result
+
+
+    @lazy_property
+    def catalog_data_manager(self):
+        return get_object_from_path(settings.CATALOG_DATA_MANAGER)
+
+    _choices_cache = {}
+
+    @classmethod
+    def convert_choices(cls, chc):
+        _id = id(chc)
+        cls._choices_cache[_id] = [{'name': name, 'value': value} for value, name in chc]
+        return cls._choices_cache[_id]
+
+
+    def get_choices(self, choices):
+        if callable(choices):
+            return choices()
+        elif not isinstance(choices, (list, tuple)):
+            return self.catalog_data_manager.get_all(choices)
+        else:
+            return self._choices_cache.get(id(choices), self.convert_choices(choices))
+
+    def _prepare_fields(self):
+        pass
 
     def _node_data(self, nodes, parent_name):
         results = []
         for real_node in nodes:
             result = {}
             # node_data = {'models': [], 'fields': []}
-            for model_attr_name in real_node._linked_models:
-                model_instance = getattr(real_node, model_attr_name)
-                result["%s_id" % model_attr_name] = {'key': model_instance.key,
-                                                     'verbose_name': model_instance.Meta.verbose_name,
+            for lnk in real_node.get_links():
+                model_instance = getattr(real_node, lnk['field'])
+                result[un_camel_id(lnk['field'])] = {'key': model_instance.key,
+                                                     'verbose_name': model_instance.get_verbose_name(),
                                                      'unicode': six.text_type(model_instance)
                                                      }
             for name, field in real_node._fields.items():
@@ -288,23 +333,45 @@ class Form(ModelForm):
         self.context = kwargs.get('current')
         self._nodes = {}
         self._fields = {}
-        self._linked_models = {}
         self._field_values = {}
         self.key = None
         self._data = {}
         self._ordered_fields = []
+        self.processed_nodes = []
         super(Form, self).__init__(*args, **kwargs)
+        self._prepare_nodes()
 
-    def prepare_fields(self):
+    def get_links(self, **kw):
+        """
+        just to imitate real model
+        :return:
+        """
+        return []
+
+    def _get_bucket_name(self):
+        return ''
+
+    def get_unpermitted_fields(self):
+        return []
+
+
+    def _prepare_fields(self):
         _items = list(self.__class__.__dict__.items()) + list(self.__dict__.items())
         for key, val in _items:
             if isinstance(val, BaseField):
                 val.name = key
                 self._fields[key] = val
-            if isinstance(val, (Button, )):
+            if isinstance(val, (Button,)):
                 self.non_data_fields.append(key)
         for v in sorted(self._fields.items(), key=lambda x: x[1]._order):
             self._ordered_fields.append((v[0], v[1]))
+
+    def _prepare_nodes(self):
+        _items = list(self.__class__.__dict__.items()) + list(self.__dict__.items())
+        for key, val in _items:
+            if getattr(val, '_TYPE', '') in ['Node', 'ListNode']:
+                self._nodes[key] = val(root=self)
+                setattr(self, key, val(root=self))
 
     def get_humane_value(self, name):
         return name

@@ -20,8 +20,19 @@ import importlib
 UN_CAMEL_RE = re.compile('((?<=[a-z0-9])[A-Z]|(?!^)[A-Z](?=[a-z]))')
 
 
-def simple_choices_manager(choices, key):
-    return dict(choices).get(key)
+class SimpleChoicesManager(object):
+
+    def __call__(self, choices, key):
+        return dict(choices).get(key)
+
+    @staticmethod
+    def get_all(choices):
+        return choices
+
+class SimpleRiakFileManager(object):
+
+    def store_file(self, **kw):
+        return "%s/|%s" % (kw['ext'], kw['content'])
 
 
 class lazy_property(object):
@@ -114,6 +125,7 @@ def pprnt(input, return_data=False):
     UNDERLINE = '\033[4m'
     import json, re
     result = json.dumps(input, sort_keys=True, indent=4)
+    result = re.sub(r'(")(\w*?_id)(":)', r'\1%s%s\2%s\3' % (BOLD, HEADER, ENDC), result)
     result = re.sub(r'(")(\w*?_set)(":)', r'\1%s%s\2%s\3' % (BOLD, HEADER, ENDC), result)
     result = re.sub(r'(\n *?")(\w*?)(":)', r'\1%s%s\2%s\3' % (BOLD, OKGREEN, ENDC), result)
     if not return_data:

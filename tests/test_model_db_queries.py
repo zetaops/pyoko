@@ -42,13 +42,10 @@ class TestCase:
             sleep(1)  # wait for Riak -> Solr sync
         return cls.new_obj
 
-
     @classmethod
     def prepare_testbed(cls, reset=False):
         cls.clear_bucket(reset)
         return cls.get_or_create_new_obj(reset)
-
-
 
     def test_save_load_model(self):
         st = self.prepare_testbed()
@@ -58,15 +55,12 @@ class TestCase:
         clean_data['timestamp'] = clean_value['timestamp']
         assert clean_data == clean_value
 
-
-
     def test_get_multiple_objects_exception(self):
         self.prepare_testbed()
         s2 = Student(name='Foo').save()
         sleep(2)
         with pytest.raises(MultipleObjectsReturned):
             Student.objects.get()
-
 
     def test_delete_model(self):
         self.prepare_testbed(True)
@@ -108,7 +102,7 @@ class TestCase:
     def test_save_query_get_first(self):
         self.prepare_testbed()
         st2 = Student.objects.filter(
-            auth_info__email=data['auth_info']['email'])[0]
+                auth_info__email=data['auth_info']['email'])[0]
         clean_value = st2.clean_value()
         clean_data['timestamp'] = clean_value['timestamp']
         assert clean_data == clean_value
@@ -116,7 +110,7 @@ class TestCase:
     def test_save_query_list_models(self):
         self.prepare_testbed()
         students = Student.objects.filter(
-            auth_info__email=data['auth_info']['email'])
+                auth_info__email=data['auth_info']['email'])
         st2 = students[0]
         clean_value = st2.clean_value()
         clean_data['timestamp'] = clean_value['timestamp']
@@ -125,7 +119,7 @@ class TestCase:
     def test_save_query_list_riak_objects(self):
         self.prepare_testbed()
         students = Student.objects.data().filter(
-            auth_info__email=data['auth_info']['email'])
+                auth_info__email=data['auth_info']['email'])
         st2_data = students[0].data
         clean_data['timestamp'] = st2_data['timestamp']
         assert clean_data == st2_data
@@ -134,14 +128,13 @@ class TestCase:
         # FIXME: order of multivalued field values varies between solr versions
         st = self.prepare_testbed()
         st2_doc = Student.objects.solr().filter(
-            auth_info__email=data['auth_info']['email'])[0]
+                auth_info__email=data['auth_info']['email'])[0]
         solr_doc = {'_yz_rb': 'student',
                     '_yz_rt': settings.DEFAULT_BUCKET_TYPE,
                     '_yz_id': st2_doc['_yz_id'],
                     'score': st2_doc['score'],
                     '_yz_rk': st.key}
         assert solr_doc == st2_doc
-
 
     def test_lte_gte(self):
         self.prepare_testbed()
@@ -150,5 +143,23 @@ class TestCase:
         TimeTable(week_day=5, hours=1).save()
         TimeTable(week_day=3, hours=6).save()
         sleep(1)
-        assert TimeTable.objects.filter(hours_gte=4).count() == 2
-        assert TimeTable.objects.filter(hours_lte=4).count() == 3
+        assert TimeTable.objects.filter(hours__gte=4).count() == 2
+        assert TimeTable.objects.filter(hours__lte=4).count() == 3
+
+    def test_or_queries(self):
+        d = {'s1': ['ali', 'veli'],
+             's2': ['joe', 'roby'],
+             's3': ['rob', 'zombie'],
+             's4': ['go', 'jira']}
+        if not Student.objects.filter(name=d['s2'][0]):
+            for k, v in d.items():
+                Student(name=v[0], surname=v[1]).save()
+            sleep(1)
+        assert 3 == Student.objects.filter(
+                name__in=(d['s1'][0], d['s2'][0], d['s3'][0])).count()
+
+        assert 3 == Student.objects.filter(
+                name__in=(d['s1'][0], d['s2'][0], d['s3'][0])).filter(
+                surname__in=(d['s1'][1], d['s2'][1], d['s3'][1])).count()
+
+        assert 2 == Student.objects.search_on('name', 'surname', contains='rob').count()

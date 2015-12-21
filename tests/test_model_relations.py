@@ -9,6 +9,8 @@
 from pprint import pprint
 from time import sleep, time
 from tests.models import *
+import pytest
+
 
 
 class TestCase:
@@ -31,9 +33,11 @@ class TestCase:
     # def test_one_to_one_simple_benchmarked(self, benchmark):
     #     benchmark(self.test_one_to_one_simple)
 
+    @pytest.mark.second
     def test_one_to_one_simple(self):
         self.prepare_testbed()
         user = User(name='Joe').save()
+        print(user.key)
         employee = Employee(eid='E1', usr=user).save()
         # need to wait a sec because we will query solr in the
         # _save_back_linked_models of User object
@@ -46,6 +50,7 @@ class TestCase:
         employee_from_db = Employee.objects.get(employee.key)
         assert employee_from_db.usr.name == user_from_db.name
 
+    @pytest.mark.first
     def test_many_to_many_simple(self):
         self.prepare_testbed()
 
@@ -63,6 +68,7 @@ class TestCase:
         assert db_sc_tt2.lecture != db_sc_tt1.lecture
         assert tt1.lecture == db_tt1.lecture
 
+    @pytest.mark.second
     def test_many_to_many_to_one(self):
         self.prepare_testbed()
         perm = Permission(name="Can see employee data",
@@ -74,11 +80,13 @@ class TestCase:
         assert len(db_perm.abstract_role_set) == 1
         user = User(name='Adams')
         user.save()
-        role = Role(usr=user, abstract_role=abs_role, active=True)
+        role = Role(abstract_role=abs_role, active=True)
+        # role = Role(usr=user, abstract_role=abs_role, active=True)
+        role.usr = user
         role.save()
         user_db = User.objects.get(user.key)
-        assert role.key == user_db.role_set[0].role.key
-        role_node = user_db.role_set[0]
+        assert role.key == user_db.roller[0].role.key
+        role_node = user_db.roller[0]
         db_user_role_abs_role = role_node.role.abstract_role
         assert abs_role.name == db_user_role_abs_role.name
         db_abs_role = AbstractRole.objects.get(abs_role.key)
@@ -87,12 +95,35 @@ class TestCase:
         # but this would fail, cause denormalization doesn't reach this far, yet!
         # assert perm.codename == db_user_role_abs_role.Permissions[0].permission.codename
 
+    @pytest.mark.second
     def test_missing_relations_simple(self):
         self.prepare_testbed()
         u = User(name="Foo").save()
         r = Role(usr=u, name="Foo Frighters").save()
         assert Role.objects.get(r.key).usr.name == u.name
 
+
+    @pytest.mark.second
+    def test_lazy_links(self):
+        self.prepare_testbed()
+        u = User(name="Foo").save()
+        mate = User(name="Mate").save()
+        r = Role(usr=u, teammate=mate, name="Foo Frighters").save()
+        db_role = Role.objects.get(r.key)
+        assert db_role.teammate.name == mate.name
+        assert db_role.usr.name == u.name
+
+
+
+    @pytest.mark.second
+    def test_self_reference(self):
+        self.prepare_testbed()
+        ceo = User(name="CEO").save()
+        mate1 = User(name="Mate", supervisor=ceo).save()
+        mate2 = User(name="Mate2", supervisor=ceo).save()
+        ceo_db = User.objects.get(ceo.key)
+        assert mate1 in ceo_db.workers
+        assert len(ceo_db.workers) == 2
 
 
 

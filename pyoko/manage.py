@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*-  coding: utf-8 -*-
 """
 command line management interface
@@ -14,6 +15,8 @@ import json
 
 from os import environ
 import os
+
+from pyoko.conf import settings
 from riak.client import binary_json_decoder, binary_json_encoder
 from sys import argv
 from six import add_metaclass, PY2
@@ -68,6 +71,29 @@ class Command(object):
 
     def run(self):
         raise NotImplemented("You should override this method in your command class")
+
+
+class Shell(Command):
+    CMD_NAME = 'shell'
+    PARAMS = [
+              {'name': 'no_model', 'action': 'store_true',
+               'help': 'Do not import models'},
+              ]
+    HELP = 'Run IPython shell'
+
+    def run(self):
+        if not self.manager.args.no_model:
+            exec('from %s import *' % settings.MODELS_MODULE)
+        try:
+            from IPython import embed
+            embed()
+        except:
+            import readline
+            import code
+            vars = globals().copy()
+            vars.update(locals())
+            shell = code.InteractiveConsole(vars)
+            shell.interact()
 
 
 class SchemaUpdate(Command):
@@ -225,6 +251,7 @@ class DumpData(Command):
             outfile = codecs.open(self.manager.args.path, 'w', encoding='utf-8')
         data = defaultdict(list)
         for mdl in models:
+            print("Dumping %s" % mdl.__name__)
             model = mdl(super_context)
             count = model.objects.count()
             rounds = int(count / batch_size) + 1
@@ -236,6 +263,7 @@ class DumpData(Command):
                                                     sort="timestamp asc",
                                                     rows=batch_size,
                                                     start=i * batch_size):
+                    # print("Object %s" % obj.key)
                     if obj.data is not None:
                         if typ == self.JSON:
                             out = json.dumps((bucket.name, obj.key, obj.data))
@@ -349,7 +377,7 @@ and .js extensions will be loaded."""},
         data = json.loads(file.read())
         for bucket_name in data.keys():
             for key, val in data[bucket_name]:
-                self.save_obj(bucket_name, key, val)
+                self.save_obj(bucket_name, key, json.dumps(val))
 
     def read_per_line(self, file):
         for line in file:
@@ -359,7 +387,7 @@ and .js extensions will be loaded."""},
     def read_json_per_line(self, file):
         for line in file:
             bucket_name, key, val = json.loads(line)
-            self.save_obj(bucket_name, key, val)
+            self.save_obj(bucket_name, key, json.dumps(val))
 
     def save_obj(self, bucket_name, key, val):
         key = key or None
