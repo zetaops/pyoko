@@ -10,7 +10,7 @@ import six
 from .node import Node, FakeContext
 from . import fields as field
 from .db.base import DBObjects
-from .lib.utils import un_camel, lazy_property, pprnt, diff_dict, un_camel_id
+from .lib.utils import un_camel, lazy_property, pprnt, un_camel_id
 import weakref
 from .modelmeta import model_registry
 
