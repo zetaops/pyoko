@@ -80,7 +80,9 @@ class TestCase:
         assert len(db_perm.abstract_role_set) == 1
         user = User(name='Adams')
         user.save()
-        role = Role(usr=user, abstract_role=abs_role, active=True)
+        role = Role(abstract_role=abs_role, active=True)
+        # role = Role(usr=user, abstract_role=abs_role, active=True)
+        role.usr = user
         role.save()
         user_db = User.objects.get(user.key)
         assert role.key == user_db.roller[0].role.key

@@ -10,7 +10,7 @@ import six
 from .node import Node, FakeContext
 from . import fields as field
 from .db.base import DBObjects
-from .lib.utils import un_camel, lazy_property, pprnt
+from .lib.utils import un_camel, lazy_property, pprnt, diff_dict, un_camel_id
 import weakref
 from .modelmeta import model_registry
 
@@ -43,7 +43,7 @@ class Model(Node):
         self._is_one_to_one = kwargs.pop('one_to_one', False)
         self.title = kwargs.pop('title', self.__class__.__name__)
         self.root = self
-        self.new_back_links = []
+        self.new_back_links = {}
         kwargs['context'] = context
         super(Model, self).__init__(**kwargs)
 
@@ -165,12 +165,28 @@ class Model(Node):
                 setattr(linked_mdl_ins, remote_field_name, self.root)
                 linked_mdl_ins.save()
 
+    def _add_back_link(self, linked_mdl, *args):
+        lnk = list(args)[:]
+        lnk.insert(0, linked_mdl)
+        self.new_back_links["%s_%s" % (linked_mdl.key, hash(args))] = lnk
+
+    def _handle_changed_fields(self, old_data):
+        for link in self.get_links(is_set=False):
+            fld_id = un_camel_id(link['field'])
+            if not old_data or old_data[fld_id] != self._data[fld_id]:
+                # self is new or linked model changed
+                if self._data[fld_id]:  # exists
+                    linked_mdl = getattr(self, link['field'])
+                    self._add_back_link(linked_mdl, link['field'], link['o2o'])
+
     def save(self):
+        old_data = self._data.copy()
         self.objects.save_model(self)
-        # print(self, self.key)
-        for i in range(len(self.new_back_links)):
-            if self.new_back_links:
-                self.update_new_linked_model(*self.new_back_links.pop())
+        self._handle_changed_fields(old_data)
+        for k, v in self.new_back_links.copy().items():
+            del self.new_back_links[k]
+            self.update_new_linked_model(*v)
+
         # print(self, self.key)
         return self
 

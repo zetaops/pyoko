@@ -238,6 +238,7 @@ class DBObjects(object):
         if settings.DEBUG:
             t1 = time.time()
         clean_value = model.clean_value()
+        model._data = clean_value
         if settings.DEBUG:
             t2 = time.time()
         if not model.is_in_db():

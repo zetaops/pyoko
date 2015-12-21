@@ -163,9 +163,9 @@ class Node(object):
         def foo_model(modl, context, verbose_name):
             return LazyModel(lambda: modl(context), verbose_name)
 
-        for lnk in self.get_links():
-            if lnk['is_set']:
-                continue
+        for lnk in self.get_links(is_set=False):
+            # if lnk['is_set']:
+            #     continue
             if data:
                 # data can be came from db or user
                 if lnk['field'] in data and isinstance(data[lnk['field']], Model):
@@ -173,13 +173,13 @@ class Node(object):
                     # and it should be a model instance
                     linked_mdl_ins = data[lnk['field']]
                     setattr(self, lnk['field'], linked_mdl_ins)
-                    if self.root.is_in_db():
-                        # if root model already saved (has a key),
-                        # update reverse relations of linked model
-                        self.root.update_new_linked_model(linked_mdl_ins, lnk['field'], lnk['o2o'])
-                    else:
-                        # otherwise we should do it after root model saved
-                        self.root.new_back_links.append((linked_mdl_ins, lnk['field'], lnk['o2o']))
+                    # if self.root.is_in_db():
+                    #     if root model already saved (has a key),
+                    #     update reverse relations of linked model
+                    # self.root.update_new_linked_model(linked_mdl_ins, lnk['field'], lnk['o2o'])
+                    # else:
+                    # otherwise we should do it after root model saved
+                    self.root._add_back_link(linked_mdl_ins, lnk['field'], lnk['o2o'])
                 else:
                     _name = un_camel_id(lnk['field'])
                     if _name in data and data[_name] is not None:
