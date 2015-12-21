@@ -173,7 +173,7 @@ class Model(Node):
     def _handle_changed_fields(self, old_data):
         for link in self.get_links(is_set=False):
             fld_id = un_camel_id(link['field'])
-            if not old_data or old_data[fld_id] != self._data[fld_id]:
+            if not old_data or old_data.get(fld_id) != self._data[fld_id]:
                 # self is new or linked model changed
                 if self._data[fld_id]:  # exists
                     linked_mdl = getattr(self, link['field'])
