@@ -294,14 +294,14 @@ class ModelForm(object):
         cls._choices_cache[_id] = [{'name': name, 'value': value} for value, name in chc]
         return cls._choices_cache[_id]
 
-    @classmethod
-    def get_choices(cls, choices):
+
+    def get_choices(self, choices):
         if callable(choices):
             return choices()
         elif not isinstance(choices, (list, tuple)):
-            return cls.catalog_data_manager.get_all(choices)
+            return self.catalog_data_manager.get_all(choices)
         else:
-            return cls._choices_cache.get(id(choices), cls.convert_choices(choices))
+            return self._choices_cache.get(id(choices), self.convert_choices(choices))
 
     def _prepare_fields(self):
         pass
