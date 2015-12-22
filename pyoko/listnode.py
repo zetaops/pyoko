@@ -157,10 +157,10 @@ class ListNode(Node):
             raise TypeError("This an item of the parent ListNode")
         self.node_stack[key] = value
 
-    def __delitem__(self, key):
+    def __delitem__(self, obj):
         if self._is_item:
             raise TypeError("This an item of the parent ListNode")
-        self.node_stack.remove(self[key])
+        self.node_stack.remove(obj)
 
     def remove(self):
         """
