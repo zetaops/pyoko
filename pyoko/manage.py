@@ -232,6 +232,7 @@ class DumpData(Command):
     def run(self):
         from pyoko.conf import settings
         from importlib import import_module
+        import os
         try:
             import_module(settings.MODELS_MODULE)
         except:
@@ -251,7 +252,8 @@ class DumpData(Command):
             outfile = codecs.open(self.manager.args.path, 'w', encoding='utf-8')
         data = defaultdict(list)
         for mdl in models:
-            print("Dumping %s" % mdl.__name__)
+            if to_file:
+                print("Dumping %s" % mdl.__name__)
             model = mdl(super_context)
             count = model.objects.count()
             rounds = int(count / batch_size) + 1

@@ -77,7 +77,7 @@ class Model(Node):
 
         choices = self._fields[field].choices
         if isinstance(choices, six.string_types):
-            return self._choices_manager.get_all(choices)
+            return [(d['value'], d['name']) for d in self._choices_manager.get_all(choices)]
         else:
             return choices
 
