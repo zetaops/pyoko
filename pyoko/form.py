@@ -179,8 +179,8 @@ class ModelForm(object):
             node_type = instance_node.__class__.__base__.__name__
             node_data = None
             if (instance_node._is_auto_created or
-                    (node_type == 'Node' and self._config['nodes'] is None) or
-                    (node_type == 'ListNode' and self._config['list_nodes'] is None)):
+                    (node_type == 'Node' and not self._config['nodes']) or
+                    (node_type == 'ListNode' and not self._config['list_nodes'])):
                 continue
             if node_type == 'Node':
                 schema = self._node_schema(instance_node, node_name)
