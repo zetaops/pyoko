@@ -47,6 +47,18 @@ class TestCase:
         cls.clear_bucket(reset)
         return cls.get_or_create_new_obj(reset)
 
+    def test_listnode_values(self):
+        st = Student()
+        l = st.Lectures(code='Mat101')
+        l.credit = 4
+        assert l.code == 'Mat101'
+        assert l.credit == 4
+        st.save()
+        db_st = Student.objects.get(st.key)
+        db_l = db_st.Lectures[0]
+        assert l.credit == db_l.credit
+        assert l.code == db_l.code
+
     def test_save_load_model(self):
         st = self.prepare_testbed()
         key = st.key

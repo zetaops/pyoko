@@ -51,13 +51,14 @@ class BaseField(object):
         self.index = index or bool(type)
         self.store = store
         self.default = default
-        self.name = ''
+        self.name = kwargs.pop('name', '')
         self.kwargs = kwargs
+
 
     def __get__(self, instance, cls=None):
         if cls is None:
             return self
-        return instance._field_values.get(self.name, None) if instance else self.__class__
+        return instance._field_values.get(self.name, None)
         # if val or not instance.parent:
         #     return val
         # else:
