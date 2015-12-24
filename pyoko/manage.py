@@ -8,6 +8,7 @@ command line management interface
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
+from __future__ import print_function
 from argparse import RawTextHelpFormatter, HelpFormatter
 import codecs
 from collections import defaultdict
@@ -18,7 +19,7 @@ import os
 
 from pyoko.conf import settings
 from riak.client import binary_json_decoder, binary_json_encoder
-from sys import argv
+from sys import argv, stdout
 from six import add_metaclass, PY2
 from pyoko.model import super_context
 
@@ -419,24 +420,29 @@ class TestGetKeys(Command):
         empty_records = set()
         seen_in = defaultdict(list)
         for mdl in models:
+            print("Checking keys of %s" % mdl.Meta.verbose_name)
             bucket = mdl.objects.bucket
             for k in bucket.get_keys():
                 obj = bucket.get(k)
                 if obj.data is None:
                     empty_records.add(k)
                     seen_in[k].append(bucket.name)
-        for mdl in models:
-            bucket = mdl.objects.bucket
-            for k in list(empty_records):
-                obj = bucket.get(k)
-                if obj.data is not None:
-                    empty_records.remove(k)
-                    print("%s seen in %s" % (obj.key, seen_in[obj.key]))
-                    print("But actually found in %s" % bucket.name)
-                    print("- - -")
-
         if empty_records:
+            print("Found %s empty records" % len(empty_records))
+            for mdl in models:
+                print("Searching wrong keys in %s" % (mdl.Meta.verbose_name,))
+                bucket = mdl.objects.bucket
+                for k in list(empty_records):
+                    obj = bucket.get(k)
+                    if obj.data is not None:
+                        empty_records.remove(k)
+                        print("%s seen in %s" % (obj.key, seen_in[obj.key]))
+                        print("But actually found in %s" % bucket.name)
+                        print("- - -")
+
             print("These keys cannot found anywhere: %s" % empty_records)
+        else:
+            print("\n\nEverything looks OK!")
 
 
 class FindDuplicateKeys(Command):
@@ -451,11 +457,16 @@ class FindDuplicateKeys(Command):
         models = registry.get_base_models()
         keys = defaultdict(list)
         for mdl in models:
+            print("Checking keys of %s" % mdl.Meta.verbose_name)
             model = mdl(super_context)
+            is_mdl_ok = True
             for r in model.objects.solr().raw('*:*'):
                 if r['_yz_rk'] in keys:
                     print("%s found in %s previously seen in %s" % (r['_yz_rk'],
                                                                     mdl.__name__,
                                                                     keys[r['_yz_rk']]))
+                    is_mdl_ok = False
                 keys[r['_yz_rk']].append(mdl.__name__)
+            if is_mdl_ok:
+                print("~~~~~~~~ %s is OK!" % mdl.Meta.verbose_name)
 
