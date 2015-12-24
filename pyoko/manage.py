@@ -405,57 +405,57 @@ and .js extensions will be loaded."""},
             else:
                 self.already_existing += 1
 
-#
-# class TestGetKeys(Command):
-#     CMD_NAME = '_test_get_keys'
-#     HELP = 'tests the correctness of the bucket.get_keys()'
-#
-#     def run(self):
-#         from pyoko.conf import settings
-#         from importlib import import_module
-#         import_module(settings.MODELS_MODULE)
-#         registry = import_module('pyoko.model').model_registry
-#         models = registry.get_base_models()
-#         empty_records = set()
-#         seen_in = defaultdict(list)
-#         for mdl in models:
-#             bucket = mdl.objects.bucket
-#             for k in bucket.get_keys():
-#                 obj = bucket.get(k)
-#                 if obj.data is None:
-#                     empty_records.add(k)
-#                     seen_in[k].append(bucket.name)
-#         for mdl in models:
-#             bucket = mdl.objects.bucket
-#             for k in list(empty_records):
-#                 obj = bucket.get(k)
-#                 if obj.data is not None:
-#                     empty_records.remove(k)
-#                     print("%s seen in %s" % (obj.key, seen_in[obj.key]))
-#                     print("But actually found in %s" % bucket.name)
-#                     print("- - -")
-#
-#         if empty_records:
-#             print("These keys cannot found anywhere: %s" % empty_records)
-#
-#
-# class FindDuplicateKeys(Command):
-#     CMD_NAME = '_find_dups'
-#     HELP = 'finds duplicate keys, to help debugging'
-#
-#     def run(self):
-#         from pyoko.conf import settings
-#         from importlib import import_module
-#         import_module(settings.MODELS_MODULE)
-#         registry = import_module('pyoko.model').model_registry
-#         models = registry.get_base_models()
-#         keys = defaultdict(list)
-#         for mdl in models:
-#             model = mdl(super_context)
-#             for r in model.objects.solr().raw('*:*'):
-#                 if r['_yz_rk'] in keys:
-#                     print("%s found in %s previously seen in %s" % (r['_yz_rk'],
-#                                                                     mdl.__name__,
-#                                                                     keys[r['_yz_rk']]))
-#                 keys[r['_yz_rk']].append(mdl.__name__)
-#
+
+class TestGetKeys(Command):
+    CMD_NAME = '_test_get_keys'
+    HELP = 'tests the correctness of the bucket.get_keys()'
+
+    def run(self):
+        from pyoko.conf import settings
+        from importlib import import_module
+        import_module(settings.MODELS_MODULE)
+        registry = import_module('pyoko.model').model_registry
+        models = registry.get_base_models()
+        empty_records = set()
+        seen_in = defaultdict(list)
+        for mdl in models:
+            bucket = mdl.objects.bucket
+            for k in bucket.get_keys():
+                obj = bucket.get(k)
+                if obj.data is None:
+                    empty_records.add(k)
+                    seen_in[k].append(bucket.name)
+        for mdl in models:
+            bucket = mdl.objects.bucket
+            for k in list(empty_records):
+                obj = bucket.get(k)
+                if obj.data is not None:
+                    empty_records.remove(k)
+                    print("%s seen in %s" % (obj.key, seen_in[obj.key]))
+                    print("But actually found in %s" % bucket.name)
+                    print("- - -")
+
+        if empty_records:
+            print("These keys cannot found anywhere: %s" % empty_records)
+
+
+class FindDuplicateKeys(Command):
+    CMD_NAME = '_find_dups'
+    HELP = 'finds duplicate keys, to help debugging'
+
+    def run(self):
+        from pyoko.conf import settings
+        from importlib import import_module
+        import_module(settings.MODELS_MODULE)
+        registry = import_module('pyoko.model').model_registry
+        models = registry.get_base_models()
+        keys = defaultdict(list)
+        for mdl in models:
+            model = mdl(super_context)
+            for r in model.objects.solr().raw('*:*'):
+                if r['_yz_rk'] in keys:
+                    print("%s found in %s previously seen in %s" % (r['_yz_rk'],
+                                                                    mdl.__name__,
+                                                                    keys[r['_yz_rk']]))
+                keys[r['_yz_rk']].append(mdl.__name__)
+
