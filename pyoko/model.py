@@ -160,10 +160,10 @@ class Model(Node):
                 remote_set = getattr(linked_mdl_ins, local_field_name)
                 if remote_set._TYPE == 'ListNode' and self not in remote_set:
                     remote_set(**{remote_field_name: self.root})
-                    linked_mdl_ins.save()
+                    linked_mdl_ins.save(internal=True)
             else:
                 setattr(linked_mdl_ins, remote_field_name, self.root)
-                linked_mdl_ins.save()
+                linked_mdl_ins.save(internal=True)
 
     def _add_back_link(self, linked_mdl, *args):
         lnk = list(args)[:]
@@ -179,15 +179,23 @@ class Model(Node):
                     linked_mdl = getattr(self, link['field'])
                     self._add_back_link(linked_mdl, link['field'], link['o2o'])
 
-    def save(self):
+    def pre_save(self):
+        pass
+
+    def post_save(self):
+        pass
+
+    def save(self, internal=False):
+        if not internal:
+            self.pre_save()
         old_data = self._data.copy()
         self.objects.save_model(self)
         self._handle_changed_fields(old_data)
         for k, v in self.new_back_links.copy().items():
             del self.new_back_links[k]
             self.update_new_linked_model(*v)
-
-        # print(self, self.key)
+        if not internal:
+            self.post_save()
         return self
 
     def delete(self):
