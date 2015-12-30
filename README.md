@@ -4,20 +4,22 @@
 ### A Django-esque ORM for Riak KV  ###
 
 #### Supported Features ####
-- Supports latest Riak (2.1.1)
 - Nested class based data models (schemas).
+- One-To-One, ManyToMany and ManyToOne relations.
 - AND queries by using filter() and exclude() methods.
+- Or, in, greater than, lower than queries.
 - Query chaining and caching.
 - Automatic Solr schema creation / update (one way migration).
 - Row level access control, permission based cell filtering.
+- Self referencing model relations.
+- Works with latest Riak (2.1.2)
 
 #### Work in progress ####
-- More pythonic APIs for Solr's extensive query features. (OR queries, searching in list of values)
-- Self referencing model relations.
-- One-To-One, ManyToMany and ManyToOne relations with auto denormalization (aka reactive joins / write-time joins)
+- Clenup of invalid/removed relations.
 
 #### Planned ####
 - Automatic versioning on write-once buckets.
+- Configurable auto-denormalization (aka reactive joins / write-time joins) for relations.
 - Custom migrations with migration history.
 - CRDT based models.
 
@@ -57,22 +59,71 @@ Base file structure of a Pyoko based project;
 
 ```python
 
-    from pyoko import Model, Node, field
-
-    class User(Model):
+    from pyoko import Model, Node, ListNode, field
+    
+    
+    class Permission(Model):
+        name = field.String("Name", index=True)
+        code = field.String("Code Name", index=True)
+    
+        class Meta:
+            verbose_name = "Permission"
+            verbose_name_plural = "Permissions"
+    
+        def __unicode__(self):
+            return "%s %s" % (self.name, self.code)
+    
+    
+    
+    
+    class Unit(Model):
+        name = field.String("Name", index=True)
+        address = field.String("Address", index=True, null=True, blank=True)
+    
+        class Meta:
+            verbose_name = "Unit"
+            verbose_name_plural = "Units"
+    
+        def __unicode__(self):
+            return self.name
+    
+    
+    class Person(Model):
         first_name = field.String("Name", index=True)
         last_name = field.String("Surname", index=True)
-
-
+        work = Unit(verbose_name="Work", reverse_name="workers")
+        home = Unit(verbose_name="Home", reverse_name="residents")
+    
+    
         class ContactInfo(Node):
             address = field.String("Address", index=True, null=True, blank=True)
             city = field.String("City", index=True)
             phone = field.String("Phone", index=True)
             email = field.String("Email", index=True)
+    
+        class Permissions(ListNode):
+            perm = Permission()
+    
+            def __unicode__(self):
+                return self.perm
+    
+        def __unicode__(self):
+            return "%s %s" % (self.first_name, self.last_name)
+    
+        def get_permission_codes(self):
+            return [p.perm.code for p in self.Permissions]
+    
+        def add_permission(self, perm):
+            self.Permissions(permission=perm)
+            self.save()
+    
+        def has_permission(self, perm):
+            return perm in self.Permissions
+    
+        def has_permission_code(self, perm_code):
+            perm = Permission.object.get(code=perm_code)
+            return self.has_permission(perm)
 
-    class Employee(Model):
-        usr = User()
-        role = field.String(index=True)
 
 ```
 
@@ -82,16 +133,15 @@ See tests for more usage examples.
 
 ```python
 
-        from my_project.models import User, Employee
-
-        user = User(name='John')
-        user_cont_info = user.ContactInfo(email="foo@foo.com", city="Izmir")
-        user_cont_info.phone = "902327055555"
-        user.save()
-        employee = Employee(role='Coder', usr=user).save()
-        emp_from_db = Employee.objects.get(employee.key)
-        for emp in Employee.objects.filter(role='Coder'):
-            print(emp.usr.name, emp.usr.ContactInfo.email)
+    from .models import Person, Unit
+    
+    user = Person(first_name='Bugs')
+    user.last_name = 'Bunny'
+    contact_info = user.ContactInfo(email="foo@foo.com", city="Izmir")
+    contact_info.phone = "902327055555"
+    user.work = Unit(name="Acme").save()
+    user.home = Unit(name="Emac").save()
+    user.save()
 
 ```
 
