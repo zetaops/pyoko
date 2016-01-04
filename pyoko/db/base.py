@@ -519,7 +519,28 @@ class DBObjects(object):
                 query = '[%s TO *]' % query
         return query
 
-
+    def _parse_query_key(self, key, val):
+        if key.endswith('__contains'):
+            key = key[:-10]
+            val = self._parse_query_type('contains', val)
+        elif key.endswith('__range'):
+            key = key[:-7]
+            val = self._parse_query_type('range', val)
+        elif key.endswith('__startswith'):
+            key = key[:-12]
+            val = self._parse_query_type('startswith', val)
+        elif key.endswith('__endswith'):
+            key = key[:-10]
+            val = self._parse_query_type('endswith', val)
+        # lower than or equal
+        elif key.endswith('__lte'):
+            key = key[:-5]
+            val = self._parse_query_type('lte', val)
+        # greater than or equal
+        elif key.endswith('__gte'):
+            key = key[:-5]
+            val = self._parse_query_type('gte', val)
+        return key, val
 
 
     def _compile_query(self):
@@ -538,7 +559,7 @@ class DBObjects(object):
             self._solr_query += filtered_query._solr_query
         # print(self._solr_query)
         for key, val, is_escaped in self._solr_query:
-
+            print(key, val, is_escaped)
             # querying on a linked model by model instance
             # it should be a Model, not a Node!
             if hasattr(val, '_TYPE'):
@@ -551,7 +572,7 @@ class DBObjects(object):
             # if it's not one of the expected objects, it should be a string
             elif key == 'OR_QRY':
                 key = 'NOKEY'
-                val = ' OR '.join(['%s:%s' % (k, self._escape_query(v, is_escaped)) for k, v in val.items()])
+                val = ' OR '.join(['%s:%s' % self._parse_query_key(k, self._escape_query(v, is_escaped)) for k, v in val.items()])
             elif key.endswith('__in'):
                 key = key[:-4]
                 val = ' OR '.join(['%s:%s' % (key, self._escape_query(v, is_escaped)) for v in val])
@@ -562,36 +583,12 @@ class DBObjects(object):
             else:
                 val = self._escape_query(val, is_escaped)
 
-            # val should be converted to a string before this point
-            # if ' ' in str(val):
-                # val = '"' + val + '"'
-                # val = val.replace(' ', "\ ")
-
-            if key.endswith('__contains'):
-                key = key[:-10]
-                val = self._parse_query_type('contains', val)
-            elif key.endswith('__range'):
-                key = key[:-7]
-                val = self._parse_query_type('range', val)
-            elif key.endswith('__startswith'):
-                key = key[:-12]
-                val = self._parse_query_type('startswith', val)
-            elif key.endswith('__endswith'):
-                key = key[:-10]
-                val = self._parse_query_type('endswith', val)
-            # lower than or equal
-            elif key.endswith('__lte'):
-                key = key[:-5]
-                val = self._parse_query_type('lte', val)
-            # greater than or equal
-            elif key.endswith('__gte'):
-                key = key[:-5]
-                val = self._parse_query_type('gte', val)
+            key, val = self._parse_query_key(key, val)
             # in (or) query
 
             # as long as not explicitly asked for,
             # we filter out records with deleted flag
-            elif key == 'deleted':
+            if key == 'deleted':
                 want_deleted = True
             # filter out records that contain any value for this field
 
@@ -610,11 +607,11 @@ class DBObjects(object):
         joined_query = anded
         if joined_query == '':
             joined_query = '*:*'
-        # try:
-        #     if settings.DEBUG:
-        #         print("QRY => %s" % joined_query)
-        # except:
-        #     pass
+        if settings.DEBUG == "QUERY_DEBUG":
+            try:
+                print("QRY => %s" % joined_query)
+            except:
+                pass
         self.compiled_query = joined_query
 
     def _process_params(self):

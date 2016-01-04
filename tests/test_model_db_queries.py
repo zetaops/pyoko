@@ -175,3 +175,5 @@ class TestCase:
                 surname__in=(d['s1'][1], d['s2'][1], d['s3'][1])).count()
 
         assert 2 == Student.objects.search_on('name', 'surname', contains='rob').count()
+        assert 2 == Student.objects.or_filter(name__contains='rob',
+                                              surname__startswith='rob').count()
