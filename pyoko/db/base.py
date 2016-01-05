@@ -559,7 +559,6 @@ class DBObjects(object):
             self._solr_query += filtered_query._solr_query
         # print(self._solr_query)
         for key, val, is_escaped in self._solr_query:
-            print(key, val, is_escaped)
             # querying on a linked model by model instance
             # it should be a Model, not a Node!
             if hasattr(val, '_TYPE'):
@@ -590,10 +589,6 @@ class DBObjects(object):
             # we filter out records with deleted flag
             if key == 'deleted':
                 want_deleted = True
-            # filter out records that contain any value for this field
-
-            # else:
-            #     val = self._parse_query_type('exact', val)
 
             key = key.replace('__', '.')
             if key == 'NOKEY':
@@ -607,7 +602,7 @@ class DBObjects(object):
         joined_query = anded
         if joined_query == '':
             joined_query = '*:*'
-        if settings.DEBUG == "QUERY_DEBUG":
+        if settings.DEBUG and settings.DEBUG >= 5:
             try:
                 print("QRY => %s" % joined_query)
             except:
