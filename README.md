@@ -133,14 +133,14 @@ See tests for more usage examples.
 
 ```python
 
-    from .models import Person, Unit
+    from .models import Person, Unit, Permission
     
     user = Person(first_name='Bugs')
     user.last_name = 'Bunny'
     contact_info = user.ContactInfo(email="foo@foo.com", city="Izmir")
     contact_info.phone = "902327055555"
     user.work = Unit(name="Acme").save()
-    user.home = Unit(name="Emac").save()
+    user.home = Unit(name=	"Emac").save()
     user.save()
 
 ```
@@ -148,6 +148,14 @@ See tests for more usage examples.
 #### Developer Notes ####
 
 \- Do not use Protocol Buffers in development, it doesn't give proper descriptions for server side errors.
+
+\- Use CamelCase for model, node and listnodes
+
+\- Use underscored names for fields
+
+\- ```_id``` and ```_set``` are reserved suffixes for internal use. Do not suffix your fields with ```_id``` or ```_set```.
+
+\- ```deleted``` and ```timestamp``` are implicitly added fields. Do not use these words as field names.
 
 
 #### Tests ####

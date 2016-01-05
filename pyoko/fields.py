@@ -108,11 +108,17 @@ class Id(BaseField):
 
 
 class Text(BaseField):
+    """
+    Text field.
+    """
     solr_type = 'text_general'
     pass
 
 
 class Float(BaseField):
+    """
+    Numeric  field that holds float data.
+    """
     solr_type = 'float'
 
     def clean_value(self, val):
