@@ -51,6 +51,13 @@ class Model(Node):
         self._instance_registry.add(weakref.ref(self))
         self.saved_models = []
 
+    def __str__(self):
+        try:
+            return self.__unicode__()
+        except AttributeError:
+            return "%s object" % self.__class__.__name__
+
+
     def get_verbose_name(self):
         return self.verbose_name or self.Meta.verbose_name
 
