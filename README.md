@@ -127,9 +127,8 @@ Base file structure of a Pyoko based project;
 
 ```
 
-#### Usage ####
+#### Creating objects, Making Queries ####
 
-See tests for more usage examples.
 
 ```python
 
@@ -138,14 +137,12 @@ See tests for more usage examples.
     user = Person(first_name='Bugs')
     user.last_name = 'Bunny'
     contact_info = user.ContactInfo(email="foo@foo.com", city="Izmir")
-    contact_info.phone = "902327055555"
+    contact_info.phone = "55555555"
     user.work = Unit(name="Acme").save()
     user.home = Unit(name=	"Emac").save()
     user.save()
 
 ```
-
-#### Developer Notes ####
 
 \- Do not use Protocol Buffers in development, it doesn't give proper descriptions for server side errors.
 
@@ -157,6 +154,32 @@ See tests for more usage examples.
 
 \- ```deleted``` and ```timestamp``` are implicitly added fields. Do not use these words as field names.
 
+\- Set DEBUG to 1 or greater integer to enable query debugging which collects query stats under sys._debug_db_queries:
+
+```python
+In [1]: import sys
+In [2]: sys._debug_db_queries
+Out[2]:
+[
+ {'BUCKET': 'models_personel',
+  'QUERY': '-deleted:True',
+  'QUERY_PARAMS': {'rows': 1, 'sort': b'timestamp desc', 'start': 0},
+  'TIME': 0.0056,
+  'TIMESTAMP': 1452245987.258094},
+  {'BUCKET': 'models_personel',
+    'KEY': 'Aqq2O50XGqerJsfOPquqDmINbyM',
+    'TIME': 0.00229,
+    'TIMESTAMP': 1452245980.413088},
+  ]
+```
+
+\- Set value of DEBUG to 5 or a greater integer to get instant print out of each executed query.
+ 
+```python
+In [1]: Personel.objects.filter(ad__startswith='Al')
+Out[1]: QRY => ad:Al* AND -deleted:True
+[<Personel: ali g.>]
+```
 
 #### Tests ####
 
@@ -181,7 +204,7 @@ You need to define the following environmental variable to run tests.
 
 to create or update schemas run the following command:
 
-` python manage.py migrate --model \<model_name\>,\<model_name\> `
+` python manage.py migrate --model User,Permission `
 
 or
 
