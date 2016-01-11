@@ -41,6 +41,7 @@ class Registry(object):
                 lnk['mdl']._add_linked_model(mdl,
                                              o2o=True,
                                              field=reverse_name,
+                                             reverse=lnk['field'],
                                              lnksrc='_process_links__o2o')
             else:
                 lnk['mdl']._add_linked_model(mdl,

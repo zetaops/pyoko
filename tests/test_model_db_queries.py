@@ -77,7 +77,7 @@ class TestCase:
     def test_delete_model(self):
         self.prepare_testbed(True)
         s2 = Student(name='Foo').save()
-        sleep(1)
+        sleep(2)
         assert Student.objects.filter(name='Foo').count() == 1
         assert Student.objects.filter(deleted=True).count() == 0
         assert Student.objects.count() == 2

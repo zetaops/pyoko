@@ -33,12 +33,13 @@ class TestCase:
     # def test_one_to_one_simple_benchmarked(self, benchmark):
     #     benchmark(self.test_one_to_one_simple)
 
-    @pytest.mark.second
+    @pytest.mark.first
     def test_one_to_one_simple(self):
         self.prepare_testbed()
         user = User(name='Joe').save()
         print(user.key)
-        employee = Employee(eid='E1', usr=user).save()
+        employee = Employee(eid='E1', usr=user)
+        employee.save()
         # need to wait a sec because we will query solr in the
         # _save_back_linked_models of User object
         sleep(1)
@@ -49,8 +50,9 @@ class TestCase:
         user_from_db.save()
         employee_from_db = Employee.objects.get(employee.key)
         assert employee_from_db.usr.name == user_from_db.name
+        assert user_from_db.employee.eid == employee.eid
 
-    @pytest.mark.first
+    @pytest.mark.second
     def test_many_to_many_simple(self):
         self.prepare_testbed()
 
