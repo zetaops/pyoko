@@ -602,7 +602,7 @@ class DBObjects(object):
         joined_query = anded
         if joined_query == '':
             joined_query = '*:*'
-        if settings.DEBUG and settings.DEBUG >= 5:
+        if settings.DEBUG and settings.DEBUG_LEVEL >= 5:
             try:
                 print("QRY => %s" % joined_query)
             except:
