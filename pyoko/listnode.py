@@ -25,17 +25,16 @@ class ListNode(Node):
         self._from_db = False
         self.values = []
         self.node_stack = []
-        self._data = []
         self.node_dict = {}
         super(ListNode, self).__init__(**kwargs)
+        self._data = []
 
     def _load_data(self, data, from_db=False):
         """
         just stores the data at self._data,
         actual object creation done at _generate_instances()
         """
-        self._data = data
-        self.data = data[:]
+        self._data = data[:]
         self._from_db = from_db
 
     def _generate_instances(self):
