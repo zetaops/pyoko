@@ -464,8 +464,10 @@ class DBObjects(object):
     def or_filter(self, **filters):
         """
         applies query filters to queryset with OR operator.
+
         :param dict filters: query  filter parameters filter(email='a@a.co',...)
-        :return: DBObjects
+
+        :return: Queryset
         """
         clone = copy.deepcopy(self)
         clone._add_query([("OR_QRY", filters)])
@@ -474,14 +476,25 @@ class DBObjects(object):
     def search_on(self, *fields, **query):
         """
         search for query on given fields,
-        search type can be: exact, contains, startswith, endswith, range
-        eg:
-        .search_on('name, 'surname', contains='john')
-        .search_on('name, 'surname', startswith='jo')
 
-        :param fields: field list to be searched on
-        :param query:  search query
-        :return: DBObjects
+        query type can be:
+            * exact
+            * contains
+            * startswith
+            * endswith
+            * range
+            * lte
+            * gte
+
+        >>> Person.objects.search_on('name', 'surname', contains='john')
+        >>> Person.objects.search_on('name', 'surname', startswith='jo')
+
+        Args:
+            *fields str: field list to be searched on
+            query:  search query
+
+        Returns:
+            DBObject: Queryset
         """
         clone = copy.deepcopy(self)
         search_type = list(query.keys())[0]

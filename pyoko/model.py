@@ -101,9 +101,10 @@ class Model(Node):
         then fills linked models
 
         :param from_db: if data coming from db then we will
-        use related field type's _load_data method
+            use related field type's _load_data method
         :param data: data
-        :return:
+
+        :return: self
         """
         self._load_data(data, from_db)
         return self
