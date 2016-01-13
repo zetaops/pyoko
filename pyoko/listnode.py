@@ -39,7 +39,7 @@ class ListNode(Node):
 
     def _generate_instances(self):
         """
-        a clone generator that will be used by __iter__ or __getitem__
+        a clone generator that will be used by __iter__ and __getitem__
         """
         for node in self.node_stack:
             yield node
@@ -67,12 +67,19 @@ class ListNode(Node):
         return clone
 
     def _get_linked_model_key(self):
+        """
+        only one linked model can represent a listnode instance,
+        return's the first linked models key if exists otherwise None
+
+        :return: None | str
+        """
         for lnk in self.get_links():
             return getattr(self, lnk['field']).key
 
     def clean_value(self):
         """
-        populates json serialization ready data for storing on riak
+        populates json serialization ready data for storing on db
+
         :return: [{},]
         """
         result = []
@@ -85,7 +92,9 @@ class ListNode(Node):
         """
         this works for two different object.
         - Main ListNode object
-        - Items of the node (like instance of a class) which created on iteration of main object
+        - Items of the node (like instance of a class)
+        which created on iteration of main object
+
         :return:
         """
         if not self._is_item:

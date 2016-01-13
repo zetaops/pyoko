@@ -51,12 +51,11 @@ class Command(object):
     *CMD_NAME*: name of your command
     *HELP*: help texts starts with "R|" will be parsed as raw text
     *PARAMS*: = [{
-        'name': name of parameter
-        'help': help text for parameter. Parsed as raw if starts with "R|"
-        'required': Optional. Set True if this  is a required parameter.
-        'default': Optional. Define a default value for the parameter
-        'action': 'store_true' see the official argparse
-            *documentation for more info
+    'name': name of parameter
+    'help': help text for parameter. Parsed as raw if starts with "R|"
+    'required': Optional. Set True if this  is a required parameter.
+    'default': Optional. Define a default value for the parameter
+    'action': 'store_true' see the official argparse documentation for more info
     }]
     * https://docs.python.org/2/howto/argparse.html
     * https://docs.python.org/2/library/argparse.html
@@ -304,6 +303,9 @@ class DumpData(Command):
 
 
 class LoadData(Command):
+    """
+    Loads previously dumped data into DB.
+    """
     CMD_NAME = 'load_data'
     HELP = 'Reads JSON data from given file and populates models'
 
@@ -348,7 +350,6 @@ and .js extensions will be loaded."""},
     def prepare_buckets(self):
         """
         loads buckets to bucket cache. disables the default json encoders if CSV is selected
-        :return:
         """
         for mdl in self.registry.get_base_models():
             bucket = mdl(super_context).objects.bucket
