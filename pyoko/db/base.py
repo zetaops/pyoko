@@ -475,9 +475,9 @@ class DBObjects(object):
 
     def search_on(self, *fields, **query):
         """
-        search for query on given fields,
+        search for query on given fields.
 
-        query type can be:
+        Query type can be one of these:
             * exact
             * contains
             * startswith
@@ -486,15 +486,17 @@ class DBObjects(object):
             * lte
             * gte
 
-        >>> Person.objects.search_on('name', 'surname', contains='john')
-        >>> Person.objects.search_on('name', 'surname', startswith='jo')
-
         Args:
             *fields str: field list to be searched on
             query:  search query
 
         Returns:
             DBObject: Queryset
+
+
+        Examples:
+            >>> Person.objects.search_on('name', 'surname', contains='john')
+            >>> Person.objects.search_on('name', 'surname', startswith='jo')
         """
         clone = copy.deepcopy(self)
         search_type = list(query.keys())[0]

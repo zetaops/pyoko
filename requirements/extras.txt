@@ -1,0 +1,6 @@
+fake-factory
+fabric
+ipython
+# if you have issues with pip on OSX, use "easy_install -a readline"
+readline
+
