@@ -10,7 +10,7 @@ import pprint
 from collections import defaultdict
 
 from pyoko.conf import settings
-from pyoko.db.base import DBObjects
+from pyoko.db.base import QuerySet
 from pyoko.lib.utils import un_camel
 from pyoko.registry import Registry
 from . import fields as field
@@ -35,7 +35,7 @@ class ModelMeta(type):
             ModelMeta.process_objects(mcs)
         if mcs.__base__.__name__ == 'Model':
             # add models to model_registry
-            mcs.objects = DBObjects(model_class=mcs)
+            mcs.objects = QuerySet(model_class=mcs)
             model_registry.register_model(mcs)
             if 'bucket_name' not in mcs.Meta.__dict__:
                 mcs.Meta.bucket_name = un_camel(mcs.__name__)
