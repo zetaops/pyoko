@@ -56,6 +56,7 @@ class QuerySet(object):
         self._model = None
         self._client = self._cfg.pop('client', client)
         self.index_name = ''
+        self.is_clone = False
         if 'model' in conf:
             self._set_model(model=conf['model'])
         elif 'model_class' in conf:
@@ -180,6 +181,7 @@ class QuerySet(object):
                 obj.__dict__[k] = v
             else:
                 obj.__dict__[k] = copy.deepcopy(v, memo)
+        obj.is_clone = True
         obj.compiled_query = ''
         obj.key = None
         return obj
@@ -277,10 +279,9 @@ class QuerySet(object):
         return model.set_data(data, from_db=True)
 
     def __repr__(self):
+        if not self.is_clone:
+            return "QuerySet for %s" % self._model_class
         try:
-            # return "%s | %s | %s " % (self.model_class.__name__,
-            #                           self._solr_query,
-            #                           self._solr_params)
             return [obj for obj in self[:10]].__repr__()
         except AssertionError as e:
             return e.msg
@@ -606,6 +607,8 @@ class QuerySet(object):
         executes solr query if it hasn't already executed.
         :return:
         """
+        if not self.is_clone:
+            raise Exception("QuerySet cannot be directly used")
         if not self._solr_cache and self._cfg['rtype'] != ReturnType.Solr:
             self.set_params(
                     fl='_yz_rk')  # we're going to riak, fetch only keys
