@@ -12,7 +12,7 @@ from . import fields as field
 from .db.base import QuerySet
 from .lib.utils import un_camel, lazy_property, pprnt, un_camel_id
 import weakref
-from .modelmeta import model_registry
+from .modelmeta import model_registry, ModelMeta
 
 super_context = FakeContext()
 
@@ -108,6 +108,12 @@ class Model(Node):
         """
         self._load_data(data, from_db)
         return self
+
+    def __repr__(self):
+        if not self.is_in_db():
+            return six.text_type(self.__class__)
+        else:
+            return self.__str__()
 
     def apply_cell_filters(self, context):
         self.is_unpermitted_fields_set = True

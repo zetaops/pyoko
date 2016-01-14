@@ -56,8 +56,8 @@ class BaseField(object):
 
 
     def __get__(self, instance, cls=None):
-        if cls is None:
-            return self
+        if cls is None or instance is None:
+            return six.text_type(self.__class__)
         return instance._field_values.get(self.name, None)
         # if val or not instance.parent:
         #     return val
