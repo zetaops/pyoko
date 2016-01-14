@@ -9,16 +9,16 @@
 import six
 from .node import Node, FakeContext
 from . import fields as field
-from .db.base import DBObjects
+from .db.base import QuerySet
 from .lib.utils import un_camel, lazy_property, pprnt, un_camel_id
 import weakref
-from .modelmeta import model_registry
+from .modelmeta import model_registry, ModelMeta
 
 super_context = FakeContext()
 
 
 class Model(Node):
-    objects = DBObjects
+    objects = QuerySet
     _TYPE = 'Model'
 
     _DEFAULT_BASE_FIELDS = {
@@ -47,7 +47,7 @@ class Model(Node):
         kwargs['context'] = context
         super(Model, self).__init__(**kwargs)
 
-        self.objects.set_model(model=self)
+        self.objects._set_model(model=self)
         self._instance_registry.add(weakref.ref(self))
         self.saved_models = []
 
@@ -109,6 +109,12 @@ class Model(Node):
         self._load_data(data, from_db)
         return self
 
+    def __repr__(self):
+        if not self.is_in_db():
+            return six.text_type(self.__class__)
+        else:
+            return self.__str__()
+
     def apply_cell_filters(self, context):
         self.is_unpermitted_fields_set = True
         for perm, fields in self.Meta.field_permissions.items():
@@ -123,9 +129,13 @@ class Model(Node):
     @staticmethod
     def row_level_access(context, objects):
         """
-        Define your query filters in here to enforce row level access control
-        context should contain required user attributes and permissions
-        eg:
+        Define your query filters in here to enforce row level access control.
+
+        Args:
+            context: An object that contain required user attributes and permissions.
+            objects (Queryset):
+
+        Examples:
             self.objects = self.objects.filter(user=context.user.key)
         """
         # FIXME: Row level access control should be enforced on cached related objects
@@ -197,7 +207,7 @@ class Model(Node):
         if not internal:
             self.pre_save()
         old_data = self._data.copy()
-        self.objects.save_model(self)
+        self.objects._save_model(self)
         self._handle_changed_fields(old_data)
         for k, v in self.new_back_links.copy().items():
             del self.new_back_links[k]

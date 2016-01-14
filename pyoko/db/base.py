@@ -40,28 +40,30 @@ ReturnType = Enum('ReturnType', 'Solr Object Model')
 
 
 # noinspection PyTypeChecker
-class DBObjects(object):
+class QuerySet(object):
     """
-    Data access layer for Solr/Riak
+    QuerySet is a lazy data access layer for Riak.
     """
 
     def __init__(self, **conf):
-        self.current_context = None
+        self._current_context = None
+        # pass permission checks to genareted model instances
         self._pass_perm_checks = False
         self.bucket = riak.RiakBucket
         self._cfg = {'row_size': 1000,
                      'rtype': ReturnType.Model}
         self._cfg.update(conf)
-        self.model = None
+        self._model = None
         self._client = self._cfg.pop('client', client)
         self.index_name = ''
+        self.is_clone = False
         if 'model' in conf:
-            self.set_model(model=conf['model'])
+            self._set_model(model=conf['model'])
         elif 'model_class' in conf:
-            self.set_model(model_class=conf['model_class'])
+            self._set_model(model_class=conf['model_class'])
 
-        self.set_bucket(self.model_class.Meta.bucket_type,
-                        self.model_class._get_bucket_name())
+        self._set_bucket(self._model_class.Meta.bucket_type,
+                         self._model_class._get_bucket_name())
         self._data_type = None  # we convert new object data according to
         # bucket datatype, eg: Dictomaping for 'map' type
         self.compiled_query = ''
@@ -71,41 +73,23 @@ class DBObjects(object):
             'sort': 'timestamp desc'}  # search parameters. eg: rows, fl, start, sort etc.
         self._solr_locked = False
         self._solr_cache = {}
-        self.key = None
+        # self.key = None
         self._riak_cache = []  # caching riak result,
         # for repeating iterations on same query
 
     # ######## Development Methods  #########
 
-    def set_model(self, model=None, model_class=None):
+    def _set_model(self, model=None, model_class=None):
         if model:
-            self.model = model
-            self.model_class = model.__class__
-            self.current_context = self.model.context
+            self._model = model
+            self._model_class = model.__class__
+            self._current_context = self._model.context
         elif model_class:
-            self.model = None
-            self.model_class = model_class
-            self.current_context = None
+            self._model = None
+            self._model_class = model_class
+            self._current_context = None
         else:
-            raise Exception("DBObjects should be called with a model instance or class")
-
-    def w(self, brief=True):
-        """
-        can be called at any time on query chaining.
-        prints debug information for current state of the dbobject
-        eg: list(Student.objects.w().filter(name="Jack").w())
-        :param bool brief: instead of whole content, only print length of the caches
-        :return:
-        """
-        print(grayed("results : ", len(
-                self._solr_cache.get('docs', [])) if brief else self._solr_cache))
-        print(grayed("query : ", self._solr_query))
-        print(grayed("params : ", self._solr_params))
-        print(grayed("riak_cache : ",
-                     len(self._riak_cache) if brief else self._riak_cache))
-        print(grayed("return_type : ", self._cfg['rtype']))
-        print(" ")
-        return self
+            raise Exception("QuerySet should be called with a model instance or class")
 
     def distinct_values_of(self, field):
         # FIXME: Add support for query filters
@@ -130,16 +114,6 @@ class DBObjects(object):
             i += 1
             self.bucket.get(k).delete()
         return i
-
-    # def _count_bucket(self):
-    #     """
-    #     only for development purposes
-    #     counts number of objects in the bucket.
-    #     :return:
-    #     """
-    #     return sum([len(key_list) for key_list in self.bucket.stream_keys()])
-
-    # ######## Python Magic  #########
 
     def __iter__(self):
         self._exec_query()
@@ -207,11 +181,12 @@ class DBObjects(object):
                 obj.__dict__[k] = v
             else:
                 obj.__dict__[k] = copy.deepcopy(v, memo)
+        obj.is_clone = True
         obj.compiled_query = ''
         obj.key = None
         return obj
 
-    def set_bucket(self, type, name):
+    def _set_bucket(self, type, name):
         """
         prepares bucket, sets index name
         :param str type: bucket type
@@ -227,14 +202,13 @@ class DBObjects(object):
         self.index_name = "%s_%s" % (self._cfg['bucket_type'], self._cfg['bucket_name'])
         return self
 
-
-    def save_model(self, model=None):
+    def _save_model(self, model=None):
         """
         saves the model instance to riak
         :return:
         """
         # if model:
-        #     self.model = model
+        #     self._model = model
         if settings.DEBUG:
             t1 = time.time()
         clean_value = model.clean_value()
@@ -300,15 +274,14 @@ class DBObjects(object):
         """
         if not data:
             raise Exception("No data returned from Riak\n" + self._get_debug_data())
-        model = self.model_class(self.current_context, _pass_perm_checks=self._pass_perm_checks)
+        model = self._model_class(self._current_context, _pass_perm_checks=self._pass_perm_checks)
         model.key = riak_obj.key if riak_obj else data.get('key')
         return model.set_data(data, from_db=True)
 
     def __repr__(self):
+        if not self.is_clone:
+            return "QuerySet for %s" % self._model_class
         try:
-            # return "%s | %s | %s " % (self.model_class.__name__,
-            #                           self._solr_query,
-            #                           self._solr_params)
             return [obj for obj in self[:10]].__repr__()
         except AssertionError as e:
             return e.msg
@@ -326,7 +299,7 @@ class DBObjects(object):
         """
         applies query filters to queryset.
         :param dict filters: query  filter parameters filter(email='a@a.co',...)
-        :return: DBObjects
+        :return: QuerySet
         """
         clone = copy.deepcopy(self)
         clone._add_query(filters.items())
@@ -355,12 +328,12 @@ class DBObjects(object):
             if count > 1:
                 raise MultipleObjectsReturned(
                         "%s objects returned for %s" % (count,
-                                                        self.model_class.__name__))
+                                                        self._model_class.__name__))
             return existing[0], False
         else:
             data = defaults or {}
             data.update(kwargs)
-            return self.model_class(**data).save(), True
+            return self._model_class(**data).save(), True
 
     def get(self, key=None, **kwargs):
         """
@@ -371,7 +344,7 @@ class DBObjects(object):
         """
         clone = copy.deepcopy(self)
         if key:
-            self.key = key
+            # self.key = key
             if settings.DEBUG:
                 t1 = time.time()
             clone._riak_cache = [self.bucket.get(key)]
@@ -388,7 +361,7 @@ class DBObjects(object):
             if clone.count() > 1:
                 raise MultipleObjectsReturned(
                         "%s objects returned for %s" % (clone.count(),
-                                                        self.model_class.__name__))
+                                                        self._model_class.__name__))
         return clone._get()
 
     def count(self):
@@ -418,17 +391,6 @@ class DBObjects(object):
         clone = copy.deepcopy(self)
         clone._solr_params.update(params)
         return clone
-
-    def fields(self, *args):
-        """
-        Riak's  official Python client (as of v2.1) depends on existence of "_yz_rk"
-        for distinguishing between old and new search API.
-        :param args:
-        :return:
-        """
-
-        self._solr_params.update({'fl': ' '.join(set(args + ('_yz_rk',)))})
-        return self
 
     def _set_return_type(self, type):
         self._cfg['rtype'] = type
@@ -525,7 +487,7 @@ class DBObjects(object):
             elif qtype == 'contains':
                 query = "*%s*" % query
             elif qtype == 'startswith':
-                query =  "%s*" % query
+                query = "%s*" % query
             elif qtype == 'endswith':
                 query = "%s*" % query
             elif qtype == 'lte':
@@ -557,7 +519,6 @@ class DBObjects(object):
             val = self._parse_query_type('gte', val)
         return key, val
 
-
     def _compile_query(self):
         """
         this will support "OR" and maybe other more advanced queries as well
@@ -569,7 +530,7 @@ class DBObjects(object):
         # TODO: escape following chars: + - && || ! ( ) { } [ ] ^ " ~ * ? : \
         query = []
         want_deleted = False
-        filtered_query = self.model_class.row_level_access(self.current_context, self)
+        filtered_query = self._model_class.row_level_access(self._current_context, self)
         if filtered_query is not None:
             self._solr_query += filtered_query._solr_query
         # print(self._solr_query)
@@ -586,7 +547,9 @@ class DBObjects(object):
             # if it's not one of the expected objects, it should be a string
             elif key == 'OR_QRY':
                 key = 'NOKEY'
-                val = ' OR '.join(['%s:%s' % self._parse_query_key(k, self._escape_query(v, is_escaped)) for k, v in val.items()])
+                val = ' OR '.join(
+                        ['%s:%s' % self._parse_query_key(k, self._escape_query(v, is_escaped)) for
+                         k, v in val.items()])
             elif key.endswith('__in'):
                 key = key[:-4]
                 val = ' OR '.join(['%s:%s' % (key, self._escape_query(v, is_escaped)) for v in val])
@@ -644,6 +607,8 @@ class DBObjects(object):
         executes solr query if it hasn't already executed.
         :return:
         """
+        if not self.is_clone:
+            raise Exception("QuerySet cannot be directly used")
         if not self._solr_cache and self._cfg['rtype'] != ReturnType.Solr:
             self.set_params(
                     fl='_yz_rk')  # we're going to riak, fetch only keys

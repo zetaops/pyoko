@@ -10,7 +10,7 @@ import pprint
 from collections import defaultdict
 
 from pyoko.conf import settings
-from pyoko.db.base import DBObjects
+from pyoko.db.base import QuerySet
 from pyoko.lib.utils import un_camel
 from pyoko.registry import Registry
 from . import fields as field
@@ -35,7 +35,7 @@ class ModelMeta(type):
             ModelMeta.process_objects(mcs)
         if mcs.__base__.__name__ == 'Model':
             # add models to model_registry
-            mcs.objects = DBObjects(model_class=mcs)
+            mcs.objects = QuerySet(model_class=mcs)
             model_registry.register_model(mcs)
             if 'bucket_name' not in mcs.Meta.__dict__:
                 mcs.Meta.bucket_name = un_camel(mcs.__name__)
@@ -61,12 +61,16 @@ class ModelMeta(type):
             # if it's a class (not instance) and it's type is Node or ListNode
             if hasattr(attr, '__base__') and getattr(attr.__base__, '_TYPE', '') in ['Node',
                                                                                      'ListNode']:
-                attrs['_nodes'][key] = attrs.pop(key)
+                # converted pops to dict access to allow sphinx to
+                # properly documentate the models
+                # attrs['_nodes'][key] = attrs.pop(key)
+                attrs['_nodes'][key] = attrs[key]
             else:  # otherwise it should be a field or linked model
                 attr_type = getattr(attr, '_TYPE', '')
 
                 if attr_type == 'Model':
-                    lnk_mdl_ins = attrs.pop(key)
+                    # lnk_mdl_ins = attrs.pop(key)
+                    lnk_mdl_ins = attrs[key]
                     lnk = {
                         'mdl': lnk_mdl_ins.__class__,
                         'o2o': lnk_mdl_ins._is_one_to_one,
@@ -84,7 +88,8 @@ class ModelMeta(type):
                     attr.name = key
                     attrs['_fields'][key] = attr
                 elif attr_type == 'Link':
-                    lzy_lnk = attrs.pop(key)
+                    # lzy_lnk = attrs.pop(key)
+                    lzy_lnk = attrs[key]
                     attrs['_lazy_linked_models'][key].append({'from': node_name,
                                                               'to': lzy_lnk.link_to,
                                                               'o2o': lzy_lnk.one_to_one,
