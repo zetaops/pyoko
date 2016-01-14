@@ -84,7 +84,6 @@ class ListNode(Node):
         """
         result = []
         for mdl in self:
-            # mdl.processed_nodes = self.processed_nodes
             result.append(super(ListNode, mdl).clean_value())
         return result
 
@@ -125,11 +124,10 @@ class ListNode(Node):
         :param kwargs:
         :return:
         """
-        kwargs['root'] = self.root
+        kwargs['_root_node'] = self._root_node
         clone = self.__class__(**kwargs)
-        # clone.root = self.root
+        # clone._root_node = self._root_node
         clone._is_item = True
-        clone.processed_nodes = self.root.processed_nodes
         self.node_stack.append(clone)
         _key = clone._get_linked_model_key()
         if _key:

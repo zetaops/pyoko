@@ -18,6 +18,9 @@ super_context = FakeContext()
 
 
 class Model(Node):
+    """
+    This is base model for any model object.
+    """
     objects = QuerySet
     _TYPE = 'Model'
 
@@ -27,22 +30,18 @@ class Model(Node):
     _SEARCH_INDEX = ''
 
     def __init__(self, context=None, **kwargs):
-        self._riak_object = None
-
-        self.unpermitted_fields = []
-        self.is_unpermitted_fields_set = False
-        self.context = context
+        self.key = None
+        self._unpermitted_fields = []
+        # this indicates cell filters applied and we can filter on them
+        self._is_unpermitted_fields_set = False
+        self._context = context
         self.verbose_name = kwargs.get('verbose_name')
         self.reverse_name = kwargs.get('reverse_name')
         self._pass_perm_checks = kwargs.pop('_pass_perm_checks', False)
-        # if not self._pass_perm_checks:
-        #     self.row_level_access(context)
-        #     self.apply_cell_filters(context)
         self.objects._pass_perm_checks = self._pass_perm_checks
-        # self._prepare_linked_models()
         self._is_one_to_one = kwargs.pop('one_to_one', False)
         self.title = kwargs.pop('title', self.__class__.__name__)
-        self.root = self
+        self._root_node = self
         self.new_back_links = {}
         kwargs['context'] = context
         super(Model, self).__init__(**kwargs)
@@ -50,6 +49,7 @@ class Model(Node):
         self.objects._set_model(model=self)
         self._instance_registry.add(weakref.ref(self))
         self.saved_models = []
+
 
     def __str__(self):
         try:
@@ -59,9 +59,16 @@ class Model(Node):
 
 
     def get_verbose_name(self):
+        """
+        Returns:
+            Verbose name of the model instance
+        """
         return self.verbose_name or self.Meta.verbose_name
 
     def prnt(self):
+        """
+        Prints DB data representation of the object.
+        """
         try:
             pprnt(self._data)
         except:
@@ -78,7 +85,16 @@ class Model(Node):
         is this model stored to db
         :return:
         """
-        return self.key and not self.key.startswith('TMP_')
+        return self.exist
+
+    @lazy_property
+    def exist(self):
+        """
+        Returns:
+            True if this model instance stored in DB and has a key and False otherwise.
+        :return:
+        """
+        return bool(self.key)
 
     def get_choices_for(self, field):
 
@@ -116,15 +132,15 @@ class Model(Node):
             return self.__str__()
 
     def apply_cell_filters(self, context):
-        self.is_unpermitted_fields_set = True
+        self._is_unpermitted_fields_set = True
         for perm, fields in self.Meta.field_permissions.items():
             if not context.has_permission(perm):
-                self.unpermitted_fields.extend(fields)
-        return self.unpermitted_fields
+                self._unpermitted_fields.extend(fields)
+        return self._unpermitted_fields
 
     def get_unpermitted_fields(self):
-        return (self.unpermitted_fields if self.is_unpermitted_fields_set else
-                self.apply_cell_filters(self.context))
+        return (self._unpermitted_fields if self._is_unpermitted_fields_set else
+                self.apply_cell_filters(self._context))
 
     @staticmethod
     def row_level_access(context, objects):
@@ -157,7 +173,7 @@ class Model(Node):
     #     """
     #     return model_registry.link_registry[self.__class__]
 
-    def update_new_linked_model(self, linked_mdl_ins, name, o2o):
+    def _update_new_linked_model(self, linked_mdl_ins, name, o2o):
         """
         this method works on _linked_models dict of given linked model instance
         for each relation list it looks for "self"
@@ -177,10 +193,10 @@ class Model(Node):
             if not o2o:
                 remote_set = getattr(linked_mdl_ins, local_field_name)
                 if remote_set._TYPE == 'ListNode' and self not in remote_set:
-                    remote_set(**{remote_field_name: self.root})
+                    remote_set(**{remote_field_name: self._root_node})
                     linked_mdl_ins.save(internal=True)
             else:
-                setattr(linked_mdl_ins, remote_field_name, self.root)
+                setattr(linked_mdl_ins, remote_field_name, self._root_node)
                 linked_mdl_ins.save(internal=True)
 
     def _add_back_link(self, linked_mdl, *args):
@@ -211,7 +227,7 @@ class Model(Node):
         self._handle_changed_fields(old_data)
         for k, v in self.new_back_links.copy().items():
             del self.new_back_links[k]
-            self.update_new_linked_model(*v)
+            self._update_new_linked_model(*v)
         if not internal:
             self.post_save()
         return self

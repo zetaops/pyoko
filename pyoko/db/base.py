@@ -83,7 +83,7 @@ class QuerySet(object):
         if model:
             self._model = model
             self._model_class = model.__class__
-            self._current_context = self._model.context
+            self._current_context = self._model._context
         elif model_class:
             self._model = None
             self._model_class = model_class
