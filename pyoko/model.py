@@ -12,7 +12,6 @@ from . import fields as field
 from .db.base import QuerySet
 from .lib.utils import un_camel, lazy_property, pprnt, un_camel_id
 import weakref
-from .modelmeta import model_registry, ModelMeta
 
 super_context = FakeContext()
 
@@ -131,7 +130,15 @@ class Model(Node):
         else:
             return self.__str__()
 
-    def apply_cell_filters(self, context):
+    def _apply_cell_filters(self, context):
+        """
+        Applies the field restrictions based on the
+         return value of the context's "has_permission()" method.
+         Stores them on self._unpermitted_fields.
+
+        Returns:
+            List of unpermitted fields names.
+        """
         self._is_unpermitted_fields_set = True
         for perm, fields in self.Meta.field_permissions.items():
             if not context.has_permission(perm):
@@ -139,8 +146,14 @@ class Model(Node):
         return self._unpermitted_fields
 
     def get_unpermitted_fields(self):
+        """
+        Gives unpermitted fields for current context/user.
+
+        Returns:
+            List of unpermitted field names.
+        """
         return (self._unpermitted_fields if self._is_unpermitted_fields_set else
-                self.apply_cell_filters(self._context))
+                self._apply_cell_filters(self._context))
 
     @staticmethod
     def row_level_access(context, objects):
@@ -166,22 +179,10 @@ class Model(Node):
     def _name_id(self):
         return "%s_id" % self._name
 
-    # def _get_back_links(self):
-    #     """
-    #     get models that linked from this models
-    #     :return: [Model]
-    #     """
-    #     return model_registry.link_registry[self.__class__]
-
     def _update_new_linked_model(self, linked_mdl_ins, name, o2o):
         """
-        this method works on _linked_models dict of given linked model instance
+        This method works on _linked_models dict of given linked model instance
         for each relation list it looks for "self"
-
-        :param linked_mdl_ins:
-        :param name:
-        :param o2o:
-        :return:
         """
         for lnk in linked_mdl_ins.get_links():
             mdl = lnk['mdl']
@@ -214,12 +215,35 @@ class Model(Node):
                     self._add_back_link(linked_mdl, link['field'], link['o2o'])
 
     def pre_save(self):
+        """
+        Called before object save.
+        Can be overriden to do things that should be done just before
+        object saved to DB.
+        """
         pass
 
     def post_save(self):
+        """
+        Called after object save.
+        Can be overriden to do things that should be done after object
+        saved to DB.
+        """
         pass
 
     def save(self, internal=False):
+        """
+        Save's object to DB.
+
+        Do not override this method, use pre_save and post_save methods.
+
+        Args:
+            internal (bool): True if called within model.
+                Used to prevent unneccessary calls to pre_save and
+                post_save methods.
+
+        Returns:
+             Saved model instance.
+        """
         if not internal:
             self.pre_save()
         old_data = self._data.copy()
@@ -241,6 +265,9 @@ class Model(Node):
 
 
 class LinkProxy(object):
+    """
+    Proxy object for "self" referencing model relations
+    """
     _TYPE = 'Link'
 
     def __init__(self, link_to, one_to_one=False, verbose_name=None, reverse_name=None):
