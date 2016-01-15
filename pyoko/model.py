@@ -15,10 +15,26 @@ import weakref
 
 super_context = FakeContext()
 
+# kept for backwards-compatibility
+from .modelmeta import model_registry
 
 class Model(Node):
     """
-    This is base model for any model object.
+    This is base class for any model object.
+
+    Field instances are used as model attributes to represent values.
+
+    Example:
+        >>> class Permission(Model):
+        >>>     name = field.String("Name")
+        >>>     code = field.String("Code Name")
+
+    - Models may have inner classes to represnt ManyToMany relations, inner data nodes or lists.
+        >>>
+        >>>
+        >>>     def __unicode__(self):
+        >>>         return "%s %s" % (self.name, self.code)
+
     """
     objects = QuerySet
     _TYPE = 'Model'
@@ -30,6 +46,7 @@ class Model(Node):
 
     def __init__(self, context=None, **kwargs):
         self.key = None
+        # holds list of banned fields for current context
         self._unpermitted_fields = []
         # this indicates cell filters applied and we can filter on them
         self._is_unpermitted_fields_set = False
@@ -81,17 +98,28 @@ class Model(Node):
 
     def is_in_db(self):
         """
+        Deprecated:
+            Use "exist" property instead.
         is this model stored to db
         :return:
         """
         return self.exist
 
-    @lazy_property
+    @property
     def exist(self):
         """
+        Used to check if a relation is exist or a model instance is saved to DB or not.
+
         Returns:
             True if this model instance stored in DB and has a key and False otherwise.
-        :return:
+
+        Examples:
+            >>> class Student(Model):
+            >>>    #...
+            >>>    adviser = Person()
+            >>>
+            >>> if student.adviser.exist:
+            >>>    # do something
         """
         return bool(self.key)
 
