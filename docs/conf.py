@@ -16,7 +16,7 @@
 import sys
 import os
 import shlex
-
+sys.IN_SPHINX = True
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
@@ -289,3 +289,29 @@ texinfo_documents = [
 
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #texinfo_no_detailmenu = False
+from pprint import pformat
+def autodoc_process_signature(app, what, name, obj, options, signature, return_annotation):
+
+    if name.endswith("PARAMS"):
+        return_annotation = ''
+        signature = pformat(obj, compact=True)
+        # print(name, return_annotation, signature)
+    #     signature = "``` % s```" % pformat(dict(signature))
+        # return_annotation = "aaa" #"aaa```%s````" % pformat(dict(return_annotation))
+    return (signature, return_annotation)
+    # return (signature, return_annotation)
+
+# def autodoc_skip_member(app, what, name, obj, skip, options):
+#     return True
+#     exclusions = ('PARAMS',)
+#     exclude = name in exclusions
+#     if exclude:
+#         print(what, name, obj, skip)
+#
+#     return True
+#
+#
+
+# def setup(app):
+    # app.connect('autodoc-skip-member', autodoc_skip_member)
+    # app.connect('autodoc-process-signature', autodoc_process_signature)
