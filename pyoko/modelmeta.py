@@ -24,8 +24,8 @@ class ModelMeta(type):
         class_type = getattr(base_model_class, '_TYPE', None)
         if class_type == 'Model':
             mcs.process_models(attrs, base_model_class)
-        if class_type == 'ListNode':
-            mcs.process_listnode(attrs, base_model_class)
+        # if class_type == 'ListNode':
+        #     mcs.process_listnode(attrs, base_model_class)
         mcs.process_attributes_of_node(attrs, name, class_type)
         new_class = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
         return new_class
@@ -121,9 +121,9 @@ class ModelMeta(type):
                 if k not in attrs['Meta'].__dict__:
                     setattr(attrs['Meta'], k, v)
 
-    @staticmethod
-    def process_listnode(attrs, base_model):
-        attrs['idx'] = field.Id()
+    # @staticmethod
+    # def process_listnode(attrs, base_model):
+    #     attrs['idx'] = field.Id()
 
     @staticmethod
     def process_objects(kls):
