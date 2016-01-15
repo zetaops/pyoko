@@ -63,8 +63,8 @@ Base file structure of a Pyoko based project;
     
     
     class Permission(Model):
-        name = field.String("Name", index=True)
-        code = field.String("Code Name", index=True)
+        name = field.String("Name")
+        code = field.String("Code Name")
     
         class Meta:
             verbose_name = "Permission"
@@ -77,8 +77,8 @@ Base file structure of a Pyoko based project;
     
     
     class Unit(Model):
-        name = field.String("Name", index=True)
-        address = field.String("Address", index=True, null=True, blank=True)
+        name = field.String("Name")
+        address = field.String("Address", null=True, blank=True)
     
         class Meta:
             verbose_name = "Unit"
@@ -89,17 +89,17 @@ Base file structure of a Pyoko based project;
     
     
     class Person(Model):
-        first_name = field.String("Name", index=True)
-        last_name = field.String("Surname", index=True)
+        first_name = field.String("Name")
+        last_name = field.String("Surname")
         work = Unit(verbose_name="Work", reverse_name="workers")
         home = Unit(verbose_name="Home", reverse_name="residents")
     
     
         class ContactInfo(Node):
-            address = field.String("Address", index=True, null=True, blank=True)
-            city = field.String("City", index=True)
-            phone = field.String("Phone", index=True)
-            email = field.String("Email", index=True)
+            address = field.String("Address", null=True, blank=True)
+            city = field.String("City")
+            phone = field.String("Phone")
+            email = field.String("Email")
     
         class Permissions(ListNode):
             perm = Permission()

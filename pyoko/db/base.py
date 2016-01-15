@@ -183,7 +183,6 @@ class QuerySet(object):
                 obj.__dict__[k] = copy.deepcopy(v, memo)
         obj.is_clone = True
         obj.compiled_query = ''
-        obj.key = None
         return obj
 
     def _set_bucket(self, type, name):
@@ -215,7 +214,7 @@ class QuerySet(object):
         model._data = clean_value
         if settings.DEBUG:
             t2 = time.time()
-        if not model.is_in_db():
+        if not model.exist:
             obj = self.bucket.new(data=clean_value).store()
             model.key = obj.key
             new_obj = True

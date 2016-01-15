@@ -19,6 +19,9 @@ model_registry = Registry()
 
 
 class ModelMeta(type):
+    """
+    Metaclass that process model classes.
+    """
     def __new__(mcs, name, bases, attrs):
         base_model_class = bases[0]
         class_type = getattr(base_model_class, '_TYPE', None)
@@ -45,8 +48,11 @@ class ModelMeta(type):
         """
         prepare the model fields, nodes and relations
 
-        :param node_name: name of the node we are currently processing
-        :param dict attrs: attribute dict
+        Args:
+            node_name (str): name of the node we are currently processing
+            attrs (dict): attribute dict
+            class_type (str): Type of class.
+                Can be one of these: 'ListNode', 'Model', 'Node'
         """
         # print("Node: %s" % node_name)
         attrs['_nodes'] = {}
@@ -96,14 +102,11 @@ class ModelMeta(type):
                                                               'verbose': lzy_lnk.verbose_name,
                                                               'reverse': lzy_lnk.reverse_name,
                                                               'field': key})
-        # print("-- %s" % pprint.pformat(attrs['_linked_models']))
 
     @staticmethod
     def process_models(attrs, base_model_class):
         """
         Attach default fields and meta options to models
-        :param dict attrs: attribute dict
-        :param bases:
         """
         attrs.update(base_model_class._DEFAULT_BASE_FIELDS)
         attrs['_instance_registry'] = set()
@@ -127,6 +130,9 @@ class ModelMeta(type):
 
     @staticmethod
     def process_objects(kls):
+        """
+        Applies default Meta properties.
+        """
         # first add a Meta object if not exists
         if 'Meta' not in kls.__dict__:
             kls.Meta = type('Meta', (object,), {})

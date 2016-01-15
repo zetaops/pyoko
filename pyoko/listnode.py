@@ -14,7 +14,34 @@ from .lib.utils import un_camel, un_camel_id
 
 class ListNode(Node):
     """
-    Currently we disregard the ordering when updating items of a ListNode
+    ListNode's are used to store list of field sets.
+    Their DB representation look like list of dicts:
+
+    .. code-block:: python
+
+        class Student(Model):
+            class Lectures(ListNode):
+                name = field.String()
+                code = field.String(required=False)
+
+        st = Student()
+        st.Lectures(name="Math101", code='M1')
+        st.Lectures(name="Math102", code='M2')
+        st.clean_value()
+        {
+            'deleted': False,
+            'timestamp': None
+            'lectures': [
+                {'code': 'M1', 'name': 'Math101'},
+                {'code': 'M2', 'name': 'Math102'},
+            ]
+        }
+
+
+
+    Notes:
+        - Currently we disregard the ordering when updating items of a ListNode
+
     """
 
     # HASH_BY = '' # calculate __hash__ value by field defined here
@@ -31,15 +58,16 @@ class ListNode(Node):
 
     def _load_data(self, data, from_db=False):
         """
-        just stores the data at self._data,
-        actual object creation done at _generate_instances()
+        Stores the data at self._data, actual object creation done at _generate_instances()
         """
         self._data = data[:]
         self._from_db = from_db
 
     def _generate_instances(self):
         """
-        a clone generator that will be used by __iter__ and __getitem__
+        ListNode item generator. Will be used by __iter__ and __getitem__
+        Yields:
+            ListNode items (instances)
         """
         for node in self.node_stack:
             yield node
@@ -78,9 +106,10 @@ class ListNode(Node):
 
     def clean_value(self):
         """
-        populates json serialization ready data for storing on db
+        Populates json serialization ready data for storing on db
 
-        :return: [{},]
+        Returns:
+            List of dicts.
         """
         result = []
         for mdl in self:
@@ -89,12 +118,12 @@ class ListNode(Node):
 
     def __repr__(self):
         """
-        this works for two different object.
-        - Main ListNode object
-        - Items of the node (like instance of a class)
-        which created on iteration of main object
-
-        :return:
+        This works for two different object:
+            - Main ListNode object
+            - Items of the node (like instance of a class)
+                which created on iteration of main object
+        Returns:
+            String representation of object.
         """
         if not self._is_item:
             return [obj for obj in self[:10]].__repr__()
@@ -111,18 +140,17 @@ class ListNode(Node):
 
     def add(self, **kwargs):
         """
-        stores node data without creating an instance of it
-        this is more efficient if node instance is not required
-        :param kwargs: properties of the ListNode
-        :return: None
+        Stores node data without creating an instance of it.
+        This is more efficient if node instance is not required.
+
+        Args:
+            kwargs: attributes of the ListNode
         """
         self._data.append(kwargs)
 
     def __call__(self, **kwargs):
         """
-        stores created instance in node_stack and returns it's reference to callee
-        :param kwargs:
-        :return:
+        Stores created instance in node_stack and returns it's reference to callee
         """
         kwargs['_root_node'] = self._root_node
         clone = self.__class__(**kwargs)
@@ -136,7 +164,7 @@ class ListNode(Node):
 
     def clear(self):
         """
-        clear outs the list node
+        Clear outs the list node.
         """
         if self._is_item:
             raise TypeError("This an item of the parent ListNode")
@@ -170,8 +198,10 @@ class ListNode(Node):
 
     def remove(self):
         """
-        remove this item from list node
-        note: you should save the parent object yourself.
+        Removes this item from ListNode.
+
+        Note:
+            Parent object should be explicitly saved.
         """
         if not self._is_item:
             raise TypeError("A ListNode cannot be deleted")
