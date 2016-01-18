@@ -337,9 +337,30 @@ class QuerySet(object):
 
     def get_or_create(self, defaults=None, **kwargs):
         """
-        Looks up an object with the given kwargs, creating one if necessary.
-        Returns a tuple of (object, created), where created is a boolean
-        specifying whether an object was created.
+        Looks up an object with the given kwargs, creating a new one if necessary.
+
+        Args:
+            defaults (dict): Used when we create a new object. Must map to fields
+                of the model.
+            \*\*kwargs: Used both for filtering and new object creation.
+
+        Returns:
+            A tuple of (object, created), where created is a boolean variable
+            specifies whether the object was newly created or not.
+
+        Example:
+            In the following example, *code* and *name* fields are used to query the DB.
+
+            .. code-block:: python
+
+                obj, is_new = Permission.objects.get_or_create({'description': desc},
+                                                                code=code, name=name)
+
+            {description: desc} dict is just for new creations. If we can't find any
+            records by filtering on *code* and *name*, then we create a new object by
+            using all of the inputs.
+
+
         """
         clone = copy.deepcopy(self)
         existing = list(clone.filter(**kwargs))
@@ -412,7 +433,7 @@ class QuerySet(object):
         Search for query on given fields.
 
         Query modifier can be one of these:
-            * exact
+            # * exact
             * contains
             * startswith
             * endswith
@@ -427,7 +448,6 @@ class QuerySet(object):
 
         Returns:
             Self. Queryset object.
-
 
         Examples:
             >>> Person.objects.search_on('name', 'surname', contains='john')
@@ -584,7 +604,7 @@ class QuerySet(object):
 
     def _compile_query(self):
         """
-        Builds SOLR query and stores into self.compiled_query
+        Builds SOLR query and stores it into self.compiled_query
         """
         # TODO: This and all Riak/Solr targeted methods should be refactored
         # into another class. http://pm.ulakbus.net/5049
