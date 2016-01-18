@@ -4,10 +4,10 @@ pyoko.db package
 Submodules
 ----------
 
-pyoko.db.base module
---------------------
+pyoko.db.queryset module
+-------------------------
 
-.. automodule:: pyoko.db.base
+.. automodule:: pyoko.db.queryset
     :members:
     :undoc-members:
     :show-inheritance:

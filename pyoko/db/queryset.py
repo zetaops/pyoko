@@ -359,6 +359,7 @@ class QuerySet(object):
         """
         Ensures that only one result is returned from DB and raises an exception otherwise.
         Can work in 3 different way.
+
             - If no argument is given, only does "ensuring about one and only object" job.
             - If key given as only argument, retrieves the object from DB.
             - if query filters given, implicitly calls filter() method.
@@ -420,8 +421,8 @@ class QuerySet(object):
             * gte
 
         Args:
-            *fields str: Field list to be searched on
-            **query:  Search query. While it's implemented as **kwargs
+            \*fields (str): Field list to be searched on
+            \*\*query:  Search query. While it's implemented as \*\*kwargs
              we only support one (first) keyword argument.
 
         Returns:

@@ -23,12 +23,16 @@ class Model(Node):
     This is base class for any model object.
 
     Field instances are used as model attributes to represent values.
-        >>> class Permission(Model):
-        >>>     name = field.String("Name")
-        >>>     code = field.String("Code Name")
-        >>>
-        >>>     def __unicode__(self):
-        >>>         return "%s %s" % (self.name, self.code)
+
+    .. code-block:: python
+
+        class Permission(Model):
+            name = field.String("Name")
+            code = field.String("Code Name")
+
+            def __unicode__(self):
+                return "%s %s" % (self.name, self.code)
+
     Models may have inner classes to represent ManyToMany relations, inner data nodes or lists.
 
     """

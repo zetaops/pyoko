@@ -45,31 +45,30 @@ class CommandRegistry(type):
 class Command(object):
     """
     Command object is a thin wrapper around Python's powerful argparse module.
+    Holds the given command line  parameters in self.manager.args
 
-    ::Class Properties::
+    Attributes:
+        CMD_NAME: name of your command
+        HELP: help texts starts with "R|" will be parsed as raw text
+        PARAMS: A dictionary list with following possible values.
 
-    *CMD_NAME*: name of your command
-    *HELP*: help texts starts with "R|" will be parsed as raw text
-    *PARAMS*: = [{
-    'name': name of parameter
-    'help': help text for parameter. Parsed as raw if starts with "R|"
-    'required': Optional. Set True if this  is a required parameter.
-    'default': Optional. Define a default value for the parameter
-    'action': 'store_true' see the official argparse documentation for more info
-    }]
-    * https://docs.python.org/2/howto/argparse.html
-    * https://docs.python.org/2/library/argparse.html
-
+            - name: name of parameter
+            - help: help text for parameter. Parsed as raw if starts with "R|"
+            - required: Optional. Set True if this  is a required parameter.
+            - default: Optional. Define a default value for the parameter
+            - action: 'store_true' see the official argparse documentation for more info
     """
+    # https://docs.python.org/2/howto/argparse.html
+    # https://docs.python.org/2/library/argparse.html
 
     def __init__(self, manager):
-        """
-        :param manager: holds the given cli parameters in self.manager.args
-        :return:
-        """
         self.manager = manager
 
     def run(self):
+        """
+        This is where the things are done.
+        You should override this method in your command class.
+        """
         raise NotImplemented("You should override this method in your command class")
 
 
