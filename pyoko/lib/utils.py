@@ -21,7 +21,7 @@ UN_CAMEL_RE = re.compile('((?<=[a-z0-9])[A-Z]|(?!^)[A-Z](?=[a-z]))')
 
 
 class SimpleChoicesManager(object):
-
+    # Untested, POC!
     def __call__(self, choices, key):
         return dict(choices).get(key)
 
@@ -30,19 +30,23 @@ class SimpleChoicesManager(object):
         return choices
 
 class SimpleRiakFileManager(object):
+    # Untested, POC!
 
     def store_file(self, **kw):
         return "%s/|%s" % (kw['ext'], kw['content'])
 
+# Somehow I can't monkey-patch this from sphinx's conf.py
+# So, this is the workaround I'm using for now...
 if hasattr(sys, 'IN_SPHINX'):
     lazy_property = property
 else:
     class lazy_property(object):
-        '''
-        from: http://stackoverflow.com/a/6849299/454130
-        meant to be used for lazy evaluation of an object attribute.
+        """
+        Meant to be used for lazy evaluation of an object attribute.
         property should represent non-mutable data, as it replaces itself.
-        '''
+
+        from: http://stackoverflow.com/a/6849299/454130
+        """
 
         def __init__(self, fget):
             self.fget = fget
@@ -104,6 +108,9 @@ def add_to_path():
 
 
 def get_object_from_path(path):
+    """
+    Import's object from given Python path.
+    """
     path = path.split('.')
     module_path = '.'.join(path[:-1])
     class_name = path[-1]
@@ -113,9 +120,13 @@ def get_object_from_path(path):
 
 def pprnt(input, return_data=False):
     """
-    prettier print for nested data
-    :param input:
-    :return:
+    Prettier print for nested data
+
+    Args:
+        input: Input data
+        return_data (bool): Default False. Print outs if False, returns if True.
+    Returns:
+        None | Pretty formatted text representation of input data.
     """
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'

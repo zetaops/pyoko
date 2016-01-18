@@ -9,7 +9,7 @@
 import six
 from .node import Node, FakeContext
 from . import fields as field
-from .db.base import QuerySet
+from .db.queryset import QuerySet
 from .lib.utils import un_camel, lazy_property, pprnt, un_camel_id
 import weakref
 

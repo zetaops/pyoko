@@ -10,7 +10,7 @@ import pprint
 from collections import defaultdict
 
 from pyoko.conf import settings
-from pyoko.db.base import QuerySet
+from pyoko.db.queryset import QuerySet
 from pyoko.lib.utils import un_camel
 from pyoko.registry import Registry
 from . import fields as field

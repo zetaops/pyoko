@@ -267,9 +267,13 @@ class QuerySet(object):
 
     def _make_model(self, data, riak_obj=None):
         """
-        creates a model instance with the given data
-        :param dict data: model data returned from db (riak or redis)
-        :return: pyoko.Model
+        Creates a model instance with the given data.
+
+        Args:
+            data: Model data returned from DB.
+            riak_obj:
+        Returns:
+            pyoko.Model object.
         """
         if not data:
             raise Exception("No data returned from Riak\n" + self._get_debug_data())

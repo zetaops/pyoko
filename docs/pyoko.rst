@@ -43,6 +43,7 @@ pyoko.listnode module
     :members:
     :undoc-members:
     :show-inheritance:
+    :inherited-members:
 
 pyoko.manage module
 -------------------
@@ -59,6 +60,7 @@ pyoko.model module
     :members:
     :undoc-members:
     :show-inheritance:
+    :inherited-members:
 
 pyoko.modelmeta module
 ----------------------
