@@ -293,9 +293,16 @@ texinfo_documents = [
 from pprint import pformat
 def autodoc_process_signature(app, what, name, obj, options, signature, return_annotation):
 
+
+    if name.endswith("registry") and isinstance(obj, dict):
+        # print(obj.__class__.__name__)
+        return_annotation = ''
+        signature = ' [{}]'
+
     if name.endswith("PARAMS"):
         return_annotation = ''
-        signature = pformat(obj, compact=True)
+        signature = ' [{}]'
+        # signature = pformat(obj, compact=True)
         # print(name, return_annotation, signature)
     #     signature = "``` % s```" % pformat(dict(signature))
         # return_annotation = "aaa" #"aaa```%s````" % pformat(dict(return_annotation))
@@ -313,6 +320,6 @@ def autodoc_process_signature(app, what, name, obj, options, signature, return_a
 #
 #
 
-# def setup(app):
+def setup(app):
     # app.connect('autodoc-skip-member', autodoc_skip_member)
-    # app.connect('autodoc-process-signature', autodoc_process_signature)
+    app.connect('autodoc-process-signature', autodoc_process_signature)

@@ -96,6 +96,7 @@ class Model(Node):
         return self._data == other._data and self.key == other.key
 
     def __hash__(self):
+        # hash is based on self.key if exists or serialization of object's data.
         if self.key:
             return hash(self.key)
         else:
@@ -131,22 +132,19 @@ class Model(Node):
 
     def get_choices_for(self, field):
         """
+        Get the choices for the given fields.
 
-        :param field:
-        :return:
+        Args:
+            field (str): Name of field.
+
+        Returns:
+            List of tuples. [(name, value),...]
         """
         choices = self._fields[field].choices
         if isinstance(choices, six.string_types):
             return [(d['value'], d['name']) for d in self._choices_manager.get_all(choices)]
         else:
             return choices
-
-    @classmethod
-    def get_search_index(cls):
-        if not cls._SEARCH_INDEX:
-            # cls._SEARCH_INDEX = settings.get_index(cls._get_bucket_name())
-            cls._SEARCH_INDEX = cls.objects.bucket.get_property('search_index')
-        return cls._SEARCH_INDEX
 
     def set_data(self, data, from_db=False):
         """
@@ -198,18 +196,19 @@ class Model(Node):
     @staticmethod
     def row_level_access(context, objects):
         """
-        This method
-        Define your query filters in here to enforce row level access control.
+        If defined, will be called just before query
+        compiling step and it's output summed up to existing query filter.
+
+        Can be used to implement context-aware implicit filtering.
+        You can define your query filters in here to enforce row level access control.
 
         Args:
             context: An object that contain required user attributes and permissions.
-            objects (Queryset):
+            objects (Queryset): QuerySet object.
 
         Examples:
-            self.objects = self.objects.filter(user=context.user.key)
+            >>> return objects.filter(user=context.user)
         """
-        # FIXME: Row level access control should be enforced on cached related objects
-        #  currently it's only work on direct queries
         pass
 
     @lazy_property
@@ -242,6 +241,7 @@ class Model(Node):
                 linked_mdl_ins.save(internal=True)
 
     def _add_back_link(self, linked_mdl, *args):
+        # creates a new back_link reference
         lnk = list(args)[:]
         lnk.insert(0, linked_mdl)
         self.new_back_links["%s_%s" % (linked_mdl.key, hash(args))] = lnk
@@ -299,7 +299,7 @@ class Model(Node):
 
     def delete(self):
         """
-        this method just flags the object as "deleted" and saves it to db
+        This method just flags the object as "deleted" and saves it to DB.
         """
         self.deleted = True
         self.save()
@@ -308,6 +308,14 @@ class Model(Node):
 class LinkProxy(object):
     """
     Proxy object for "self" referencing model relations
+    Example:
+
+        .. code-block:: python
+
+            class Unit(Model):
+                name = field.String("Name")
+                parent = LinkProxy('Unit', verbose_name='Upper unit', reverse_name='sub_units')
+
     """
     _TYPE = 'Link'
 
