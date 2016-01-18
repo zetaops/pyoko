@@ -222,7 +222,7 @@ class Model(Node):
     def _update_new_linked_model(self, linked_mdl_ins, name, o2o):
         """
         This method works on _linked_models dict of given linked model instance
-        for each relation list it looks for "self"
+        for each relation list it looks for "self" in them.
         """
         for lnk in linked_mdl_ins.get_links():
             mdl = lnk['mdl']
@@ -247,6 +247,13 @@ class Model(Node):
         self.new_back_links["%s_%s" % (linked_mdl.key, hash(args))] = lnk
 
     def _handle_changed_fields(self, old_data):
+        """
+        Looks for changed relation fields between new and old data (before/after save).
+        Creates back_link references for updated fields.
+
+        Args:
+            old_data: Object's data before save.
+        """
         for link in self.get_links(is_set=False):
             fld_id = un_camel_id(link['field'])
             if not old_data or old_data.get(fld_id) != self._data[fld_id]:
