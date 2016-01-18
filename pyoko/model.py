@@ -23,17 +23,13 @@ class Model(Node):
     This is base class for any model object.
 
     Field instances are used as model attributes to represent values.
-
-    Example:
         >>> class Permission(Model):
         >>>     name = field.String("Name")
         >>>     code = field.String("Code Name")
-
-    - Models may have inner classes to represnt ManyToMany relations, inner data nodes or lists.
-        >>>
         >>>
         >>>     def __unicode__(self):
         >>>         return "%s %s" % (self.name, self.code)
+    Models may have inner classes to represent ManyToMany relations, inner data nodes or lists.
 
     """
     objects = QuerySet
@@ -85,23 +81,29 @@ class Model(Node):
         """
         Prints DB data representation of the object.
         """
-        try:
-            pprnt(self._data)
-        except:
-            pprnt(self.clean_value())
+        print("= = = =\n\n%s object key: \033[32m%s\033[0m" % (self.__class__.__name__, self.key))
+        pprnt(self._data or self.clean_value())
 
     def __eq__(self, other):
+        """
+        Equivalence of two model instance depends on uniformity of their
+        self._data and self.key.
+        """
         return self._data == other._data and self.key == other.key
 
     def __hash__(self):
-        return hash(self.key)
+        if self.key:
+            return hash(self.key)
+        else:
+            clean_value = self.clean_value()
+            clean_value['timestamp'] = ''
+            return hash(str(clean_value))
+
 
     def is_in_db(self):
         """
         Deprecated:
             Use "exist" property instead.
-        is this model stored to db
-        :return:
         """
         return self.exist
 
@@ -124,7 +126,11 @@ class Model(Node):
         return bool(self.key)
 
     def get_choices_for(self, field):
+        """
 
+        :param field:
+        :return:
+        """
         choices = self._fields[field].choices
         if isinstance(choices, six.string_types):
             return [(d['value'], d['name']) for d in self._choices_manager.get_all(choices)]
@@ -140,14 +146,16 @@ class Model(Node):
 
     def set_data(self, data, from_db=False):
         """
-        first calls supers load_data
-        then fills linked models
+        Fills the object's fields with given data dict.
+        Internally calls the self._load_data() method.
 
-        :param from_db: if data coming from db then we will
+        Args:
+            data (dict): Data to fill object's fields.
+            from_db (bool): if data coming from db then we will
             use related field type's _load_data method
-        :param data: data
 
-        :return: self
+        Returns:
+            Self. Returns objects itself for chainability.
         """
         self._load_data(data, from_db)
         return self
@@ -186,6 +194,7 @@ class Model(Node):
     @staticmethod
     def row_level_access(context, objects):
         """
+        This method
         Define your query filters in here to enforce row level access control.
 
         Args:

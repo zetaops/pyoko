@@ -106,7 +106,8 @@ class ListNode(Node):
 
     def clean_value(self):
         """
-        Populates json serialization ready data for storing on db
+        Populates json serialization ready data.
+        This is the method used to serialize and store the object data in to DB
 
         Returns:
             List of dicts.
