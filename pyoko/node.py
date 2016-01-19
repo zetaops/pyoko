@@ -166,7 +166,7 @@ class Node(object):
                     # and it should be a model instance
                     linked_mdl_ins = data[lnk['field']]
                     setattr(self, lnk['field'], linked_mdl_ins)
-                    self._root_node._add_back_link(linked_mdl_ins, lnk['field'], lnk['o2o'])
+                    self._root_node._add_back_link(linked_mdl_ins, lnk)
                 else:
                     _name = un_camel_id(lnk['field'])
                     if _name in data and data[_name] is not None:

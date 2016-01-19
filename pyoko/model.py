@@ -219,19 +219,19 @@ class Model(Node):
     def _name_id(self):
         return "%s_id" % self._name
 
-    def _update_new_linked_model(self, linked_mdl_ins, name, o2o):
+    def _update_new_linked_model(self, linked_mdl_ins, link):
         """
-        This method works on _linked_models dict of given linked model instance
-        for each relation list it looks for "self" in them.
+        Iterates through linked_models of given model instance to match it's
+        "reverse" with given link's "field" values.
         """
         for lnk in linked_mdl_ins.get_links():
             mdl = lnk['mdl']
-            if not isinstance(self, mdl) or lnk['reverse'] != name:
+            if not isinstance(self, mdl) or lnk['reverse'] != link['field']:
                 continue
             local_field_name = lnk['field']
             # remote_name = lnk['reverse']
             remote_field_name = un_camel(mdl.__name__)
-            if not o2o:
+            if not link['o2o']:
                 remote_set = getattr(linked_mdl_ins, local_field_name)
                 if remote_set._TYPE == 'ListNode' and self not in remote_set:
                     remote_set(**{remote_field_name: self._root_node})
@@ -240,11 +240,11 @@ class Model(Node):
                 setattr(linked_mdl_ins, remote_field_name, self._root_node)
                 linked_mdl_ins.save(internal=True)
 
-    def _add_back_link(self, linked_mdl, *args):
+    def _add_back_link(self, linked_mdl, link):
         # creates a new back_link reference
-        lnk = list(args)[:]
-        lnk.insert(0, linked_mdl)
-        self.new_back_links["%s_%s" % (linked_mdl.key, hash(args))] = lnk
+        self.new_back_links["%s_%s_%s" % (linked_mdl.key,
+                                          link['field'],
+                                          link['o2o'])] = (linked_mdl, link.copy())
 
     def _handle_changed_fields(self, old_data):
         """
@@ -260,7 +260,12 @@ class Model(Node):
                 # self is new or linked model changed
                 if self._data[fld_id]:  # exists
                     linked_mdl = getattr(self, link['field'])
-                    self._add_back_link(linked_mdl, link['field'], link['o2o'])
+                    self._add_back_link(linked_mdl, link)
+
+    def _process_relations(self):
+        for k, v in self.new_back_links.copy().items():
+            del self.new_back_links[k]
+            self._update_new_linked_model(*v)
 
     def pre_save(self):
         """
@@ -297,9 +302,7 @@ class Model(Node):
         old_data = self._data.copy()
         self.objects._save_model(self)
         self._handle_changed_fields(old_data)
-        for k, v in self.new_back_links.copy().items():
-            del self.new_back_links[k]
-            self._update_new_linked_model(*v)
+        self._process_relations()
         if not internal:
             self.post_save()
         return self
