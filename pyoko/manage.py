@@ -84,8 +84,8 @@ class Shell(Command):
         if not self.manager.args.no_model:
             exec('from %s import *' % settings.MODELS_MODULE)
         try:
-            from IPython import embed
-            embed()
+            from IPython import start_ipython
+            start_ipython(argv=[], user_ns=locals())
         except:
             import readline
             import code
