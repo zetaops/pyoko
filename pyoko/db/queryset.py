@@ -482,7 +482,7 @@ class QuerySet(object):
         """
         if self._solr_locked:
             raise Exception("Query already executed, no changes can be made."
-                            "%s %s %s" % (self._solr_query, self._solr_params)
+                            "%s %s" % (self._solr_query, self._solr_params)
                             )
         clone = copy.deepcopy(self)
         clone._solr_params.update(params)

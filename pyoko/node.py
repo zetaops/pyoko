@@ -330,6 +330,7 @@ class Node(object):
         self._fill_nodes(self._data)
         self._set_fields_values(self._data)
         self._instantiate_linked_models(self._data)
+        del self._data['from_db']
         return self
 
     def _clean_node_value(self, dct):
