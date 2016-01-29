@@ -380,7 +380,7 @@ and .js extensions will be loaded."""},
         data = json.loads(file.read())
         for bucket_name in data.keys():
             for key, val in data[bucket_name]:
-                self.save_obj(bucket_name, key, json.dumps(val))
+                self.save_obj(bucket_name, key, val)
 
     def read_per_line(self, file):
         for line in file:
@@ -390,17 +390,18 @@ and .js extensions will be loaded."""},
     def read_json_per_line(self, file):
         for line in file:
             bucket_name, key, val = json.loads(line)
-            self.save_obj(bucket_name, key, json.dumps(val))
+            self.save_obj(bucket_name, key, val)
 
     def save_obj(self, bucket_name, key, val):
         key = key or None
         if self.manager.args.update or key is None:
-            self.buckets[bucket_name].new(key, val.encode('utf-8')).store()
+            data = val.encode('utf-8') if self.typ == self.CSV else val
+            self.buckets[bucket_name].new(key, data).store()
             self.record_counter += 1
         else:
             obj = self.buckets[bucket_name].get(key)
             if not obj.exists:
-                obj.data = val.encode('utf-8')
+                obj.data = val.encode('utf-8') if self.typ == self.CSV else val
                 obj.store()
                 self.record_counter += 1
             else:
