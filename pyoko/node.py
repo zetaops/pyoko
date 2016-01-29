@@ -322,8 +322,6 @@ class Node(object):
         Args:
             from_db (bool): if data coming from db instead of calling
                 self._set_fields_values() we simply use field's _load_data method.
-        :param dict data:
-        :return: self
         """
         self._data = data.copy()
         self._data['from_db'] = from_db
