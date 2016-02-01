@@ -1,6 +1,3 @@
-PYOKO
-=====
-
 .. image:: https://readthedocs.org/projects/pyoko/badge/?version=latest
     :target: http://pyoko.readthedocs.org/en/latest/?badge=latest
     :alt: Documentation Status
@@ -8,7 +5,7 @@ PYOKO
 A Django-esque ORM for Riak KV
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Supported Features
+Features
 ^^^^^^^^^^^^^^^^^^
 
 -  Nested class based data models (schemas).
@@ -24,8 +21,8 @@ Supported Features
 Work in progress
 ^^^^^^^^^^^^^^^^
 
--  Clenup of invalid/removed relations.
 -  Documentation.
+-  Clenup of invalid/removed relations.
 
 Planned
 ^^^^^^^
@@ -33,12 +30,13 @@ Planned
 -  Automatic versioning on write-once buckets.
 -  Configurable auto-denormalization (aka reactive joins / write-time
    joins) for relations.
+-  Performance optimizations.
 -  Custom migrations with migration history.
 -  CRDT based models.
 
 --------------
 
-Setup / Configuration
+Quick Start
 ^^^^^^^^^^^^^^^^^^^^^
 
 Your project should within Python path, so you could be able to import
@@ -51,7 +49,7 @@ Base file structure of a Pyoko based project;
 .. code:: python
 
         from pyoko.manage import *
-        environ.setdefault('PYOKO_SETTINGS', '<PYTHON.PATH.TO.PROJECT>.settings')
+        environ.setdefault('PYOKO_SETTINGS', '``<PYTHON.PATH.TO.PROJECT>``.settings')
         ManagementCommands(argv[1:])
 
 -  settings.py
