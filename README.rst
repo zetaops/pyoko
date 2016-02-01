@@ -2,11 +2,11 @@
     :target: http://pyoko.readthedocs.org/en/latest/?badge=latest
     :alt: Documentation Status
 
-A Django-esque ORM for Riak KV
+Pyoko: A Django-esque ORM for Riak KV
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Features
-^^^^^^^^^^^^^^^^^^
+^^^^^^^^^
 
 -  Nested class based data models (schemas).
 -  One-To-One, ManyToMany and ManyToOne relations.
@@ -34,7 +34,13 @@ Planned
 -  Custom migrations with migration history.
 -  CRDT based models.
 
---------------
+
+API Documentation
+^^^^^^^^^^^^^^^^^^
+Read the API documentation at pyoko.readthedocs.org_.
+
+.. _pyoko.readthedocs.org: http://pyoko.readthedocs.org/en/latest/api-documentation.html
+
 
 Quick Start
 ^^^^^^^^^^^^^^^^^^^^^
@@ -129,14 +135,9 @@ Base file structure of a Pyoko based project;
                 perm = Permission.object.get(code=perm_code)
                 return self.has_permission(perm)
 
-API Documentation
-^^^^^^^^^^^^^^^^^^
-Read the API documentation at pyoko.readthedocs.org_.
-
-.. _pyoko.readthedocs.org: http://pyoko.readthedocs.org/en/latest/?badge=latest
 
 Creating objects, Making Queries
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------------
 
 .. code:: python
 
@@ -149,6 +150,7 @@ Creating objects, Making Queries
         user.work = Unit(name="Acme").save()
         user.home = Unit(name=  "Emac").save()
         user.save()
+
 
 Notes
 ------
@@ -221,8 +223,30 @@ or
 
 **py.test** command runs all the tests from tests directory.
 
+
+Support
+-------
+
+Feel free to fork this and send back Pull Requests for any
+defects or features that you want to contribute back.
+Opening issues here is also recommended.
+
+If you need to get the attention of the ZETAOPS team send an email
+to info@zetaops.io.  Commerical support from ZetaOps Inc.
+requires a valid support contract.
+
+
+Authors
+=======
+
+* Evren Esat Özkan
+* Ali Rıza Keleş
+* Gökhan Boranalp
+
+
 License
 ^^^^^^^
 
-GPL v3.0
+Pyoko is licensed under the `GPL v3.0`_
 
+.. _GPL v3.0: http://www.gnu.org/licenses/gpl-3.0.html
