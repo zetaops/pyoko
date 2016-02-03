@@ -17,6 +17,7 @@ from uuid import uuid4
 
 from collections import defaultdict
 
+from pyoko.exceptions import ObjectDoesNotExist
 from .conf import settings
 from .lib.utils import get_object_from_path, lazy_property, un_camel, un_camel_id
 from .modelmeta import ModelMeta
@@ -173,8 +174,13 @@ class Node(object):
                         # this is coming from db,
                         # we're preparing a lazy model loader
                         def fo(modl, context, key):
-                            return lambda: modl(context,
+                            def fo2():
+                                try:  # workaround for #5094 / GH-46
+                                    return modl(context,
                                                 verbose_name=lnk['verbose']).objects.get(key)
+                                except ObjectDoesNotExist:
+                                    return modl(context, verbose_name=lnk['verbose'])
+                            return fo2
 
                         obj = LazyModel(fo(lnk['mdl'], self._context, data[_name]), lnk['verbose'])
                         obj.key = data[_name]
