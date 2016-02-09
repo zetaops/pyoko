@@ -68,7 +68,7 @@ class ModelMeta(type):
             if hasattr(attr, '__base__') and getattr(attr.__base__, '_TYPE', '') in ['Node',
                                                                                      'ListNode']:
                 # converted pops to dict access to allow sphinx to
-                # properly documentate the models
+                # properly document the models
                 # attrs['_nodes'][key] = attrs.pop(key)
                 attrs['_nodes'][key] = attrs[key]
             else:  # otherwise it should be a field or linked model

@@ -3,7 +3,7 @@
     :alt: Documentation Status
 
 Pyoko: A Django-esque ORM for Riak KV
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Features
 ^^^^^^^^^
