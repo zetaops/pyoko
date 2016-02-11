@@ -1,5 +1,9 @@
 # -*-  coding: utf-8 -*-
 """
+This module holds the ListNode implementation of Pyoko Models.
+
+ListNode's are used to model ManyToMany relations and other
+list like data types on a Model.
 """
 
 # Copyright (C) 2015 ZetaOps Inc.
@@ -14,10 +18,36 @@ from .lib.utils import un_camel, un_camel_id
 
 class ListNode(Node):
     """
-    Currently we disregard the ordering when updating items of a ListNode
+    ListNode's are used to store list of field sets.
+    Their DB representation look like list of dicts:
+
+    .. code-block:: python
+
+        class Student(Model):
+            class Lectures(ListNode):
+                name = field.String()
+                code = field.String(required=False)
+
+        st = Student()
+        st.Lectures(name="Math101", code='M1')
+        st.Lectures(name="Math102", code='M2')
+        st.clean_value()
+        {
+            'deleted': False,
+            'timestamp': None
+            'lectures': [
+                {'code': 'M1', 'name': 'Math101'},
+                {'code': 'M2', 'name': 'Math102'},
+            ]
+        }
+
+
+
+    Notes:
+        - Currently we disregard the ordering of ListNode items.
+
     """
 
-    # HASH_BY = '' # calculate __hash__ value by field defined here
     _TYPE = 'ListNode'
 
     def __init__(self, **kwargs):
@@ -25,22 +55,27 @@ class ListNode(Node):
         self._from_db = False
         self.values = []
         self.node_stack = []
-        self._data = []
         self.node_dict = {}
         super(ListNode, self).__init__(**kwargs)
+        self._data = []
 
     def _load_data(self, data, from_db=False):
         """
-        just stores the data at self._data,
-        actual object creation done at _generate_instances()
+        Stores the data at self._data, actual object creation done at _generate_instances()
+
+        Args:
+            data (list): List of dicts.
+            from_db (bool): Default False. Is this data coming from DB or not.
         """
-        self._data = data
-        self.data = data[:]
+        self._data = data[:]
         self._from_db = from_db
 
     def _generate_instances(self):
         """
-        a clone generator that will be used by __iter__ or __getitem__
+        ListNode item generator. Will be used internally by __iter__ and __getitem__
+
+        Yields:
+            ListNode items (instances)
         """
         for node in self.node_stack:
             yield node
@@ -49,10 +84,12 @@ class ListNode(Node):
 
     def _make_instance(self, node_data):
         """
-        create a ListNode instance from node_data
+        Create a ListNode instance from node_data
 
-        :param dict node_data:
-        :return: ListNode item
+        Args:
+            node_data (dict): Data to create ListNode item.
+        Returns:
+            ListNode item.
         """
         node_data['from_db'] = self._from_db
         clone = self.__call__(**node_data)
@@ -68,26 +105,37 @@ class ListNode(Node):
         return clone
 
     def _get_linked_model_key(self):
+        """
+        Only one linked model can represent a listnode instance,
+
+        Returns:
+             The first linked models key if exists otherwise None
+        """
         for lnk in self.get_links():
             return getattr(self, lnk['field']).key
 
     def clean_value(self):
         """
-        populates json serialization ready data for storing on riak
-        :return: [{},]
+        Populates json serialization ready data.
+        This is the method used to serialize and store the object data in to DB
+
+        Returns:
+            List of dicts.
         """
         result = []
         for mdl in self:
-            # mdl.processed_nodes = self.processed_nodes
             result.append(super(ListNode, mdl).clean_value())
         return result
 
     def __repr__(self):
         """
-        this works for two different object.
-        - Main ListNode object
-        - Items of the node (like instance of a class) which created on iteration of main object
-        :return:
+        This works for two different object:
+            - Main ListNode object
+            - Items of the ListNode (like instance of a class)
+              which created while iterating on main ListNode object
+
+        Returns:
+            String representation of object.
         """
         if not self._is_item:
             return [obj for obj in self[:10]].__repr__()
@@ -104,24 +152,22 @@ class ListNode(Node):
 
     def add(self, **kwargs):
         """
-        stores node data without creating an instance of it
-        this is more efficient if node instance is not required
-        :param kwargs: properties of the ListNode
-        :return: None
+        Stores node data without creating an instance of it.
+        This is more efficient if node instance is not required.
+
+        Args:
+            kwargs: attributes of the ListNode
         """
         self._data.append(kwargs)
 
     def __call__(self, **kwargs):
         """
-        stores created instance in node_stack and returns it's reference to callee
-        :param kwargs:
-        :return:
+        Stores created instance in node_stack and returns it's reference to callee
         """
-        kwargs['root'] = self.root
+        kwargs['_root_node'] = self._root_node
         clone = self.__class__(**kwargs)
-        # clone.root = self.root
+        # clone._root_node = self._root_node
         clone._is_item = True
-        clone.processed_nodes = self.root.processed_nodes
         self.node_stack.append(clone)
         _key = clone._get_linked_model_key()
         if _key:
@@ -130,7 +176,10 @@ class ListNode(Node):
 
     def clear(self):
         """
-        clear outs the list node
+        Clear outs the list node.
+
+        Raises:
+            TypeError: If it's called on a ListNode item (intstead of ListNode's itself)
         """
         if self._is_item:
             raise TypeError("This an item of the parent ListNode")
@@ -144,6 +193,7 @@ class ListNode(Node):
             return item.key in self.node_dict
 
     def __len__(self):
+        # FIXME: Partial evolution of ListNode iterator can cause incorrect results
         return len(self._data or self.node_stack)
 
     def __getitem__(self, index):
@@ -153,20 +203,39 @@ class ListNode(Node):
         return self._generate_instances()
 
     def __setitem__(self, key, value):
+        # This is not useful in current state. Should be refactored or removed.
         if self._is_item:
             raise TypeError("This an item of the parent ListNode")
         self.node_stack[key] = value
 
     def __delitem__(self, obj):
+        """
+        Allow usage of "del" statement on ListNodes with bracket notation.
+
+        Args:
+            obj: ListNode item or relation key.
+
+        Raises:
+            TypeError: If it's called on a ListNode item (intstead of ListNode's itself)
+        """
         if self._is_item:
             raise TypeError("This an item of the parent ListNode")
+        if isinstance(obj, six.string_types):
+            obj = self.node_dict[obj]
+        # force the evaluation of ListNode iterator
+        list(self._generate_instances())
         self.node_stack.remove(obj)
 
     def remove(self):
         """
-        remove this item from list node
-        note: you should save the parent object yourself.
+        Removes an item from ListNode.
+
+        Raises:
+            TypeError: If it's called on a ListNode item (intstead of ListNode's itself)
+
+        Note:
+            Parent object should be explicitly saved.
         """
         if not self._is_item:
-            raise TypeError("A ListNode cannot be deleted")
+            raise TypeError("Should be called on an item, not ListNode's itself.")
         self.container.node_stack.remove(self)

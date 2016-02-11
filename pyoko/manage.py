@@ -45,32 +45,30 @@ class CommandRegistry(type):
 class Command(object):
     """
     Command object is a thin wrapper around Python's powerful argparse module.
+    Holds the given command line  parameters in self.manager.args
 
-    ::Class Properties::
+    Attributes:
+        CMD_NAME: name of your command
+        HELP: help texts starts with "R|" will be parsed as raw text
+        PARAMS: A dictionary list with following possible values.
 
-    *CMD_NAME*: name of your command
-    *HELP*: help texts starts with "R|" will be parsed as raw text
-    *PARAMS*: = [{
-        'name': name of parameter
-        'help': help text for parameter. Parsed as raw if starts with "R|"
-        'required': Optional. Set True if this  is a required parameter.
-        'default': Optional. Define a default value for the parameter
-        'action': 'store_true' see the official argparse
-            *documentation for more info
-    }]
-    * https://docs.python.org/2/howto/argparse.html
-    * https://docs.python.org/2/library/argparse.html
-
+            - name: name of parameter
+            - help: help text for parameter. Parsed as raw if starts with "R|"
+            - required: Optional. Set True if this  is a required parameter.
+            - default: Optional. Define a default value for the parameter
+            - action: 'store_true' see the official argparse documentation for more info
     """
+    # https://docs.python.org/2/howto/argparse.html
+    # https://docs.python.org/2/library/argparse.html
 
     def __init__(self, manager):
-        """
-        :param manager: holds the given cli parameters in self.manager.args
-        :return:
-        """
         self.manager = manager
 
     def run(self):
+        """
+        This is where the things are done.
+        You should override this method in your command class.
+        """
         raise NotImplemented("You should override this method in your command class")
 
 
@@ -86,8 +84,8 @@ class Shell(Command):
         if not self.manager.args.no_model:
             exec('from %s import *' % settings.MODELS_MODULE)
         try:
-            from IPython import embed
-            embed()
+            from IPython import start_ipython
+            start_ipython(argv=[], user_ns=locals())
         except:
             import readline
             import code
@@ -304,6 +302,9 @@ class DumpData(Command):
 
 
 class LoadData(Command):
+    """
+    Loads previously dumped data into DB.
+    """
     CMD_NAME = 'load_data'
     HELP = 'Reads JSON data from given file and populates models'
 
@@ -348,7 +349,6 @@ and .js extensions will be loaded."""},
     def prepare_buckets(self):
         """
         loads buckets to bucket cache. disables the default json encoders if CSV is selected
-        :return:
         """
         for mdl in self.registry.get_base_models():
             bucket = mdl(super_context).objects.bucket
@@ -380,7 +380,7 @@ and .js extensions will be loaded."""},
         data = json.loads(file.read())
         for bucket_name in data.keys():
             for key, val in data[bucket_name]:
-                self.save_obj(bucket_name, key, json.dumps(val))
+                self.save_obj(bucket_name, key, val)
 
     def read_per_line(self, file):
         for line in file:
@@ -390,17 +390,18 @@ and .js extensions will be loaded."""},
     def read_json_per_line(self, file):
         for line in file:
             bucket_name, key, val = json.loads(line)
-            self.save_obj(bucket_name, key, json.dumps(val))
+            self.save_obj(bucket_name, key, val)
 
     def save_obj(self, bucket_name, key, val):
         key = key or None
         if self.manager.args.update or key is None:
-            self.buckets[bucket_name].new(key, val.encode('utf-8')).store()
+            data = val.encode('utf-8') if self.typ == self.CSV else val
+            self.buckets[bucket_name].new(key, data).store()
             self.record_counter += 1
         else:
             obj = self.buckets[bucket_name].get(key)
             if not obj.exists:
-                obj.data = val.encode('utf-8')
+                obj.data = val.encode('utf-8') if self.typ == self.CSV else val
                 obj.store()
                 self.record_counter += 1
             else:

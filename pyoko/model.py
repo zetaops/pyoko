@@ -9,16 +9,34 @@
 import six
 from .node import Node, FakeContext
 from . import fields as field
-from .db.base import DBObjects
+from .db.queryset import QuerySet
 from .lib.utils import un_camel, lazy_property, pprnt, un_camel_id
 import weakref
-from .modelmeta import model_registry
 
 super_context = FakeContext()
 
+# kept for backwards-compatibility
+from .modelmeta import model_registry
 
 class Model(Node):
-    objects = DBObjects
+    """
+    This is base class for any model object.
+
+    Field instances are used as model attributes to represent values.
+
+    .. code-block:: python
+
+        class Permission(Model):
+            name = field.String("Name")
+            code = field.String("Code Name")
+
+            def __unicode__(self):
+                return "%s %s" % (self.name, self.code)
+
+    Models may have inner classes to represent ManyToMany relations, inner data nodes or lists.
+
+    """
+    objects = QuerySet
     _TYPE = 'Model'
 
     _DEFAULT_BASE_FIELDS = {
@@ -27,29 +45,27 @@ class Model(Node):
     _SEARCH_INDEX = ''
 
     def __init__(self, context=None, **kwargs):
-        self._riak_object = None
-
-        self.unpermitted_fields = []
-        self.is_unpermitted_fields_set = False
-        self.context = context
+        self.key = None
+        # holds list of banned fields for current context
+        self._unpermitted_fields = []
+        # this indicates cell filters applied and we can filter on them
+        self._is_unpermitted_fields_set = False
+        self._context = context
         self.verbose_name = kwargs.get('verbose_name')
         self.reverse_name = kwargs.get('reverse_name')
         self._pass_perm_checks = kwargs.pop('_pass_perm_checks', False)
-        # if not self._pass_perm_checks:
-        #     self.row_level_access(context)
-        #     self.apply_cell_filters(context)
         self.objects._pass_perm_checks = self._pass_perm_checks
-        # self._prepare_linked_models()
         self._is_one_to_one = kwargs.pop('one_to_one', False)
         self.title = kwargs.pop('title', self.__class__.__name__)
-        self.root = self
+        self._root_node = self
         self.new_back_links = {}
         kwargs['context'] = context
         super(Model, self).__init__(**kwargs)
 
-        self.objects.set_model(model=self)
+        self.objects._set_model(model=self)
         self._instance_registry.add(weakref.ref(self))
         self.saved_models = []
+
 
     def __str__(self):
         try:
@@ -59,76 +75,140 @@ class Model(Node):
 
 
     def get_verbose_name(self):
+        """
+        Returns:
+            Verbose name of the model instance
+        """
         return self.verbose_name or self.Meta.verbose_name
 
     def prnt(self):
-        try:
-            pprnt(self._data)
-        except:
-            pprnt(self.clean_value())
+        """
+        Prints DB data representation of the object.
+        """
+        print("= = = =\n\n%s object key: \033[32m%s\033[0m" % (self.__class__.__name__, self.key))
+        pprnt(self._data or self.clean_value())
 
     def __eq__(self, other):
+        """
+        Equivalence of two model instance depends on uniformity of their
+        self._data and self.key.
+        """
         return self._data == other._data and self.key == other.key
 
     def __hash__(self):
-        return hash(self.key)
+        # hash is based on self.key if exists or serialization of object's data.
+        if self.key:
+            return hash(self.key)
+        else:
+            clean_value = self.clean_value()
+            clean_value['timestamp'] = ''
+            return hash(str(clean_value))
+
 
     def is_in_db(self):
         """
-        is this model stored to db
-        :return:
+        Deprecated:
+            Use "exist" property instead.
         """
-        return self.key and not self.key.startswith('TMP_')
+        return self.exist
+
+    @property
+    def exist(self):
+        """
+        Used to check if a relation is exist or a model instance is saved to DB or not.
+
+        Returns:
+            True if this model instance stored in DB and has a key and False otherwise.
+
+        Examples:
+            >>> class Student(Model):
+            >>>    #...
+            >>>    adviser = Person()
+            >>>
+            >>> if student.adviser.exist:
+            >>>    # do something
+        """
+        return bool(self.key)
 
     def get_choices_for(self, field):
+        """
+        Get the choices for the given fields.
 
+        Args:
+            field (str): Name of field.
+
+        Returns:
+            List of tuples. [(name, value),...]
+        """
         choices = self._fields[field].choices
         if isinstance(choices, six.string_types):
             return [(d['value'], d['name']) for d in self._choices_manager.get_all(choices)]
         else:
             return choices
 
-    @classmethod
-    def get_search_index(cls):
-        if not cls._SEARCH_INDEX:
-            # cls._SEARCH_INDEX = settings.get_index(cls._get_bucket_name())
-            cls._SEARCH_INDEX = cls.objects.bucket.get_property('search_index')
-        return cls._SEARCH_INDEX
-
     def set_data(self, data, from_db=False):
         """
-        first calls supers load_data
-        then fills linked models
+        Fills the object's fields with given data dict.
+        Internally calls the self._load_data() method.
 
-        :param from_db: if data coming from db then we will
-        use related field type's _load_data method
-        :param data: data
-        :return:
+        Args:
+            data (dict): Data to fill object's fields.
+            from_db (bool): if data coming from db then we will
+            use related field type's _load_data method
+
+        Returns:
+            Self. Returns objects itself for chainability.
         """
         self._load_data(data, from_db)
         return self
 
-    def apply_cell_filters(self, context):
-        self.is_unpermitted_fields_set = True
+    def __repr__(self):
+        if not self.is_in_db():
+            return six.text_type(self.__class__)
+        else:
+            return self.__str__()
+
+    def _apply_cell_filters(self, context):
+        """
+        Applies the field restrictions based on the
+         return value of the context's "has_permission()" method.
+         Stores them on self._unpermitted_fields.
+
+        Returns:
+            List of unpermitted fields names.
+        """
+        self._is_unpermitted_fields_set = True
         for perm, fields in self.Meta.field_permissions.items():
             if not context.has_permission(perm):
-                self.unpermitted_fields.extend(fields)
-        return self.unpermitted_fields
+                self._unpermitted_fields.extend(fields)
+        return self._unpermitted_fields
 
     def get_unpermitted_fields(self):
-        return (self.unpermitted_fields if self.is_unpermitted_fields_set else
-                self.apply_cell_filters(self.context))
+        """
+        Gives unpermitted fields for current context/user.
+
+        Returns:
+            List of unpermitted field names.
+        """
+        return (self._unpermitted_fields if self._is_unpermitted_fields_set else
+                self._apply_cell_filters(self._context))
 
     @staticmethod
     def row_level_access(context, objects):
         """
-        Define your query filters in here to enforce row level access control
-        context should contain required user attributes and permissions
-        eg:
-            self.objects = self.objects.filter(user=context.user.key)
+        If defined, will be called just before query
+        compiling step and it's output summed up to existing query filter.
+
+        Can be used to implement context-aware implicit filtering.
+        You can define your query filters in here to enforce row level access control.
+
+        Args:
+            context: An object that contain required user attributes and permissions.
+            objects (Queryset): QuerySet object.
+
+        Examples:
+            >>> return objects.filter(user=context.user)
         """
-        # FIXME: Row level access control should be enforced on cached related objects
-        #  currently it's only work on direct queries
         pass
 
     @lazy_property
@@ -139,81 +219,114 @@ class Model(Node):
     def _name_id(self):
         return "%s_id" % self._name
 
-    # def _get_back_links(self):
-    #     """
-    #     get models that linked from this models
-    #     :return: [Model]
-    #     """
-    #     return model_registry.link_registry[self.__class__]
-
-    def update_new_linked_model(self, linked_mdl_ins, name, o2o):
+    def _update_new_linked_model(self, linked_mdl_ins, link):
         """
-        this method works on _linked_models dict of given linked model instance
-        for each relation list it looks for "self"
-
-        :param linked_mdl_ins:
-        :param name:
-        :param o2o:
-        :return:
+        Iterates through linked_models of given model instance to match it's
+        "reverse" with given link's "field" values.
         """
         for lnk in linked_mdl_ins.get_links():
             mdl = lnk['mdl']
-            if not isinstance(self, mdl) or lnk['reverse'] != name:
+            if not isinstance(self, mdl) or lnk['reverse'] != link['field']:
                 continue
             local_field_name = lnk['field']
             # remote_name = lnk['reverse']
             remote_field_name = un_camel(mdl.__name__)
-            if not o2o:
+            if not link['o2o']:
                 remote_set = getattr(linked_mdl_ins, local_field_name)
                 if remote_set._TYPE == 'ListNode' and self not in remote_set:
-                    remote_set(**{remote_field_name: self.root})
+                    remote_set(**{remote_field_name: self._root_node})
                     linked_mdl_ins.save(internal=True)
             else:
-                setattr(linked_mdl_ins, remote_field_name, self.root)
+                setattr(linked_mdl_ins, remote_field_name, self._root_node)
                 linked_mdl_ins.save(internal=True)
 
-    def _add_back_link(self, linked_mdl, *args):
-        lnk = list(args)[:]
-        lnk.insert(0, linked_mdl)
-        self.new_back_links["%s_%s" % (linked_mdl.key, hash(args))] = lnk
+    def _add_back_link(self, linked_mdl, link):
+        # creates a new back_link reference
+        self.new_back_links["%s_%s_%s" % (linked_mdl.key,
+                                          link['field'],
+                                          link['o2o'])] = (linked_mdl, link.copy())
 
     def _handle_changed_fields(self, old_data):
+        """
+        Looks for changed relation fields between new and old data (before/after save).
+        Creates back_link references for updated fields.
+
+        Args:
+            old_data: Object's data before save.
+        """
         for link in self.get_links(is_set=False):
             fld_id = un_camel_id(link['field'])
             if not old_data or old_data.get(fld_id) != self._data[fld_id]:
                 # self is new or linked model changed
                 if self._data[fld_id]:  # exists
                     linked_mdl = getattr(self, link['field'])
-                    self._add_back_link(linked_mdl, link['field'], link['o2o'])
+                    self._add_back_link(linked_mdl, link)
+
+    def _process_relations(self):
+        for k, v in self.new_back_links.copy().items():
+            del self.new_back_links[k]
+            self._update_new_linked_model(*v)
 
     def pre_save(self):
+        """
+        Called before object save.
+        Can be overriden to do things that should be done just before
+        object saved to DB.
+        """
         pass
 
     def post_save(self):
+        """
+        Called after object save.
+        Can be overriden to do things that should be done after object
+        saved to DB.
+        """
         pass
 
     def save(self, internal=False):
+        """
+        Save's object to DB.
+
+        Do not override this method, use pre_save and post_save methods.
+
+        Args:
+            internal (bool): True if called within model.
+                Used to prevent unneccessary calls to pre_save and
+                post_save methods.
+
+        Returns:
+             Saved model instance.
+        """
         if not internal:
             self.pre_save()
         old_data = self._data.copy()
-        self.objects.save_model(self)
+        self.objects._save_model(self)
         self._handle_changed_fields(old_data)
-        for k, v in self.new_back_links.copy().items():
-            del self.new_back_links[k]
-            self.update_new_linked_model(*v)
+        self._process_relations()
         if not internal:
             self.post_save()
         return self
 
     def delete(self):
         """
-        this method just flags the object as "deleted" and saves it to db
+        This method just flags the object as "deleted" and saves it to DB.
         """
         self.deleted = True
         self.save()
 
 
 class LinkProxy(object):
+    """
+    Proxy object for "self" referencing model relations
+    Example:
+
+        .. code-block:: python
+
+            class Unit(Model):
+                name = field.String("Name")
+                parent = LinkProxy('Unit', verbose_name='Upper unit', reverse_name='sub_units')
+
+    """
     _TYPE = 'Link'
 
     def __init__(self, link_to, one_to_one=False, verbose_name=None, reverse_name=None):

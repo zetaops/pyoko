@@ -8,7 +8,6 @@
 # (GPLv3).  See LICENSE.txt for details.
 from copy import deepcopy
 from tests.data.test_data import data, clean_data
-from tests.deep_eq import deep_eq
 from tests.models import Student
 
 

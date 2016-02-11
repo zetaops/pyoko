@@ -40,28 +40,30 @@ ReturnType = Enum('ReturnType', 'Solr Object Model')
 
 
 # noinspection PyTypeChecker
-class DBObjects(object):
+class QuerySet(object):
     """
-    Data access layer for Solr/Riak
+    QuerySet is a lazy data access layer for Riak.
     """
 
     def __init__(self, **conf):
-        self.current_context = None
+        self._current_context = None
+        # pass permission checks to genareted model instances
         self._pass_perm_checks = False
         self.bucket = riak.RiakBucket
         self._cfg = {'row_size': 1000,
                      'rtype': ReturnType.Model}
         self._cfg.update(conf)
-        self.model = None
+        self._model = None
         self._client = self._cfg.pop('client', client)
         self.index_name = ''
+        self.is_clone = False
         if 'model' in conf:
-            self.set_model(model=conf['model'])
+            self._set_model(model=conf['model'])
         elif 'model_class' in conf:
-            self.set_model(model_class=conf['model_class'])
+            self._set_model(model_class=conf['model_class'])
 
-        self.set_bucket(self.model_class.Meta.bucket_type,
-                        self.model_class._get_bucket_name())
+        self._set_bucket(self._model_class.Meta.bucket_type,
+                         self._model_class._get_bucket_name())
         self._data_type = None  # we convert new object data according to
         # bucket datatype, eg: Dictomaping for 'map' type
         self.compiled_query = ''
@@ -71,41 +73,23 @@ class DBObjects(object):
             'sort': 'timestamp desc'}  # search parameters. eg: rows, fl, start, sort etc.
         self._solr_locked = False
         self._solr_cache = {}
-        self.key = None
+        # self.key = None
         self._riak_cache = []  # caching riak result,
         # for repeating iterations on same query
 
     # ######## Development Methods  #########
 
-    def set_model(self, model=None, model_class=None):
+    def _set_model(self, model=None, model_class=None):
         if model:
-            self.model = model
-            self.model_class = model.__class__
-            self.current_context = self.model.context
+            self._model = model
+            self._model_class = model.__class__
+            self._current_context = self._model._context
         elif model_class:
-            self.model = None
-            self.model_class = model_class
-            self.current_context = None
+            self._model = None
+            self._model_class = model_class
+            self._current_context = None
         else:
-            raise Exception("DBObjects should be called with a model instance or class")
-
-    def w(self, brief=True):
-        """
-        can be called at any time on query chaining.
-        prints debug information for current state of the dbobject
-        eg: list(Student.objects.w().filter(name="Jack").w())
-        :param bool brief: instead of whole content, only print length of the caches
-        :return:
-        """
-        print(grayed("results : ", len(
-                self._solr_cache.get('docs', [])) if brief else self._solr_cache))
-        print(grayed("query : ", self._solr_query))
-        print(grayed("params : ", self._solr_params))
-        print(grayed("riak_cache : ",
-                     len(self._riak_cache) if brief else self._riak_cache))
-        print(grayed("return_type : ", self._cfg['rtype']))
-        print(" ")
-        return self
+            raise Exception("QuerySet should be called with a model instance or class")
 
     def distinct_values_of(self, field):
         # FIXME: Add support for query filters
@@ -130,16 +114,6 @@ class DBObjects(object):
             i += 1
             self.bucket.get(k).delete()
         return i
-
-    # def _count_bucket(self):
-    #     """
-    #     only for development purposes
-    #     counts number of objects in the bucket.
-    #     :return:
-    #     """
-    #     return sum([len(key_list) for key_list in self.bucket.stream_keys()])
-
-    # ######## Python Magic  #########
 
     def __iter__(self):
         self._exec_query()
@@ -207,11 +181,11 @@ class DBObjects(object):
                 obj.__dict__[k] = v
             else:
                 obj.__dict__[k] = copy.deepcopy(v, memo)
+        obj.is_clone = True
         obj.compiled_query = ''
-        obj.key = None
         return obj
 
-    def set_bucket(self, type, name):
+    def _set_bucket(self, type, name):
         """
         prepares bucket, sets index name
         :param str type: bucket type
@@ -227,21 +201,20 @@ class DBObjects(object):
         self.index_name = "%s_%s" % (self._cfg['bucket_type'], self._cfg['bucket_name'])
         return self
 
-
-    def save_model(self, model=None):
+    def _save_model(self, model=None):
         """
         saves the model instance to riak
         :return:
         """
         # if model:
-        #     self.model = model
+        #     self._model = model
         if settings.DEBUG:
             t1 = time.time()
         clean_value = model.clean_value()
         model._data = clean_value
         if settings.DEBUG:
             t2 = time.time()
-        if not model.is_in_db():
+        if not model.exist:
             obj = self.bucket.new(data=clean_value).store()
             model.key = obj.key
             new_obj = True
@@ -294,21 +267,24 @@ class DBObjects(object):
 
     def _make_model(self, data, riak_obj=None):
         """
-        creates a model instance with the given data
-        :param dict data: model data returned from db (riak or redis)
-        :return: pyoko.Model
+        Creates a model instance with the given data.
+
+        Args:
+            data: Model data returned from DB.
+            riak_obj:
+        Returns:
+            pyoko.Model object.
         """
         if not data:
             raise Exception("No data returned from Riak\n" + self._get_debug_data())
-        model = self.model_class(self.current_context, _pass_perm_checks=self._pass_perm_checks)
+        model = self._model_class(self._current_context, _pass_perm_checks=self._pass_perm_checks)
         model.key = riak_obj.key if riak_obj else data.get('key')
         return model.set_data(data, from_db=True)
 
     def __repr__(self):
+        if not self.is_clone:
+            return "QuerySet for %s" % self._model_class
         try:
-            # return "%s | %s | %s " % (self.model_class.__name__,
-            #                           self._solr_query,
-            #                           self._solr_params)
             return [obj for obj in self[:10]].__repr__()
         except AssertionError as e:
             return e.msg
@@ -324,9 +300,19 @@ class DBObjects(object):
 
     def filter(self, **filters):
         """
-        applies query filters to queryset.
-        :param dict filters: query  filter parameters filter(email='a@a.co',...)
-        :return: DBObjects
+        Applies given query filters.
+
+        Args:
+            **filters: Query filters as keyword arguments.
+
+        Returns:
+            Self. Queryset object.
+
+        Examples:
+            >>> Person.objects.filter(name='John') # same as .filter(name__exact='John')
+            >>> Person.objects.filter(age__gte=16, name__startswith='jo')
+            >>> # Assume u1 and u2 as related model instances.
+            >>> Person.objects.filter(work_unit__in=[u1, u2], name__startswith='jo')
         """
         clone = copy.deepcopy(self)
         clone._add_query(filters.items())
@@ -334,19 +320,47 @@ class DBObjects(object):
 
     def exclude(self, **filters):
         """
-        applies query filters to exclude from queryset.
-        reusing filter method
-        :param dict filters: query  filter parameters filter(email='a@a.co',...)
-        :return: self.filter() with '-' with keys of filters
+        Applies query filters for excluding matching records from result set.
+
+        Args:
+            **filters: Query filters as keyword arguments.
+
+        Returns:
+            Self. Queryset object.
+
+        Examples:
+            >>> Person.objects.exclude(age=None)
+            >>> Person.objects.filter(name__startswith='jo').exclude(age__lte=16)
         """
         exclude = {'-%s' % key: value for key, value in filters.items()}
         return self.filter(**exclude)
 
     def get_or_create(self, defaults=None, **kwargs):
         """
-        Looks up an object with the given kwargs, creating one if necessary.
-        Returns a tuple of (object, created), where created is a boolean
-        specifying whether an object was created.
+        Looks up an object with the given kwargs, creating a new one if necessary.
+
+        Args:
+            defaults (dict): Used when we create a new object. Must map to fields
+                of the model.
+            \*\*kwargs: Used both for filtering and new object creation.
+
+        Returns:
+            A tuple of (object, created), where created is a boolean variable
+            specifies whether the object was newly created or not.
+
+        Example:
+            In the following example, *code* and *name* fields are used to query the DB.
+
+            .. code-block:: python
+
+                obj, is_new = Permission.objects.get_or_create({'description': desc},
+                                                                code=code, name=name)
+
+            {description: desc} dict is just for new creations. If we can't find any
+            records by filtering on *code* and *name*, then we create a new object by
+            using all of the inputs.
+
+
         """
         clone = copy.deepcopy(self)
         existing = list(clone.filter(**kwargs))
@@ -355,23 +369,28 @@ class DBObjects(object):
             if count > 1:
                 raise MultipleObjectsReturned(
                         "%s objects returned for %s" % (count,
-                                                        self.model_class.__name__))
+                                                        self._model_class.__name__))
             return existing[0], False
         else:
             data = defaults or {}
             data.update(kwargs)
-            return self.model_class(**data).save(), True
+            return self._model_class(**data).save(), True
 
     def get(self, key=None, **kwargs):
         """
-        if key param exists, retrieves object from riak,
-        otherwise ensures that we got only one doc from solr query
-        :type key: builtins.NoneType
-        :rtype: pyoko.Model
+        Ensures that only one result is returned from DB and raises an exception otherwise.
+        Can work in 3 different way.
+
+            - If no argument is given, only does "ensuring about one and only object" job.
+            - If key given as only argument, retrieves the object from DB.
+            - if query filters given, implicitly calls filter() method.
+
+        Raises:
+            MultipleObjectsReturned: If there is more than one (1) record is returned.
         """
         clone = copy.deepcopy(self)
         if key:
-            self.key = key
+            # self.key = key
             if settings.DEBUG:
                 t1 = time.time()
             clone._riak_cache = [self.bucket.get(key)]
@@ -388,8 +407,58 @@ class DBObjects(object):
             if clone.count() > 1:
                 raise MultipleObjectsReturned(
                         "%s objects returned for %s" % (clone.count(),
-                                                        self.model_class.__name__))
+                                                        self._model_class.__name__))
         return clone._get()
+
+    def or_filter(self, **filters):
+        """
+        Works like "filter" but joins given filters with OR operator.
+
+        Args:
+            **filters: Query filters as keyword arguments.
+
+        Returns:
+            Self. Queryset object.
+
+        Example:
+            >>> Person.objects.or_filter(age__gte=16, name__startswith='jo')
+
+        """
+        clone = copy.deepcopy(self)
+        clone._add_query([("OR_QRY", filters)])
+        return clone
+
+    def search_on(self, *fields, **query):
+        """
+        Search for query on given fields.
+
+        Query modifier can be one of these:
+            # * exact
+            * contains
+            * startswith
+            * endswith
+            * range
+            * lte
+            * gte
+
+        Args:
+            \*fields (str): Field list to be searched on
+            \*\*query:  Search query. While it's implemented as \*\*kwargs
+             we only support one (first) keyword argument.
+
+        Returns:
+            Self. Queryset object.
+
+        Examples:
+            >>> Person.objects.search_on('name', 'surname', contains='john')
+            >>> Person.objects.search_on('name', 'surname', startswith='jo')
+        """
+        clone = copy.deepcopy(self)
+        search_type = list(query.keys())[0]
+        parsed_query = self._parse_query_modifier(search_type,
+                                                  self._escape_query(query[search_type]))
+        clone._add_query([("OR_QRY", dict([(f, parsed_query) for f in fields]), True)])
+        return clone
 
     def count(self):
         """
@@ -413,22 +482,11 @@ class DBObjects(object):
         """
         if self._solr_locked:
             raise Exception("Query already executed, no changes can be made."
-                            "%s %s %s" % (self._solr_query, self._solr_params)
+                            "%s %s" % (self._solr_query, self._solr_params)
                             )
         clone = copy.deepcopy(self)
         clone._solr_params.update(params)
         return clone
-
-    def fields(self, *args):
-        """
-        Riak's  official Python client (as of v2.1) depends on existence of "_yz_rk"
-        for distinguishing between old and new search API.
-        :param args:
-        :return:
-        """
-
-        self._solr_params.update({'fl': ' '.join(set(args + ('_yz_rk',)))})
-        return self
 
     def _set_return_type(self, type):
         self._cfg['rtype'] = type
@@ -461,35 +519,17 @@ class DBObjects(object):
             clone._solr_params = params
         return clone
 
-    def or_filter(self, **filters):
-        """
-        applies query filters to queryset with OR operator.
-        :param dict filters: query  filter parameters filter(email='a@a.co',...)
-        :return: DBObjects
-        """
-        clone = copy.deepcopy(self)
-        clone._add_query([("OR_QRY", filters)])
-        return clone
-
-    def search_on(self, *fields, **query):
-        """
-        search for query on given fields,
-        search type can be: exact, contains, startswith, endswith, range
-        eg:
-        .search_on('name, 'surname', contains='john')
-        .search_on('name, 'surname', startswith='jo')
-
-        :param fields: field list to be searched on
-        :param query:  search query
-        :return: DBObjects
-        """
-        clone = copy.deepcopy(self)
-        search_type = list(query.keys())[0]
-        parsed_query = self._parse_query_type(search_type, self._escape_query(query[search_type]))
-        clone._add_query([("OR_QRY", dict([(f, parsed_query) for f in fields]), True)])
-        return clone
-
     def _escape_query(self, query, escaped=False):
+        """
+        Escapes query if it's not already escaped.
+
+        Args:
+            query: Query value.
+            escaped (bool): expresses if query already escaped or not.
+
+        Returns:
+            Escaped query value.
+        """
         if escaped:
             return query
         query = six.text_type(query)
@@ -498,63 +538,82 @@ class DBObjects(object):
             query = query.replace(e, "\\%s" % e)
         return query
 
-    def _parse_query_type(self, qtype, query):
-        if qtype == 'range':
-            start = query[0] or '*'
-            end = query[1] or '*'
-            query = '[%s TO %s]' % (start, end)
+    def _parse_query_modifier(self, modifier, query_value):
+        """
+        Parses query_value according to query_type
+
+        Args:
+            modifier (str): Type of query. Exact, contains, lte etc.
+            query_value: Value partition of the query.
+
+        Returns:
+            Parsed query_value.
+        """
+        if modifier == 'range':
+            start = query_value[0] or '*'
+            end = query_value[1] or '*'
+            query_value = '[%s TO %s]' % (start, end)
         else:
-            query = query
-            if qtype == 'exact':
-                query = query
-            elif qtype == 'contains':
-                query = "*%s*" % query
-            elif qtype == 'startswith':
-                query =  "%s*" % query
-            elif qtype == 'endswith':
-                query = "%s*" % query
-            elif qtype == 'lte':
-                query = '[* TO %s]' % query
-            elif qtype == 'gte':
-                query = '[%s TO *]' % query
-        return query
+            query_value = query_value
+            if modifier == 'exact':
+                query_value = query_value
+            elif modifier == 'contains':
+                query_value = "*%s*" % query_value
+            elif modifier == 'startswith':
+                query_value = "%s*" % query_value
+            elif modifier == 'endswith':
+                query_value = "%s*" % query_value
+            elif modifier == 'lte':
+                query_value = '[* TO %s]' % query_value
+            elif modifier == 'gte':
+                query_value = '[%s TO *]' % query_value
+        return query_value
 
     def _parse_query_key(self, key, val):
+        """
+        Strips query modifier from key and call's the appropriate value modifier.
+
+        Args:
+            key (str): Query key
+            val: Query value
+
+        Returns:
+            Parsed query key and value.
+        """
         if key.endswith('__contains'):
             key = key[:-10]
-            val = self._parse_query_type('contains', val)
+            val = self._parse_query_modifier('contains', val)
         elif key.endswith('__range'):
             key = key[:-7]
-            val = self._parse_query_type('range', val)
+            val = self._parse_query_modifier('range', val)
         elif key.endswith('__startswith'):
             key = key[:-12]
-            val = self._parse_query_type('startswith', val)
+            val = self._parse_query_modifier('startswith', val)
         elif key.endswith('__endswith'):
             key = key[:-10]
-            val = self._parse_query_type('endswith', val)
+            val = self._parse_query_modifier('endswith', val)
         # lower than or equal
         elif key.endswith('__lte'):
             key = key[:-5]
-            val = self._parse_query_type('lte', val)
+            val = self._parse_query_modifier('lte', val)
         # greater than or equal
         elif key.endswith('__gte'):
             key = key[:-5]
-            val = self._parse_query_type('gte', val)
+            val = self._parse_query_modifier('gte', val)
         return key, val
-
 
     def _compile_query(self):
         """
-        this will support "OR" and maybe other more advanced queries as well
-        :return: Solr query string
+        Builds SOLR query and stores it into self.compiled_query
         """
+        # TODO: This and all Riak/Solr targeted methods should be refactored
+        # into another class. http://pm.ulakbus.net/5049
 
         # https://wiki.apache.org/solr/SolrQuerySyntax
         # http://lucene.apache.org/core/2_9_4/queryparsersyntax.html
-        # TODO: escape following chars: + - && || ! ( ) { } [ ] ^ " ~ * ? : \
         query = []
         want_deleted = False
-        filtered_query = self.model_class.row_level_access(self.current_context, self)
+        filtered_query = self._model_class.row_level_access(self._current_context, self)
         if filtered_query is not None:
             self._solr_query += filtered_query._solr_query
         # print(self._solr_query)
@@ -569,47 +628,69 @@ class DBObjects(object):
             elif isinstance(val, datetime):
                 val = val.strftime(DATE_TIME_FORMAT)
             # if it's not one of the expected objects, it should be a string
+            # if key == "OR_QRY" then join them with "OR" after escaping & parsing
             elif key == 'OR_QRY':
                 key = 'NOKEY'
-                val = ' OR '.join(['%s:%s' % self._parse_query_key(k, self._escape_query(v, is_escaped)) for k, v in val.items()])
+                val = ' OR '.join(
+                        ['%s:%s' % self._parse_query_key(k, self._escape_query(v, is_escaped)) for
+                         k, v in val.items()])
+            # __in query is same as OR_QRY but key stays same for all values
             elif key.endswith('__in'):
                 key = key[:-4]
                 val = ' OR '.join(['%s:%s' % (key, self._escape_query(v, is_escaped)) for v in val])
                 key = 'NOKEY'
+            # val is None means we're searching for empty values
             elif val is None:
                 key = ('-%s' % key).replace('--', '')
                 val = '[* TO *]'
+            # then at least be sure that val is properly escaped
             else:
                 val = self._escape_query(val, is_escaped)
 
+            # parse the query
             key, val = self._parse_query_key(key, val)
-            # in (or) query
 
             # as long as not explicitly asked for,
             # we filter out records with deleted flag
             if key == 'deleted':
                 want_deleted = True
 
+            # convert two underscores to dot notation
             key = key.replace('__', '.')
+
+            # NOKEY means we already combined key partition in to "val"
             if key == 'NOKEY':
                 query.append("(%s)" % val)
             else:
                 query.append("%s:%s" % (key, val))
 
+        # filter out "deleted" fields if not user explicitly asked for
         if not want_deleted:
             query.append('-deleted:True')
+        # join everything with "AND"
         anded = ' AND '.join(query)
         joined_query = anded
+        # if query is empty, use '*:*' instead to get anything from db.
         if joined_query == '':
             joined_query = '*:*'
-        if settings.DEBUG and settings.DEBUG >= 5:
+        # if DEBUG is on and DEBUG_LEVEL set to a value higher than 5
+        # print query in to console.
+        if settings.DEBUG and settings.DEBUG_LEVEL >= 5:
             try:
                 print("QRY => %s" % joined_query)
             except:
                 pass
+
         self.compiled_query = joined_query
 
     def _process_params(self):
+        """
+        Adds default row size if it's not given in the query.
+        Converts param values into unicode strings.
+
+        Returns:
+            Processed self._solr_params dict.
+        """
         if 'rows' not in self._solr_params:
             self._solr_params['rows'] = self._cfg['row_size']
         for key, val in self._solr_params.items():
@@ -626,9 +707,13 @@ class DBObjects(object):
 
     def _exec_query(self):
         """
-        executes solr query if it hasn't already executed.
-        :return:
+        Executes solr query if it hasn't already executed.
+
+        Returns:
+            Self.
         """
+        if not self.is_clone:
+            raise Exception("QuerySet cannot be directly used")
         if not self._solr_cache and self._cfg['rtype'] != ReturnType.Solr:
             self.set_params(
                     fl='_yz_rk')  # we're going to riak, fetch only keys
