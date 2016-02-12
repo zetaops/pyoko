@@ -61,8 +61,29 @@ class Command(object):
     # https://docs.python.org/2/howto/argparse.html
     # https://docs.python.org/2/library/argparse.html
 
-    def __init__(self, manager):
-        self.manager = manager
+    def _make_manager(self, kw):
+        """
+        Creates a fake ``manage`` object to implement clean
+        API for the management commands.
+
+        Args:
+            kw: keyword args to be construct fake manage.args object.
+
+        Returns:
+            Fake manage object.
+        """
+        for param in self.PARAMS:
+            if param['name'] not in kw:
+                store_true = 'action' in param and param['action'] == 'store_true'
+                kw[param['name']] = param.get('default', False if store_true else None)
+        return type('FakeCommandManager', (object,),
+                    {
+                        'args': type('args', (object,), kw)
+                    })
+
+
+    def __init__(self, manager=None, **kwargs):
+        self.manager = manager or self._make_manager(kwargs)
 
     def run(self):
         """
