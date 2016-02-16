@@ -7,6 +7,8 @@ this module contains a base class for other db access classes
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
+from collections import defaultdict
+
 import copy
 
 # noinspection PyCompatibility
@@ -38,7 +40,14 @@ import sys
 
 ReturnType = Enum('ReturnType', 'Solr Object Model')
 
-
+sys.PYOKO_STAT_COUNTER = {
+    "save": 0,
+    "update": 0,
+    "read": 0,
+    "count": 0,
+    "search": 0,
+}
+sys.PYOKO_LOGS = defaultdict(list)
 # noinspection PyTypeChecker
 class QuerySet(object):
     """
@@ -125,6 +134,8 @@ class QuerySet(object):
                     t1 = time.time()
                 riak_obj = self.bucket.get(doc['_yz_rk'])
                 if settings.DEBUG:
+                    sys.PYOKO_STAT_COUNTER['read'] += 1
+                    sys.PYOKO_LOGS[self._model_class.__name__].append(doc['_yz_rk'])
                     sys._debug_db_queries.append({
                         'TIMESTAMP': t1,
                         'KEY': doc['_yz_rk'],
@@ -224,6 +235,12 @@ class QuerySet(object):
             obj.data = clean_value
             obj.store()
         if settings.DEBUG:
+            if new_obj:
+                sys.PYOKO_STAT_COUNTER['save'] += 1
+                sys.PYOKO_LOGS['new'].append(obj.key)
+            else:
+                sys.PYOKO_LOGS[self._model_class.__name__].append(obj.key)
+                sys.PYOKO_STAT_COUNTER['update'] += 1
             sys._debug_db_queries.append({
                 'TIMESTAMP': t1,
                 'KEY': obj.key,
@@ -249,6 +266,8 @@ class QuerySet(object):
                 t1 = time.time()
             self._riak_cache = [self.bucket.get(self._solr_cache['docs'][0]['_yz_rk'])]
             if settings.DEBUG:
+                sys.PYOKO_LOGS[self._model_class.__name__].append(self._solr_cache['docs'][0]['_yz_rk'])
+                sys.PYOKO_STAT_COUNTER['read'] += 1
                 sys._debug_db_queries.append({
                     'TIMESTAMP': t1,
                     'KEY': self._solr_cache['docs'][0]['_yz_rk'],
@@ -395,6 +414,8 @@ class QuerySet(object):
                 t1 = time.time()
             clone._riak_cache = [self.bucket.get(key)]
             if settings.DEBUG:
+                sys.PYOKO_STAT_COUNTER['read'] += 1
+                sys.PYOKO_LOGS[self._model_class.__name__].append(key)
                 sys._debug_db_queries.append({
                     'TIMESTAMP': t1,
                     'KEY': key,
@@ -433,7 +454,7 @@ class QuerySet(object):
         Search for query on given fields.
 
         Query modifier can be one of these:
-            # * exact
+            * exact
             * contains
             * startswith
             * endswith
@@ -510,8 +531,10 @@ class QuerySet(object):
     def raw(self, query, **params):
         """
         make a raw query
-        :param str query: solr query
-        :param dict params: solr parameters
+
+        Args:
+        query (str): solr query
+        \*\*params: solr parameters
         """
         clone = copy.deepcopy(self)
         clone.compiled_query = query
@@ -728,6 +751,7 @@ class QuerySet(object):
                                                       self.index_name,
                                                       **solr_params)
                 if settings.DEBUG:
+                    sys.PYOKO_STAT_COUNTER['search'] += 1
                     sys._debug_db_queries.append({
                         'TIMESTAMP': t1,
                         'QUERY': self.compiled_query,
