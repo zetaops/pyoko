@@ -202,7 +202,7 @@ Create a bucket type named "pyoko\_models" and activate it with following comman
     #!/bin/sh
 
     # 1 node development:
-    ./bin/riak-admin bucket-type create pyoko_models '{"props":{"last_write_wins":true, "allow_mult":false, "n_val":1}}'
+    ./bin/riak-admin bucket-type create pyoko_models '{"props":{"last_write_wins":true, "dvv_enabled":false, "allow_mult":false, "n_val":1}}'
 
     # >= 3 node production:
     #./bin/riak-admin bucket-type create pyoko_models '{"props":{"consistent":true}}'

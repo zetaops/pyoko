@@ -172,7 +172,7 @@ class SmartFormatter(HelpFormatter):
 
 class ManagementCommands(object):
     """
-    All CLI commands executed by this class.
+    All management commands executed by this class.
     You can create your own commands by extending Command class
     """
 
