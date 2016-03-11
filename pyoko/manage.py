@@ -190,7 +190,10 @@ class ManagementCommands(object):
         if self.args.timeit:
             import time
             t1 = time.time()
-        self.args.command()
+        if self.args.daemonize:
+            self.daemonize()
+        else:
+            self.args.command()
         if self.args.timeit:
             print("Process took %s seconds" % round(time.time() - t1, 2))
 
@@ -204,6 +207,7 @@ class ManagementCommands(object):
                                                formatter_class=SmartFormatter)
             sub_parser.set_defaults(command=cmd.run)
             sub_parser.add_argument("--timeit", action="store_true", help="Time the process")
+            sub_parser.add_argument("--daemonize", action="store_true", help="Run in background")
             if hasattr(cmd, 'PARAMS'):
                 for params in cmd.PARAMS:
                     param = params.copy()
@@ -214,6 +218,35 @@ class ManagementCommands(object):
                     sub_parser.add_argument(name, **param)
 
         self.args = parser.parse_args(args)
+
+    def daemonize(self):
+        import sys
+        try:
+            pid = os.fork()
+            if pid > 0:
+                # Exit first parent
+
+                sys.exit(0)
+        except OSError as e:
+            print(sys.stderr, "fork #1 failed: %d (%s)" % (e.errno, e.strerror))
+            sys.exit(1)
+
+        # Decouple from parent environment
+        os.chdir("/")
+        os.setsid()
+        os.umask(0)
+
+        # Do second fork
+        try:
+            pid = os.fork()
+            if pid > 0:
+                # Exit from second parent; print eventual PID before exiting
+                print("Daemon PID %d" % pid)
+                sys.exit(0)
+        except OSError as e:
+            print(sys.stderr, "fork #2 failed: %d (%s)" % (e.errno, e.strerror))
+            sys.exit(1)
+        self.args.command()
 
 
 class DumpData(Command):
