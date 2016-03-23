@@ -145,6 +145,8 @@ class FlushDB(Command):
     HELP = 'REALLY DELETES the contents of buckets'
     PARAMS = [{'name': 'model', 'required': True,
                'help': 'Models name(s) to be cleared. Say "all" to clear all models'},
+              {'name': 'exclude',
+               'help': 'Models name(s) to be excluded, comma separated'}
               ]
 
     def run(self):
@@ -157,6 +159,10 @@ class FlushDB(Command):
             models = [registry.get_model(name) for name in model_name.split(',')]
         else:
             models = registry.get_base_models()
+            if self.manager.args.exclude:
+                excluded_models = [registry.get_model(name) for name in self.manager.args.exclude.split(',')]
+                models = [model for model in models if model not in excluded_models]
+
         for mdl in models:
             num_of_records = mdl.objects._clear_bucket()
             print("%s object(s) deleted from %s " % (num_of_records, mdl.__name__))
