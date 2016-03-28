@@ -12,8 +12,8 @@ from pyoko.model import LinkProxy
 
 
 class Permission(Model):
-    name = field.String('Name')
-    codename = field.String('Codename')
+    name = field.String('Name', index=False)
+    codename = field.String('Codename', index=False)
 
     #
     # class abstract_role_set(ListNode):
@@ -21,7 +21,7 @@ class Permission(Model):
 
 
 class AbstractRole(Model):
-    name = field.String("Name", index=True)
+    name = field.String("Name")
 
     class Permissions(ListNode):
         permission = Permission()
@@ -42,10 +42,10 @@ class Role(Model):
     usr = User(verbose_name='Kul', reverse_name='roller')
     teammate = LinkProxy('User', verbose_name="Teammate", reverse_name="team")
     abstract_role = AbstractRole()
-    name = field.String("Name", index=True)
-    active = field.Boolean("Is Active")
-    start = field.Date("Start Date")
-    end = field.Date("End Date")
+    name = field.String("Name")
+    active = field.Boolean("Is Active", index=False)
+    start = field.Date("Start Date", index=False)
+    end = field.Date("End Date", index=False)
 
     def __unicode__(self):
         return "%s role" % self.name
@@ -53,7 +53,7 @@ class Role(Model):
 
 class Employee(Model):
     usr = User(one_to_one=True)
-    eid = field.String("Employee ID", index=True)
+    eid = field.String("Employee ID")
 
     def __unicode__(self):
         return "Employee ID #%s" % self.eid

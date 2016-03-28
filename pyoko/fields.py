@@ -35,7 +35,7 @@ class BaseField(object):
     def __init__(self, title='',
                  default=None,
                  required=True,
-                 index=False,
+                 index=True,
                  type=None,
                  store=False,
                  choices=None,
