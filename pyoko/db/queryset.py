@@ -48,6 +48,8 @@ sys.PYOKO_STAT_COUNTER = {
     "search": 0,
 }
 sys.PYOKO_LOGS = defaultdict(list)
+
+
 # noinspection PyTypeChecker
 class QuerySet(object):
     """
@@ -266,7 +268,8 @@ class QuerySet(object):
                 t1 = time.time()
             self._riak_cache = [self.bucket.get(self._solr_cache['docs'][0]['_yz_rk'])]
             if settings.DEBUG:
-                sys.PYOKO_LOGS[self._model_class.__name__].append(self._solr_cache['docs'][0]['_yz_rk'])
+                sys.PYOKO_LOGS[self._model_class.__name__].append(
+                    self._solr_cache['docs'][0]['_yz_rk'])
                 sys.PYOKO_STAT_COUNTER['read'] += 1
                 sys._debug_db_queries.append({
                     'TIMESTAMP': t1,
@@ -387,8 +390,8 @@ class QuerySet(object):
         if count:
             if count > 1:
                 raise MultipleObjectsReturned(
-                        "%s objects returned for %s" % (count,
-                                                        self._model_class.__name__))
+                    "%s objects returned for %s" % (count,
+                                                    self._model_class.__name__))
             return existing[0], False
         else:
             data = defaults or {}
@@ -427,8 +430,8 @@ class QuerySet(object):
             clone._exec_query()
             if clone.count() > 1:
                 raise MultipleObjectsReturned(
-                        "%s objects returned for %s" % (clone.count(),
-                                                        self._model_class.__name__))
+                    "%s objects returned for %s" % (clone.count(),
+                                                    self._model_class.__name__))
         return clone._get()
 
     def or_filter(self, **filters):
@@ -496,6 +499,34 @@ class QuerySet(object):
             obj._exec_query()
         obj._exec_query()
         return obj._solr_cache.get('num_found', -1)
+
+    def order_by(self, *args):
+        """
+        Applies query ordering.
+
+        Args:
+            **args: Order by fields names.
+            Defaults to ascending, prepend with hypen (-) for desecending ordering.
+
+        Returns:
+            Self. Queryset object.
+
+        Examples:
+            >>> Person.objects.order_by('-name', 'join_date')
+        """
+        if self._solr_locked:
+            raise Exception("Query already executed, no changes can be made."
+                            "%s %s" % (self._solr_query, self._solr_params)
+                            )
+        clone = copy.deepcopy(self)
+        sort_by = []
+        for arg in args:
+            if arg.startswith('-'):
+                sort_by.append('%s desc' % arg[1:])
+            else:
+                sort_by.append('%s asc' % arg)
+        clone._solr_params['sort'] = ', '.join(sort_by)
+        return clone
 
     def set_params(self, **params):
         """
@@ -655,8 +686,8 @@ class QuerySet(object):
             elif key == 'OR_QRY':
                 key = 'NOKEY'
                 val = ' OR '.join(
-                        ['%s:%s' % self._parse_query_key(k, self._escape_query(v, is_escaped)) for
-                         k, v in val.items()])
+                    ['%s:%s' % self._parse_query_key(k, self._escape_query(v, is_escaped)) for
+                     k, v in val.items()])
             # __in query is same as OR_QRY but key stays same for all values
             elif key.endswith('__in'):
                 key = key[:-4]
@@ -739,7 +770,7 @@ class QuerySet(object):
             raise Exception("QuerySet cannot be directly used")
         if not self._solr_cache and self._cfg['rtype'] != ReturnType.Solr:
             self.set_params(
-                    fl='_yz_rk')  # we're going to riak, fetch only keys
+                fl='_yz_rk')  # we're going to riak, fetch only keys
         if not self._solr_locked:
             if not self.compiled_query:
                 self._compile_query()
