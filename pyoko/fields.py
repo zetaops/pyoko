@@ -174,7 +174,12 @@ class DateTime(BaseField):
         if value is None or value == EMPTY_DATETIME:
             value = ''
         else:
-            value = datetime.datetime.strptime(value, DATE_TIME_FORMAT)
+            try:
+                value = datetime.datetime.strptime(value, DATE_TIME_FORMAT)
+            except TypeError:
+                # this is just a workaround for timestamp fields
+                # migration from Timestamp() to DateTime() field type
+                value = datetime.datetime.fromtimestamp(int(str(1456174234716182)[:-6]))
         instance._field_values[self.name] = value
 
 
