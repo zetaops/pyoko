@@ -16,6 +16,7 @@ import json
 
 from os import environ
 import os
+from riak import ConflictError
 
 from pyoko.conf import settings
 from riak.client import binary_json_decoder, binary_json_encoder
@@ -166,6 +167,56 @@ class FlushDB(Command):
         for mdl in models:
             num_of_records = mdl.objects._clear_bucket()
             print("%s object(s) deleted from %s " % (num_of_records, mdl.__name__))
+
+class ReIndex(Command):
+    CMD_NAME = 'reindex'
+    HELP = 'Re-indexes model objects'
+    PARAMS = [{'name': 'model', 'required': True,
+               'help': 'Models name(s) to be cleared. Say "all" to clear all models'},
+              {'name': 'exclude',
+               'help': 'Models name(s) to be excluded, comma separated'}
+              ]
+
+    def run(self):
+        from pyoko.conf import settings
+        from importlib import import_module
+        import_module(settings.MODELS_MODULE)
+        registry = import_module('pyoko.model').model_registry
+        model_name = self.manager.args.model
+        if model_name != 'all':
+            models = [registry.get_model(name) for name in model_name.split(',')]
+        else:
+            models = registry.get_base_models()
+            if self.manager.args.exclude:
+                excluded_models = [registry.get_model(name) for name in self.manager.args.exclude.split(',')]
+                models = [model for model in models if model not in excluded_models]
+
+        for mdl in models:
+            stream = mdl.objects.bucket.stream_keys()
+            i = 0
+            unsaved_keys = []
+            for key_list in stream:
+                for key in key_list:
+                    i += 1
+                    # time.sleep(0.4)
+                    try:
+                        mdl.objects.get(key).save()
+                        # obj = mdl.bucket.get(key)
+                        # if obj.data:
+                        #     obj.store()
+                    except ConflictError:
+                        unsaved_keys.append(key)
+                        print("Error on save. Record in conflict: %s > %s" % (mdl.__name__, key))
+                    except:
+                        unsaved_keys.append(key)
+                        print("Error on save! %s > %s" % (mdl.__name__, key))
+                        import traceback
+
+                        traceback.print_exc()
+            stream.close()
+            print("Re-indexed %s records of %s" % (i, mdl.__name__))
+            if unsaved_keys:
+                print("\nThese keys cannot be updated:\n\n", unsaved_keys)
 
 
 class SmartFormatter(HelpFormatter):
