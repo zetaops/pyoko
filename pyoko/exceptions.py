@@ -28,3 +28,7 @@ class MultipleObjectsReturned(PyokoError):
 
 class ObjectDoesNotExist(PyokoError):
     pass
+
+class IntegrityError(PyokoError):
+    """raised on unique/unique_together mismatches"""
+    pass

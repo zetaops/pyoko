@@ -7,6 +7,8 @@
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 import six
+
+from pyoko.exceptions import IntegrityError
 from .node import Node, FakeContext
 from . import fields as field
 from .db.queryset import QuerySet
@@ -52,6 +54,7 @@ class Model(Node):
         self._is_unpermitted_fields_set = False
         self._context = context
         self.verbose_name = kwargs.get('verbose_name')
+        self.unique = kwargs.get('unique')
         self.reverse_name = kwargs.get('reverse_name')
         self._pass_perm_checks = kwargs.pop('_pass_perm_checks', False)
         self.objects._pass_perm_checks = self._pass_perm_checks
@@ -213,7 +216,7 @@ class Model(Node):
 
     @lazy_property
     def _name(self):
-        return un_camel(self.__class__.__name)
+        return un_camel(self.__class__.__name__)
 
     @lazy_property
     def _name_id(self):
@@ -283,6 +286,23 @@ class Model(Node):
         """
         pass
 
+    def _handle_uniqueness(self):
+        if self._uniques:
+            for u in self._uniques:
+                val = self._field_values.get(u)
+                if (val and
+                        self.objects.filter(**{u: val}).count()):
+                    raise IntegrityError(
+                        "Unique mismatch %s for %s already exists for value: %s" %
+                        (u, self.__class__.__name__, val))
+        if self.Meta.unique_together:
+            for uniques in self.Meta.unique_together:
+                vals = dict([(u, self._field_values.get(u)) for u in uniques])
+                if self.objects.filter(**vals).count():
+                    raise IntegrityError(
+                        "%s for %s already exists for value: %s" % (
+                            u, self.__class__.__name__, val))
+
     def save(self, internal=False):
         """
         Save's object to DB.
@@ -299,6 +319,7 @@ class Model(Node):
         """
         if not internal:
             self.pre_save()
+        self._handle_uniqueness()
         old_data = self._data.copy()
         self.objects._save_model(self)
         self._handle_changed_fields(old_data)
@@ -329,8 +350,13 @@ class LinkProxy(object):
     """
     _TYPE = 'Link'
 
-    def __init__(self, link_to, one_to_one=False, verbose_name=None, reverse_name=None):
+    def __init__(self, link_to,
+                 one_to_one=False,
+                 verbose_name=None,
+                 reverse_name=None,
+                 unique=False):
         self.link_to = link_to
+        self.unique = unique
         self.one_to_one = one_to_one
         self.verbose_name = verbose_name
         self.reverse_name = reverse_name

@@ -10,3 +10,4 @@ from .student import Student
 from .users import *
 from .date_models import *
 from .perm_tests import *
+from .uniqueness import *

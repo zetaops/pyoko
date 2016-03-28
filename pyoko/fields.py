@@ -40,12 +40,14 @@ class BaseField(object):
                  store=False,
                  choices=None,
                  order=None,
+                 unique=False,
                  **kwargs):
         self._order = order or self.creation_counter
         BaseField.creation_counter += 1
         self.required = required
         self.choices = choices
         self.title = title
+        self.unique = unique
         if type:
             self.solr_type = type
         self.index = index or bool(type)

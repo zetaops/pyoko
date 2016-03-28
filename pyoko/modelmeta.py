@@ -60,6 +60,7 @@ class ModelMeta(type):
         attrs['_debug_linked_models'] = defaultdict(list)
         attrs['_lazy_linked_models'] = defaultdict(list)
         attrs['_fields'] = {}
+        attrs['_uniques'] = []
         # attrs['_many_to_models'] = []
 
         # iterating over attributes of the soon to be created class object.
@@ -93,6 +94,8 @@ class ModelMeta(type):
                 elif attr_type == 'Field':
                     attr.name = key
                     attrs['_fields'][key] = attr
+                    if attr.unique:
+                        attrs['_uniques'].append(key)
                 elif attr_type == 'Link':
                     # lzy_lnk = attrs.pop(key)
                     lzy_lnk = attrs[key]
@@ -136,6 +139,8 @@ class ModelMeta(type):
         # first add a Meta object if not exists
         if 'Meta' not in kls.__dict__:
             kls.Meta = type('Meta', (object,), {})
+        if 'unique_together' not in kls.Meta.__dict__:
+            kls.Meta.unique_together = []
         # set verbose_name(s) if not already set
         if 'verbose_name' not in kls.Meta.__dict__:
             kls.Meta.verbose_name = kls.__name__
