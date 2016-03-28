@@ -65,6 +65,7 @@ class TestCase:
         st2 = Student.objects.get(key)
         clean_value = st2.clean_value()
         clean_data['timestamp'] = clean_value['timestamp']
+        clean_data['updated_at'] = clean_value['updated_at']
         assert clean_data == clean_value
 
     def test_get_multiple_objects_exception(self):
@@ -117,6 +118,7 @@ class TestCase:
                 auth_info__email=data['auth_info']['email'])[0]
         clean_value = st2.clean_value()
         clean_data['timestamp'] = clean_value['timestamp']
+        clean_data['updated_at'] = clean_value['updated_at']
         assert clean_data == clean_value
 
     def test_save_query_list_models(self):
@@ -126,6 +128,7 @@ class TestCase:
         st2 = students[0]
         clean_value = st2.clean_value()
         clean_data['timestamp'] = clean_value['timestamp']
+        clean_data['updated_at'] = clean_value['updated_at']
         assert clean_data == clean_value
 
     def test_save_query_list_riak_objects(self):
@@ -134,6 +137,8 @@ class TestCase:
                 auth_info__email=data['auth_info']['email'])
         st2_data = students[0].data
         clean_data['timestamp'] = st2_data['timestamp']
+        clean_data['updated_at'] = st2_data['updated_at']
+
         assert clean_data == st2_data
 
     def test_save_query_list_solr_docs(self):

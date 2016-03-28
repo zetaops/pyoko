@@ -20,6 +20,7 @@ super_context = FakeContext()
 # kept for backwards-compatibility
 from .modelmeta import model_registry
 
+
 class Model(Node):
     """
     This is base class for any model object.
@@ -42,8 +43,11 @@ class Model(Node):
     _TYPE = 'Model'
 
     _DEFAULT_BASE_FIELDS = {
-        'timestamp': field.TimeStamp(),
-        'deleted': field.Boolean(default=False, index=True)}
+        'timestamp': field.DateTime(default='now'),
+        'updated_at': field.TimeStamp(),
+        'deleted_at': field.DateTime(),
+        'deleted': field.Boolean(default=False, index=True)
+    }
     _SEARCH_INDEX = ''
 
     def __init__(self, context=None, **kwargs):
@@ -69,13 +73,11 @@ class Model(Node):
         self._instance_registry.add(weakref.ref(self))
         self.saved_models = []
 
-
     def __str__(self):
         try:
             return self.__unicode__()
         except AttributeError:
             return "%s object" % self.__class__.__name__
-
 
     def get_verbose_name(self):
         """
@@ -106,7 +108,6 @@ class Model(Node):
             clean_value = self.clean_value()
             clean_value['timestamp'] = ''
             return hash(str(clean_value))
-
 
     def is_in_db(self):
         """
@@ -319,7 +320,8 @@ class Model(Node):
         """
         if not internal:
             self.pre_save()
-        self._handle_uniqueness()
+        if not self.exist:
+            self._handle_uniqueness()
         old_data = self._data.copy()
         self.objects._save_model(self)
         self._handle_changed_fields(old_data)
@@ -332,7 +334,9 @@ class Model(Node):
         """
         This method just flags the object as "deleted" and saves it to DB.
         """
+        from datetime import datetime
         self.deleted = True
+        self.deleted_at = datetime.now()
         self.save()
 
 

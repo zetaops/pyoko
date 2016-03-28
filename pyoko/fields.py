@@ -157,14 +157,17 @@ class DateTime(BaseField):
             self.default = lambda: datetime.datetime.now().strftime(DATE_TIME_FORMAT)
 
     def clean_value(self, val):
-        if val is None:
+        if not val:
             return self.default() if callable(self.default) else self.default
         else:
             return val.strftime(DATE_TIME_FORMAT)
 
     def __set__(self, instance, value):
         if isinstance(value, six.string_types) and value:
-            value = datetime.datetime.strptime(value, self.format)
+            if value != '0000-00-00T00:00:00Z':
+                value = datetime.datetime.strptime(value, self.format)
+            else:
+                value = None
         instance._field_values[self.name] = value
 
     def _load_data(self, instance, value):
@@ -225,14 +228,14 @@ class Integer(BaseField):
 
 
 class TimeStamp(BaseField):
-    solr_type = 'long'
+    solr_type = 'date'
 
     def __init__(self, *args, **kwargs):
         super(TimeStamp, self).__init__(*args, **kwargs)
         self.index = True
 
     def clean_value(self, val):
-        return int(repr(time.time()).replace('.', ''))
+        return datetime.datetime.now().strftime(DATE_TIME_FORMAT)
 
 
 class File(BaseField):

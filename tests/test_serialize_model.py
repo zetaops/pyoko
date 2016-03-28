@@ -39,6 +39,7 @@ def test_model_to_json_compact():
     # print st.clean_value()
     clean_value = st.clean_value()
     clean_data['timestamp'] = clean_value['timestamp']
+    clean_data['updated_at'] = clean_value['updated_at']
     assert clean_data == clean_value
 
 
@@ -82,4 +83,5 @@ def test_model_to_json_expanded():
             exm.type = exam['type']
     clean_value = s.clean_value()
     clean_data['timestamp'] = clean_value['timestamp']
+    clean_data['updated_at'] = clean_value['updated_at']
     assert clean_data == clean_value
