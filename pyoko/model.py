@@ -330,6 +330,11 @@ class Model(Node):
             self.post_save()
         return self
 
+    def _traverse_relations(self):
+        for lnk in self.get_links():
+            if lnk['is_set']:
+                yield lnk['mdl'].objects.filter(**{'%s_id' % lnk['reverse']:self.key})
+
     def delete(self):
         """
         This method just flags the object as "deleted" and saves it to DB.
