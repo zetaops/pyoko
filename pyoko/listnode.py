@@ -220,10 +220,11 @@ class ListNode(Node):
         """
         if self._is_item:
             raise TypeError("This an item of the parent ListNode")
+        list(self._generate_instances())
         if isinstance(obj, six.string_types):
             obj = self.node_dict[obj]
-        # force the evaluation of ListNode iterator
-        list(self._generate_instances())
+        elif not isinstance(obj, self.__class__):
+            obj = self.node_dict[obj.key]
         self.node_stack.remove(obj)
 
     def remove(self):
@@ -231,7 +232,7 @@ class ListNode(Node):
         Removes an item from ListNode.
 
         Raises:
-            TypeError: If it's called on a ListNode item (intstead of ListNode's itself)
+            TypeError: If it's called on container ListNode (intstead of ListNode's item)
 
         Note:
             Parent object should be explicitly saved.

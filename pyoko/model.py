@@ -335,7 +335,7 @@ class Model(Node):
     def _traverse_relations(self):
         for lnk in self.get_links():
             if lnk['is_set']:
-                yield lnk['mdl'].objects.filter(**{'%s_id' % lnk['reverse']:self.key})
+                yield lnk['mdl'].objects.filter(**{'%s_id' % un_camel(lnk['reverse']):self.key})
 
     def delete(self):
         """
