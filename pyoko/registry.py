@@ -46,11 +46,13 @@ class Registry(object):
                 lnk['mdl']._add_linked_model(mdl,
                                              o2o=True,
                                              field=reverse_name,
+                                             null=lnk['null'],
                                              reverse=lnk['field'],
                                              lnksrc='_process_links__o2o')
             else:
                 lnk['mdl']._add_linked_model(mdl,
                                              reverse=lnk['field'],
+                                             null=lnk['null'],
                                              m2m='.' in lnk['field'],
                                              field=reverse_name, is_set=True,
                                              lnksrc='_process_links__O2M')
@@ -95,6 +97,7 @@ class Registry(object):
                                                  o2o=True,
                                                  field=reverse_name,
                                                  reverse=lnk['field'],
+                                                 null=lnk['null'],
                                                  node=node_name,
                                                  lnksrc='_prcs_lnks_frm_nodes_of_mdl__o2o')
                     self._create_one_to_one(source_mdl,
@@ -103,6 +106,7 @@ class Registry(object):
                 else:
                     lnk['mdl']._add_linked_model(source_mdl,
                                                  o2o=False,
+                                                 null=lnk['null'],
                                                  field=reverse_name,
                                                  reverse=node_name + '.' + lnk['field'],
                                                  m2m=node._TYPE == 'ListNode',
@@ -111,6 +115,7 @@ class Registry(object):
                                                  lnksrc='_prcs_lnks_frm_nodes_of_mdl__O2M')
                     source_mdl._add_linked_model(lnk['mdl'],
                                                  o2o=False,
+                                                 null=lnk['null'],
                                                  field=node_name + '.' + lnk['field'],
                                                  reverse=reverse_name,
                                                  m2m=node._TYPE == 'ListNode',

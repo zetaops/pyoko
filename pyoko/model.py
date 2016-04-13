@@ -58,6 +58,7 @@ class Model(Node):
         self._is_unpermitted_fields_set = False
         self._context = context
         self.verbose_name = kwargs.get('verbose_name')
+        self.null = kwargs.get('null', False)
         self.unique = kwargs.get('unique')
         self.reverse_name = kwargs.get('reverse_name')
         self._pass_perm_checks = kwargs.pop('_pass_perm_checks', False)
@@ -335,7 +336,7 @@ class Model(Node):
     def _traverse_relations(self):
         for lnk in self.get_links():
             if lnk['is_set']:
-                yield lnk['mdl'].objects.filter(**{'%s_id' % un_camel(lnk['reverse']):self.key})
+                yield lnk['mdl'].objects.filter(**{'%s_id' % un_camel(lnk['reverse']): self.key})
 
     def delete(self):
         """
@@ -365,9 +366,11 @@ class LinkProxy(object):
                  one_to_one=False,
                  verbose_name=None,
                  reverse_name=None,
+                 null=False,
                  unique=False):
         self.link_to = link_to
         self.unique = unique
+        self.null = null
         self.one_to_one = one_to_one
         self.verbose_name = verbose_name
         self.reverse_name = reverse_name

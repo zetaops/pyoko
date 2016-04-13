@@ -24,7 +24,7 @@ class AbstractRole(Model):
     name = field.String("Name")
 
     class Permissions(ListNode):
-        permission = Permission()
+        permission = Permission(null=True)
 
 
 class User(Model):
@@ -39,7 +39,7 @@ class User(Model):
 
 
 class Role(Model):
-    usr = User(verbose_name='Kul', reverse_name='roller')
+    usr = User(verbose_name='Kul', reverse_name='roller', null=True)
     teammate = LinkProxy('User', verbose_name="Teammate", reverse_name="team")
     abstract_role = AbstractRole()
     name = field.String("Name")

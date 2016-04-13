@@ -29,6 +29,7 @@ SOLR_SUPPORTED_TYPES = ['string', 'text_general', 'float', 'int', 'boolean',
 class LazyModel(lazy_object_proxy.Proxy):
     key = None
     verbose_name = None
+    null = False
     _TYPE = 'Model'
 
     @property
@@ -38,8 +39,9 @@ class LazyModel(lazy_object_proxy.Proxy):
     def get_verbose_name(self):
         return self.verbose_name or self.Meta.verbose_name
 
-    def __init__(self, wrapped, verbose_name):
+    def __init__(self, wrapped, null, verbose_name):
         self.verbose_name = verbose_name
+        self.null = null
         super(LazyModel, self).__init__(wrapped)
 
 
@@ -101,10 +103,11 @@ class Node(object):
         return sorted(self._fields.items(), key=lambda kv: kv[1]._order)
 
     @classmethod
-    def _add_linked_model(cls, mdl, o2o=False, field=None, reverse=None,
+    def _add_linked_model(cls, mdl, null=False, o2o=False, field=None, reverse=None,
                           verbose=None, is_set=False, m2m=False, node=None, **kwargs):
         # name = kwargs.get('field', mdl.__name__)
         lnk = {
+            'null': null,
             'o2o': o2o,
             'mdl': mdl,
             'field': field,
@@ -155,8 +158,8 @@ class Node(object):
 
     def _instantiate_linked_models(self, data=None):
         from .model import Model
-        def foo_model(modl, context, verbose_name):
-            return LazyModel(lambda: modl(context), verbose_name)
+        def foo_model(modl, context, null, verbose_name):
+            return LazyModel(lambda: modl(context), null, verbose_name)
 
         for lnk in self.get_links(is_set=False):
             # if lnk['is_set']:
@@ -179,24 +182,35 @@ class Node(object):
                             def fo2():
                                 try:  # workaround for #5094 / GH-46
                                     return modl(context,
+                                                null=lnk['null'],
                                                 verbose_name=lnk['verbose']).objects.get(key)
                                 except ObjectDoesNotExist:
-                                    return modl(context, verbose_name=lnk['verbose'])
+                                    return modl(context,
+                                                null=lnk['null'],
+                                                verbose_name=lnk['verbose'])
                             return fo2
 
-                        obj = LazyModel(fo(lnk['mdl'], self._context, data[_name]), lnk['verbose'])
+                        obj = LazyModel(fo(lnk['mdl'], self._context, data[_name]),
+                                        lnk['null'],
+                                        lnk['verbose'])
                         obj.key = data[_name]
+                        obj.null = lnk['null']
                         setattr(self, lnk['field'], obj)
                     else:
                         # creating a lazy proxy for empty linked model
                         # Note: this should be explicitly saved before _root_node model!
                         setattr(self, lnk['field'],
-                                foo_model(lnk['mdl'], self._context, lnk['verbose']))
-                        # setattr(self, lnk['field'], LazyModel(lambda: lnk['mdl'](self._context)))
+                                foo_model(lnk['mdl'],
+                                          self._context,
+                                          lnk['null'],
+                                          lnk['verbose']))
             else:
                 # creating an lazy proxy for empty linked model
                 # Note: this should be explicitly saved before _root_node model!
-                setattr(self, lnk['field'], foo_model(lnk['mdl'], self._context, lnk['verbose']))
+                setattr(self, lnk['field'], foo_model(lnk['mdl'],
+                                                      self._context,
+                                                      lnk['null'],
+                                                      lnk['verbose']))
                 # setattr(self, lnk['field'], LazyModel(lambda: lnk['mdl'](self._context)))
 
     def _instantiate_node(self, name, klass):
