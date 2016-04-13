@@ -102,7 +102,7 @@ class Node(object):
 
     @classmethod
     def _add_linked_model(cls, mdl, o2o=False, field=None, reverse=None,
-                          verbose=None, is_set=False, m2m=False, **kwargs):
+                          verbose=None, is_set=False, m2m=False, node=None, **kwargs):
         # name = kwargs.get('field', mdl.__name__)
         lnk = {
             'o2o': o2o,
@@ -112,6 +112,7 @@ class Node(object):
             'verbose': verbose,
             'is_set': is_set,
             'm2m': m2m,
+            # 'node': node,
         }
         lnksrc = kwargs.pop('lnksrc', '')
         lnk.update(kwargs)
@@ -167,7 +168,8 @@ class Node(object):
                     # and it should be a model instance
                     linked_mdl_ins = data[lnk['field']]
                     setattr(self, lnk['field'], linked_mdl_ins)
-                    self._root_node._add_back_link(linked_mdl_ins, lnk)
+                    self._root_node._add_back_link(linked_mdl_ins,
+                                                   self._root_node.get_link(mdl=lnk['mdl']))
                 else:
                     _name = un_camel_id(lnk['field'])
                     if _name in data and data[_name] is not None:

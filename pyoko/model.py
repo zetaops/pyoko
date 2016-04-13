@@ -236,6 +236,8 @@ class Model(Node):
             # remote_name = lnk['reverse']
             remote_field_name = un_camel(mdl.__name__)
             if not link['o2o']:
+                if '.' in local_field_name:
+                    local_field_name, remote_field_name = local_field_name.split('.')
                 remote_set = getattr(linked_mdl_ins, local_field_name)
                 if remote_set._TYPE == 'ListNode' and self not in remote_set:
                     remote_set(**{remote_field_name: self._root_node})
