@@ -24,7 +24,7 @@ class AbstractRole(Model):
     name = field.String("Name")
 
     class Permissions(ListNode):
-        permission = Permission(null=True)
+        permission = Permission()
 
 
 class User(Model):
@@ -54,9 +54,28 @@ class Role(Model):
 class Employee(Model):
     usr = User(one_to_one=True)
     eid = field.String("Employee ID")
+    pre_save_counter = 0
+    post_save_counter = 0
+    post_creation_counter = 0
 
     def __unicode__(self):
         return "Employee ID #%s" % self.eid
+
+    def post_creation(self):
+        self.post_creation_counter += 1
+
+    def pre_save(self):
+        self.pre_save_counter += 1
+
+    def post_save(self):
+        self.post_save_counter += 1
+
+    def pre_delete(self):
+        self.pre_save_counter -= 1
+
+    def post_delete(self):
+        self.post_save_counter -= 1
+
 
 
 class TimeTable(Model):
@@ -77,3 +96,5 @@ class Scholar(Model):
     class TimeTables(ListNode):
         timetable = TimeTable()
         confirmed = field.Boolean("Is confirmed", index=True)
+
+

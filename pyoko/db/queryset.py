@@ -236,7 +236,6 @@ class QuerySet(object):
             obj = self.bucket.get(model.key)
             obj.data = clean_value
             obj.store()
-        model.just_created = new_obj
         if settings.DEBUG:
             if new_obj:
                 sys.PYOKO_STAT_COUNTER['save'] += 1

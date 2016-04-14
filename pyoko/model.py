@@ -66,6 +66,7 @@ class Model(Node):
         self._is_one_to_one = kwargs.pop('one_to_one', False)
         self.title = kwargs.pop('title', self.__class__.__name__)
         self._root_node = self
+        self._just_created = None
         self.new_back_links = {}
         kwargs['context'] = context
         super(Model, self).__init__(**kwargs)
@@ -290,22 +291,43 @@ class Model(Node):
         """
         pass
 
+    def pre_delete(self):
+        """
+        Called before object deletion.
+        Can be overriden to do things that should be done
+        before object is marked deleted.
+        """
+        pass
+
+    def post_delete(self):
+        """
+        Called after object deletion.
+        Can be overriden to do things that should be done
+        after object is marked deleted.
+        """
+        pass
+
+    def post_creation(self):
+        """
+        Called after object's creation (first save).
+        Can be overriden to do things that should be done after object
+        created and saved to DB.
+        """
+        pass
+
     def _handle_uniqueness(self):
         if self._uniques:
             for u in self._uniques:
                 val = self._field_values.get(u)
-                if (val and
-                        self.objects.filter(**{u: val}).count()):
-                    raise IntegrityError(
-                        "Unique mismatch %s for %s already exists for value: %s" %
-                        (u, self.__class__.__name__, val))
+                if val and self.objects.filter(**{u: val}).count():
+                    raise IntegrityError("Unique mismatch: %s for %s already exists for value: %s" %
+                                         (u, self.__class__.__name__, val))
         if self.Meta.unique_together:
             for uniques in self.Meta.unique_together:
                 vals = dict([(u, self._field_values.get(u)) for u in uniques])
                 if self.objects.filter(**vals).count():
-                    raise IntegrityError(
-                        "%s for %s already exists for value: %s" % (
-                            u, self.__class__.__name__, val))
+                    raise IntegrityError("Unique together mismatch: %s for %s already exists for "
+                                         "value: %s" % (u, self.__class__.__name__, val))
 
     def save(self, internal=False):
         """
@@ -326,11 +348,17 @@ class Model(Node):
         if not self.exist:
             self._handle_uniqueness()
         old_data = self._data.copy()
+        self.just_created = not self.exist
+        if self._just_created is None:
+            self._just_created = self.just_created
         self.objects._save_model(self)
         self._handle_changed_fields(old_data)
         self._process_relations()
         if not internal:
             self.post_save()
+            if self._just_created:
+                self._just_created = False
+                self.post_creation()
         return self
 
     def _traverse_relations(self):
@@ -344,6 +372,7 @@ class Model(Node):
             for rel in rels:
                 print(rel.__class__, rel)
 
+        return [], []
 
     def delete(self, dry=False):
         """
@@ -352,11 +381,14 @@ class Model(Node):
         """
         from datetime import datetime
         # TODO: Make sure this works safely (like a sql transaction)
+        if not dry:
+            self.pre_delete()
         results, errors = self._delete_relations(dry)
         if not (dry or errors):
             self.deleted = True
             self.deleted_at = datetime.now()
-            self.save()
+            self.save(internal=True)
+            self.post_delete()
 
 
 class LinkProxy(object):
