@@ -335,17 +335,28 @@ class Model(Node):
 
     def _traverse_relations(self):
         for lnk in self.get_links():
-            if lnk['is_set']:
-                yield lnk['mdl'].objects.filter(**{'%s_id' % un_camel(lnk['reverse']): self.key})
+            yield (lnk,
+                   lnk['mdl'].objects.filter(**{'%s_id' % un_camel(lnk['reverse']): self.key}))
 
-    def delete(self):
+    def _delete_relations(self, dry=False):
+        for lnk, rels in self._traverse_relations():
+            print("\n\n==================\n\n%s\n\n" % lnk)
+            for rel in rels:
+                print(rel.__class__, rel)
+
+
+    def delete(self, dry=False):
         """
-        This method just flags the object as "deleted" and saves it to DB.
+        Sets the objects "deleted" field to True and,
+        current time to "deleted_at" fields then saves it to DB.
         """
         from datetime import datetime
-        self.deleted = True
-        self.deleted_at = datetime.now()
-        self.save()
+        # TODO: Make sure this works safely (like a sql transaction)
+        results, errors = self._delete_relations(dry)
+        if not (dry or errors):
+            self.deleted = True
+            self.deleted_at = datetime.now()
+            self.save()
 
 
 class LinkProxy(object):

@@ -134,9 +134,9 @@ class Node(object):
         """
         returns the dotted path of the given model attribute
         """
-        _root_node = self._root_node or self
+        root_name = (self._root_node or self)._get_bucket_name()
         return ('.'.join(list(self._node_path + [un_camel(self.__class__.__name__),
-                                           prop]))).replace(_root_node._get_bucket_name() + '.', '')
+                                           prop]))).replace('%s.' % root_name, '')
 
     @classmethod
     def get_field(cls, field_name):
@@ -217,7 +217,7 @@ class Node(object):
         # instantiate given node, pass path and _root_node info
         ins = klass(**{'context': self._context,
                        '_root_node': self._root_node or self})
-        ins._node_path = self._node_path + [self.__class__.__name__.lower()]
+        ins._node_path = self._node_path + [un_camel(self.__class__.__name__)]
         setattr(self, name, ins)
         return ins
 
