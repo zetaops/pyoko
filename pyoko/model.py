@@ -66,6 +66,7 @@ class Model(Node):
         self._is_one_to_one = kwargs.pop('one_to_one', False)
         self.title = kwargs.pop('title', self.__class__.__name__)
         self._root_node = self
+        # used as a internal storage to wary of circular overwrite of the self.just_created
         self._just_created = None
         self.new_back_links = {}
         kwargs['context'] = context
@@ -357,6 +358,7 @@ class Model(Node):
         if not internal:
             self.post_save()
             if self._just_created:
+                self.just_created = self._just_created
                 self._just_created = False
                 self.post_creation()
         return self
