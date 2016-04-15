@@ -272,8 +272,11 @@ class Model(Node):
                     self._add_back_link(linked_mdl, link)
 
     def _process_relations(self):
+        buffer = []
         for k, v in self.new_back_links.copy().items():
             del self.new_back_links[k]
+            buffer.append(v)
+        for v in buffer:
             self._update_new_linked_model(*v)
 
     def pre_save(self):
@@ -375,6 +378,7 @@ class Model(Node):
             pprint(lnk)
             for rel in rels:
                 print(rel.__class__, rel)
+
 
         return [], []
 
