@@ -370,7 +370,9 @@ class Model(Node):
 
     def _delete_relations(self, dry=False):
         for lnk, rels in self._traverse_relations():
-            print("\n\n==================\n\n%s\n\n" % lnk)
+            from pprint import pprint
+            print("\n==================\n")
+            pprint(lnk)
             for rel in rels:
                 print(rel.__class__, rel)
 

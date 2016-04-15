@@ -103,11 +103,12 @@ class Node(object):
         return sorted(self._fields.items(), key=lambda kv: kv[1]._order)
 
     @classmethod
-    def _add_linked_model(cls, mdl, null=False, o2o=False, field=None, reverse=None,
-                          verbose=None, is_set=False, m2m=False, node=None, **kwargs):
+    def _add_linked_model(cls, mdl, link_source=False, null=False, o2o=False, field=None,
+                          reverse=None, verbose=None, is_set=False, m2m=False, **kwargs):
         # name = kwargs.get('field', mdl.__name__)
         lnk = {
             'null': null,
+            'link_source': link_source,
             'o2o': o2o,
             'mdl': mdl,
             'field': field,

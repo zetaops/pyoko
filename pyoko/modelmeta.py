@@ -80,6 +80,7 @@ class ModelMeta(type):
                     lnk_mdl_ins = attrs[key]
                     lnk = {
                         'null': lnk_mdl_ins.null or class_type == 'ListNode',
+                        'link_source': True,
                         'mdl': lnk_mdl_ins.__class__,
                         'o2o': lnk_mdl_ins._is_one_to_one,
                         'm2m': class_type == 'ListNode',

@@ -21,13 +21,10 @@ class TestCase:
     def test_missing_relations_simple(self):
         u = User().save()
         e = Employee(name="Foo", usr=u).save()
-        print(id(e))
         assert e.post_save_counter == 1
         assert e.pre_save_counter == 1
         assert e.post_creation_counter == 1
-        print(id(e))
         e.save()
-        print(id(e))
         assert e.post_save_counter == 2
         assert e.pre_save_counter == 2
         assert e.post_creation_counter == 1
