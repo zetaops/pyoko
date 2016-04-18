@@ -68,6 +68,8 @@ class Model(Node):
         self._root_node = self
         # used as a internal storage to wary of circular overwrite of the self.just_created
         self._just_created = None
+        self._pre_save_hook_called = False
+        self._post_save_hook_called = False
         self.new_back_links = {}
         kwargs['context'] = context
         super(Model, self).__init__(**kwargs)
@@ -347,7 +349,8 @@ class Model(Node):
         Returns:
              Saved model instance.
         """
-        if not internal:
+        if not (internal or self._pre_save_hook_called):
+            self._pre_save_hook_called = True
             self.pre_save()
         if not self.exist:
             self._handle_uniqueness()
@@ -358,7 +361,8 @@ class Model(Node):
         self.objects._save_model(self)
         self._handle_changed_fields(old_data)
         self._process_relations()
-        if not internal:
+        if not (internal or self._post_save_hook_called):
+            self._post_save_hook_called = True
             self.post_save()
             if self._just_created:
                 self.just_created = self._just_created
@@ -386,6 +390,13 @@ class Model(Node):
         """
         Sets the objects "deleted" field to True and,
         current time to "deleted_at" fields then saves it to DB.
+
+        Args:
+            dry (bool): False. Do not execute the actual deletion.
+            Just list what will be deleted as a result of relations.
+
+        Returns:
+            Tuple. (results [], errors [])
         """
         from datetime import datetime
         # TODO: Make sure this works safely (like a sql transaction)
@@ -397,6 +408,7 @@ class Model(Node):
             self.deleted_at = datetime.now()
             self.save(internal=True)
             self.post_delete()
+        return results, errors
 
 
 class LinkProxy(object):
