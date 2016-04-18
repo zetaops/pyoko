@@ -367,7 +367,7 @@ class Model(Node):
         return self
 
     def _traverse_relations(self):
-        for lnk in self.get_links():
+        for lnk in self.get_links(link_source=False):
             yield (lnk,
                    lnk['mdl'].objects.filter(**{'%s_id' % un_camel(lnk['reverse']): self.key}))
 

@@ -39,7 +39,7 @@ class User(Model):
 
 
 class Role(Model):
-    usr = User(verbose_name='Kul', reverse_name='roller', null=True)
+    usr = User(verbose_name='Kul', reverse_name='roller')
     teammate = LinkProxy('User', verbose_name="Teammate", reverse_name="team")
     abstract_role = AbstractRole()
     name = field.String("Name")
