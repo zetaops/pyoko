@@ -398,6 +398,47 @@ class QuerySet(object):
             data.update(kwargs)
             return self._model_class(**data).save(), True
 
+    def update(self, **kwargs):
+        """
+        Updates the matching objects for specified fields.
+
+        Note:
+            Unlike RDBMS systems, this method makes individual save calls
+            to backend DB store. So this is exists as more of a comfortable
+            utility method and not a performance enhancement.
+
+        Args:
+            simple_update (bool): True. By default performs updates on
+             Riak objects. This works faster and supports top level
+             properties of an object. Set to **False** if you need to
+             update nested (Node, ListNode) properties which works on
+             Pyoko model instances. Either way, post/pre save hooks and
+             signals will NOT triggered.
+
+            \*\*kwargs: Fields with their corresponding values to be updated.
+
+        Returns:
+            Int. Number of updated objects.
+
+        Example:
+            .. code-block:: python
+
+                Entry.objects.filter(pub_date__lte=2014).update(comments_on=False)
+        """
+        do_simple_update = kwargs.get('simple_update', True)
+        no_of_updates = 0
+        queryset = self if not do_simple_update else self.data()
+        for item in queryset:
+            no_of_updates += 1
+            if do_simple_update:
+                item.data.update(kwargs)
+                item.store()
+            else:
+                item._load_data(kwargs)
+                item.save(internal=True)
+        return no_of_updates
+
+
     def get(self, key=None, **kwargs):
         """
         Ensures that only one result is returned from DB and raises an exception otherwise.
@@ -433,6 +474,75 @@ class QuerySet(object):
                     "%s objects returned for %s" % (clone.count(),
                                                     self._model_class.__name__))
         return clone._get()
+
+    def delete(self, confirm=False):
+        """
+        Deletes all objects that matches to the queryset.
+
+        Note:
+            Unlike RDBMS systems, this method makes individual save calls
+            to backend DB store. So this is exists as more of a comfortable
+            utility method and not a performance enhancement.
+
+        Args:
+            confirm (bool): False. Should be True to execute the deletion.
+
+        Returns:
+            List of deleted objects or None if *confirm* not set.
+
+        Example:
+            >>> Person.objects.filter(age__gte=16, name__startswith='jo').delete()
+
+        """
+        return [item.delete() and item for item in self] if confirm else None
+
+
+
+    def values_list(self, *args, **kwargs):
+        """
+        Returns list of values for given fields.
+
+        Args:
+            flatten (bool): True. Flatten if there is only one field name given.
+             Returns ['one','two', 'three'] instead of
+             [['one'], ['two'], ['three]]
+            \*args: List of fields to be retured as list.
+
+        Returns:
+            List of deleted objects or None if *confirm* not set.
+
+        Example:
+            >>> Person.objects.filter(age__gte=16).values_list('name', 'lastname')
+
+        """
+        results = []
+        for item in self.data():
+            results.append([item.data[val] for val in args])
+        return results if len(args) > 1 or not kwargs.get('flatten', True) else [
+            i[0] for i in results]
+
+
+    def values(self, *args):
+        """
+        Returns list of dicts (field names as keys) for given fields.
+
+        Args:
+            \*args: List of fields to be retured as dict.
+
+        Returns:
+            List of deleted objects or None if *confirm* not set.
+
+        Example:
+            >>> Person.objects.filter(age__gte=16, name__startswith='jo').values('name', 'lastname')
+
+        """
+        return [dict(zip(args, values_list))
+                for values_list in self.values_list(flatten=False, *args)]
+
+
+
+
+
 
     def or_filter(self, **filters):
         """
