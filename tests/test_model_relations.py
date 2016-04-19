@@ -110,7 +110,7 @@ class TestCase:
         self.prepare_testbed()
         u = User(name="Foo").save()
         mate = User(name="Mate").save()
-        r = Role(usr=u, teammate=mate, name="Foo Frighters").save()
+        r = Role(usr=u, teammate=mate, name="Foo Fighters").save()
         db_role = Role.objects.get(r.key)
         assert db_role.teammate.name == mate.name
         assert db_role.usr.name == u.name
@@ -124,6 +124,7 @@ class TestCase:
         mate1 = User(name="Mate", supervisor=ceo).save()
         mate2 = User(name="Mate2", supervisor=ceo).save()
         ceo_db = User.objects.get(ceo.key)
+        assert ceo_db not in mate1.workers
         assert mate1 in ceo_db.workers
         assert len(ceo_db.workers) == 2
 
