@@ -375,7 +375,7 @@ class Node(object):
         # get keys of linked models
         for lnk in self.get_links(is_set=False):
             lnkd_mdl = getattr(self, lnk['field'])
-            dct[un_camel_id(lnk['field'])] = lnkd_mdl.key
+            dct[un_camel_id(lnk['field'])] = lnkd_mdl.key if lnkd_mdl is not None else ''
 
     def clean_value(self):
         """
