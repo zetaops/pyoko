@@ -517,7 +517,7 @@ class QuerySet(object):
         """
         results = []
         for item in self.data():
-            results.append([item.data[val] for val in args])
+            results.append([item.data[val] if val != 'key' else item.key  for val in args])
         return results if len(args) > 1 or not kwargs.get('flatten', True) else [
             i[0] for i in results]
 
@@ -527,10 +527,10 @@ class QuerySet(object):
         Returns list of dicts (field names as keys) for given fields.
 
         Args:
-            \*args: List of fields to be retured as dict.
+            \*args: List of fields to be returned as dict.
 
         Returns:
-            List of deleted objects or None if *confirm* not set.
+            list of dicts for given fields.
 
         Example:
             >>> Person.objects.filter(age__gte=16, name__startswith='jo').values('name', 'lastname')
