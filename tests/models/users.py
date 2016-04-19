@@ -33,8 +33,6 @@ class User(Model):
     def __unicode__(self):
         return "User %s" % self.name
 
-    def __repr__(self):
-        return "User_%s" % self.key
 
 
 
