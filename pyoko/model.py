@@ -281,6 +281,12 @@ class Model(Node):
         for v in buffer:
             self._update_new_linked_model(*v)
 
+    def reload(self):
+        """
+        Reloads current instance from DB store
+        """
+        self = self.objects.get(self.key)
+
     def pre_save(self):
         """
         Called before object save.
