@@ -126,7 +126,6 @@ class Node(object):
         if lnk not in cls._linked_models[mdl.__name__]:
             cls._linked_models[mdl.__name__].append(lnk)
 
-
     @classmethod
     def _get_bucket_name(cls):
         return getattr(cls.Meta, 'bucket_name', un_camel(cls.__name__))
@@ -137,7 +136,7 @@ class Node(object):
         """
         root_name = (self._root_node or self)._get_bucket_name()
         return ('.'.join(list(self._node_path + [un_camel(self.__class__.__name__),
-                                           prop]))).replace('%s.' % root_name, '')
+                                                 prop]))).replace('%s.' % root_name, '')
 
     @classmethod
     def get_field(cls, field_name):
@@ -149,11 +148,11 @@ class Node(object):
 
     @classmethod
     def get_links(cls, **kw):
-        constraint = list(kw.items())
+        constraint = set(kw.items())
         models = []
         for links in cls._linked_models.values():
             for lnk in links:
-                if not constraint or constraint[0] in list(lnk.items()):
+                if not constraint or constraint.issubset(set(lnk.items())):
                     models.append(lnk)
         return models
 
@@ -172,8 +171,14 @@ class Node(object):
                     # and it should be a model instance
                     linked_mdl_ins = data[lnk['field']]
                     setattr(self, lnk['field'], linked_mdl_ins)
-                    self._root_node._add_back_link(linked_mdl_ins,
-                                                   self._root_node.get_link(mdl=lnk['mdl']))
+                    try:
+                        self._root_node._add_back_link(
+                            linked_mdl_ins,
+                            self._root_node.get_link(mdl=lnk['mdl'],
+                                                     link_source=not lnk['link_source']))
+                        print(1)
+                    except:
+                        pass
                 else:
                     _name = un_camel_id(lnk['field'])
                     if _name in data and data[_name] is not None:
@@ -189,6 +194,7 @@ class Node(object):
                                     return modl(context,
                                                 null=lnk['null'],
                                                 verbose_name=lnk['verbose'])
+
                             return fo2
 
                         obj = LazyModel(fo(lnk['mdl'], self._context, data[_name]),

@@ -53,6 +53,7 @@ class Registry(object):
                 lnk['mdl']._add_linked_model(mdl,
                                              reverse=lnk['field'],
                                              null=lnk['null'],
+                                             # node=lnk['node'],
                                              m2m='.' in lnk['field'],
                                              field=reverse_name, is_set=True,
                                              lnksrc='_process_links__O2M')
@@ -99,7 +100,7 @@ class Registry(object):
                                                  field=reverse_name,
                                                  reverse=lnk['field'],
                                                  null=lnk['null'],
-                                                 node=node_name,
+                                                 # node=node_name,
                                                  lnksrc='_prcs_lnks_frm_nodes_of_mdl__o2o')
                     self._create_one_to_one(source_mdl,
                                             target_mdl=lnk['mdl'],
@@ -112,7 +113,7 @@ class Registry(object):
                                                  reverse=node_name + '.' + lnk['field'],
                                                  m2m=node._TYPE == 'ListNode',
                                                  is_set=True,
-                                                 node=node_name,
+                                                 # node=node_name,
                                                  lnksrc='_prcs_lnks_frm_nodes_of_mdl__O2M')
                     source_mdl._add_linked_model(lnk['mdl'],
                                                  o2o=False,
@@ -121,7 +122,7 @@ class Registry(object):
                                                  reverse=reverse_name,
                                                  m2m=node._TYPE == 'ListNode',
                                                  is_set=True,
-                                                 node=node_name,
+                                                 # node=node_name,
                                                  lnksrc='_prcs_lnks_frm_nodes_of_mdl__O2M_SRCMDL')
                     self._create_one_to_many(source_mdl,
                                              target_mdl=lnk['mdl'],

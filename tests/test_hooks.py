@@ -18,19 +18,19 @@ class TestCase:
     sleep() s are required to give enough time to yokozuna for update solr index
     """
 
-    def test_missing_relations_simple(self):
+    def test_save_hooks(self):
         u = User().save()
         e = Employee(name="Foo", usr=u).save()
         assert e.post_save_counter == 1
         assert e.pre_save_counter == 1
         assert e.post_creation_counter == 1
         e.save()
-        assert e.post_save_counter == 2
-        assert e.pre_save_counter == 2
-        assert e.post_creation_counter == 1
-        e.delete()
         assert e.post_save_counter == 1
         assert e.pre_save_counter == 1
+        assert e.post_creation_counter == 1
+        e.delete()
+        assert e.post_save_counter == 0
+        assert e.pre_save_counter == 0
         assert e.post_creation_counter == 1
 
 

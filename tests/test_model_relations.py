@@ -123,10 +123,10 @@ class TestCase:
         ceo = User(name="CEO").save()
         mate1 = User(name="Mate", supervisor=ceo).save()
         mate2 = User(name="Mate2", supervisor=ceo).save()
-        ceo_db = User.objects.get(ceo.key)
-        assert ceo_db not in mate1.workers
-        assert mate1 in ceo_db.workers
-        assert len(ceo_db.workers) == 2
+        ceo.reload()
+        assert mate1 in ceo.workers
+        assert len(ceo.workers) == 2
+        assert ceo not in mate1.workers
 
 
 

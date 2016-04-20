@@ -540,8 +540,18 @@ class QuerySet(object):
                 for values_list in self.values_list(flatten=False, *args)]
 
 
+    def dump(self):
+        """
+        Dump raw JSON output of matching queryset objects.
 
+        Returns:
+            List of dicts.
 
+        """
+        results = []
+        for item in self.data():
+            results.append(item.data)
+        return results
 
 
     def or_filter(self, **filters):
