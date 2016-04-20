@@ -176,7 +176,6 @@ class Node(object):
                             linked_mdl_ins,
                             self._root_node.get_link(mdl=lnk['mdl'],
                                                      link_source=not lnk['link_source']))
-                        print(1)
                     except:
                         pass
                 else:
