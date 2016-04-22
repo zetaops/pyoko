@@ -340,7 +340,7 @@ class Model(Node):
                 vals = dict([(u, self._field_values.get(u)) for u in uniques])
                 if self.objects.filter(**vals).count():
                     raise IntegrityError("Unique together mismatch: %s for %s already exists for "
-                                         "value: %s" % (u, self.__class__.__name__, val))
+                                         "value: %s" % (u, self.__class__.__name__, vals))
 
     def save(self, internal=False):
         """
