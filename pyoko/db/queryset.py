@@ -27,7 +27,7 @@ except ImportError:
 from enum import Enum
 import six
 from pyoko.conf import settings
-from pyoko.db.connection import client
+from pyoko.db.connection import client, cache
 import riak
 from pyoko.exceptions import MultipleObjectsReturned, ObjectDoesNotExist, PyokoError
 from ..fields import DATE_FORMAT, DATE_TIME_FORMAT

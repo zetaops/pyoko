@@ -8,6 +8,7 @@
 # (GPLv3).  See LICENSE.txt for details.
 import six
 
+from pyoko.db.connection import cache
 from pyoko.exceptions import IntegrityError
 from .node import Node, FakeContext
 from . import fields as field
@@ -375,6 +376,10 @@ class Model(Node):
                 self._just_created = False
                 self.post_creation()
         return self
+
+    def cached_save(self):
+        self.save()
+        cache.set(self.key, self._data, 2)
 
     def _traverse_relations(self):
         for lnk in self.get_links(link_source=False):
