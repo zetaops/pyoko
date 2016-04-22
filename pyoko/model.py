@@ -339,8 +339,9 @@ class Model(Node):
             for uniques in self.Meta.unique_together:
                 vals = dict([(u, self._field_values.get(u)) for u in uniques])
                 if self.objects.filter(**vals).count():
-                    raise IntegrityError("Unique together mismatch: %s for %s already exists for "
-                                         "value: %s" % (u, self.__class__.__name__, vals))
+                    raise IntegrityError(
+                        "Unique together mismatch: %s combination already exists for %s"
+                        % (vals, self.__class__.__name__))
 
     def save(self, internal=False):
         """
@@ -393,7 +394,6 @@ class Model(Node):
             pprint(lnk)
             for rel in rels:
                 print(rel.__class__, rel)
-
 
         return [], []
 
