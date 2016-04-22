@@ -39,3 +39,10 @@ class TestCase():
         sleep(1)
         with pytest.raises(IntegrityError):
             Uniques(id='d', foo_id='e', username='foo3').save()
+
+    def test_unique_together_with_links(self):
+        self.prepare_testbed()
+        Uniques(id='a', foo_id='ae', username='afoo2').save()
+        sleep(1)
+        with pytest.raises(IntegrityError):
+            Uniques(id='d3', foo_id='e3', username='foo3').save()

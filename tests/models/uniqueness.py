@@ -8,9 +8,12 @@ test model for unique and unique_together features
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 from pyoko import Model, ListNode, field, Node
+from tests.models import Student, User
 
 
 class Uniques(Model):
+    student = Student(unique=True)
+    user = User()
     id = field.String()
     foo_id = field.String()
     name = field.String()
@@ -18,5 +21,5 @@ class Uniques(Model):
     join_date = field.Date(unique=True, default='now')
 
     class Meta:
-        unique_together = [('id', 'foo_id')]
+        unique_together = [('id', 'foo_id'), ('student', 'user')]
 

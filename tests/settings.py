@@ -15,3 +15,10 @@ RIAK_PORT = os.environ.get('RIAK_PORT', '8098')
 DEFAULT_BUCKET_TYPE = os.environ.get('DEFAULT_BUCKET_TYPE', 'pyoko_models')
 
 # MODELS_MODULE = '<PYTHON.PATH.OF.MODELS.MODULE>'
+
+
+#: Redis address and port.
+REDIS_SERVER = os.environ.get('REDIS_SERVER', '127.0.0.1:6379')
+
+#: Redis password (password).
+REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD', None)

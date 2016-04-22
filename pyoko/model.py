@@ -331,17 +331,17 @@ class Model(Node):
     def _handle_uniqueness(self):
         if self._uniques:
             for u in self._uniques:
-                val = self._field_values.get(u)
+                val = getattr(self, u)
                 if val and self.objects.filter(**{u: val}).count():
                     raise IntegrityError("Unique mismatch: %s for %s already exists for value: %s" %
                                          (u, self.__class__.__name__, val))
         if self.Meta.unique_together:
             for uniques in self.Meta.unique_together:
-                vals = dict([(u, self._field_values.get(u)) for u in uniques])
+                vals = dict([(u, getattr(self, u)) for u in uniques])
                 if self.objects.filter(**vals).count():
-                    raise IntegrityError(
-                        "Unique together mismatch: %s combination already exists for %s"
-                        % (vals, self.__class__.__name__))
+                        raise IntegrityError(
+                            "Unique together mismatch: %s combination already exists for %s"
+                            % (vals, self.__class__.__name__))
 
     def save(self, internal=False):
         """
