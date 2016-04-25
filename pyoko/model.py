@@ -329,15 +329,25 @@ class Model(Node):
         pass
 
     def _handle_uniqueness(self):
+        """
+
+        Raises:
+            IntegrityError if unique and unique_together checks does not pass
+        """
+        def _getattr(u):
+            try:
+                return self._field_values[u]
+            except KeyError:
+                return getattr(self, u)
         if self._uniques:
             for u in self._uniques:
-                val = getattr(self, u)
+                val = _getattr(u)
                 if val and self.objects.filter(**{u: val}).count():
                     raise IntegrityError("Unique mismatch: %s for %s already exists for value: %s" %
                                          (u, self.__class__.__name__, val))
         if self.Meta.unique_together:
             for uniques in self.Meta.unique_together:
-                vals = dict([(u, getattr(self, u)) for u in uniques])
+                vals = dict([(u, _getattr(u)) for u in uniques])
                 if self.objects.filter(**vals).count():
                         raise IntegrityError(
                             "Unique together mismatch: %s combination already exists for %s"
