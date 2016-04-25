@@ -797,6 +797,9 @@ class QuerySet(object):
             if hasattr(val, '_TYPE'):
                 val = val.key
                 key += "_id"
+                if val is None:
+                    key = ('-%s' % key).replace('--', '')
+                    val = '[* TO *]'
             elif isinstance(val, date):
                 val = val.strftime(DATE_FORMAT)
             elif isinstance(val, datetime):

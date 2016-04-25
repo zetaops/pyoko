@@ -12,7 +12,7 @@ import pytest
 
 from pyoko.exceptions import IntegrityError
 from pyoko.manage import FlushDB
-from tests.models import Uniques
+from tests.models import Uniques, UniqRelation, OtherUniqRelation
 
 
 class TestCase():
@@ -28,14 +28,14 @@ class TestCase():
 
     def test_unique(self):
         self.prepare_testbed()
-        Uniques(id='a', foo_id='b', username='foo1').save()
+        Uniques(id='a', foo_id='b', rel=UniqRelation().save(), username='foo1').save()
         sleep(1)
         with pytest.raises(IntegrityError):
             Uniques(id='a', foo_id='c', username='foo1').save()
 
     def test_unique_together(self):
         self.prepare_testbed()
-        Uniques(id='d', foo_id='e', username='foo2').save()
+        Uniques(id='d', other_rel=OtherUniqRelation().save(), foo_id='e', username='foo2').save()
         sleep(1)
         with pytest.raises(IntegrityError):
             Uniques(id='d', foo_id='e', username='foo3').save()

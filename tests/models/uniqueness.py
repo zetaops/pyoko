@@ -10,10 +10,15 @@ test model for unique and unique_together features
 from pyoko import Model, ListNode, field, Node
 from tests.models import Student, User
 
+class UniqRelation(Model):
+    name = field.String()
+
+class OtherUniqRelation(Model):
+    name = field.String()
 
 class Uniques(Model):
-    student = Student(unique=True)
-    user = User()
+    rel = UniqRelation(unique=True)
+    other_rel = OtherUniqRelation()
     id = field.String()
     foo_id = field.String()
     name = field.String()
@@ -21,5 +26,5 @@ class Uniques(Model):
     join_date = field.Date(unique=True, default='now')
 
     class Meta:
-        unique_together = [('id', 'foo_id'), ('student', 'user')]
+        unique_together = [('id', 'foo_id'), ('rel', 'other_rel')]
 

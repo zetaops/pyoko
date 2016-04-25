@@ -146,12 +146,11 @@ class TestCase:
         st = self.prepare_testbed()
         st2_doc = Student.objects.solr().filter(
                 auth_info__email=data['auth_info']['email'])[0]
-        solr_doc = {'_yz_rb': 'student',
-                    '_yz_rt': settings.DEFAULT_BUCKET_TYPE,
-                    '_yz_id': st2_doc['_yz_id'],
-                    'score': st2_doc['score'],
-                    '_yz_rk': st.key}
-        assert solr_doc == st2_doc
+        assert st2_doc['_yz_rb'] == 'student'
+        assert st2_doc['_yz_rt'] == settings.DEFAULT_BUCKET_TYPE
+        assert st2_doc['_yz_id'] == st2_doc['_yz_id']
+        assert st2_doc['score'] == st2_doc['score']
+        assert st2_doc['_yz_rk'] == st.key
 
     def test_lte_gte(self):
         self.prepare_testbed()
