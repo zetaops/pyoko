@@ -326,7 +326,7 @@ class Node(object):
         from .listnode import ListNode
         multi = in_multi or isinstance(self, ListNode)
         for lnk in self.get_links(is_set=False):
-            result.append((self._path_of(un_camel_id(lnk['field'])), 'string', True, False, multi))
+            result.append((self._path_of(un_camel_id(lnk['field'])), 'string', True, settings.DEBUG, multi))
 
         for name, field_ins in self._fields.items():
             field_name = self._path_of(name)
@@ -335,7 +335,7 @@ class Node(object):
             result.append((field_name,
                            solr_type,
                            field_ins.index,
-                           field_ins.store,
+                           field_ins.store or settings.DEBUG,
                            multi))
         for mdl_ins in self._nodes:
             result.extend(getattr(self, mdl_ins)._collect_index_fields(multi))
