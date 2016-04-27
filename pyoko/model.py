@@ -334,11 +334,13 @@ class Model(Node):
         Raises:
             IntegrityError if unique and unique_together checks does not pass
         """
+
         def _getattr(u):
             try:
                 return self._field_values[u]
             except KeyError:
                 return getattr(self, u)
+
         if self._uniques:
             for u in self._uniques:
                 val = _getattr(u)
@@ -349,11 +351,31 @@ class Model(Node):
             for uniques in self.Meta.unique_together:
                 vals = dict([(u, _getattr(u)) for u in uniques])
                 if self.objects.filter(**vals).count():
-                        raise IntegrityError(
-                            "Unique together mismatch: %s combination already exists for %s"
-                            % (vals, self.__class__.__name__))
+                    raise IntegrityError(
+                        "Unique together mismatch: %s combination already exists for %s"
+                        % (vals, self.__class__.__name__))
 
-    def save(self, internal=False):
+    def _write_version(self):
+        """
+            Writes a copy of the objects current state to write-once mirror bucket.
+
+        Returns:
+            Key of version record.
+        """
+        return None
+
+    def _write_log(self, version_key, meta_data):
+        """
+        Creates a log entry for current object,
+        Args:
+            version_key:
+            meta_data:
+
+        Returns:
+
+        """
+
+    def save(self, internal=False, meta=None):
         """
         Save's object to DB.
 
@@ -363,6 +385,7 @@ class Model(Node):
             internal (bool): True if called within model.
                 Used to prevent unneccessary calls to pre_save and
                 post_save methods.
+            meta (dict): JSON serializable meta data for logging of this save operation.
 
         Returns:
              Saved model instance.
