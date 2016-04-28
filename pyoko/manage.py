@@ -371,11 +371,10 @@ class DumpData(Command):
             if typ == self.CSV:
                 bucket.set_decoder('application/json', lambda a: a)
             for i in range(rounds):
-                for obj in model.objects.data().raw('*:*',
+                for obj in model.objects.data().raw('*:*').set_params(
                                                     sort="timestamp asc",
                                                     rows=batch_size,
                                                     start=i * batch_size):
-                    # print("Object %s" % obj.key)
                     if obj.data is not None:
                         if typ == self.JSON:
                             out = json.dumps((bucket.name, obj.key, obj.data))

@@ -67,6 +67,7 @@ class Model(Node):
         self._is_one_to_one = kwargs.pop('one_to_one', False)
         self.title = kwargs.pop('title', self.__class__.__name__)
         self._root_node = self
+        self.save_meta_data = None
         # used as a internal storage to wary of circular overwrite of the self.just_created
         self._just_created = None
         self._pre_save_hook_called = False
@@ -75,7 +76,7 @@ class Model(Node):
         kwargs['context'] = context
         super(Model, self).__init__(**kwargs)
 
-        self.objects._set_model(model=self)
+        self.objects.set_model(model=self)
         self._instance_registry.add(weakref.ref(self))
         self.saved_models = []
 
@@ -355,25 +356,7 @@ class Model(Node):
                         "Unique together mismatch: %s combination already exists for %s"
                         % (vals, self.__class__.__name__))
 
-    def _write_version(self):
-        """
-            Writes a copy of the objects current state to write-once mirror bucket.
 
-        Returns:
-            Key of version record.
-        """
-        return None
-
-    def _write_log(self, version_key, meta_data):
-        """
-        Creates a log entry for current object,
-        Args:
-            version_key:
-            meta_data:
-
-        Returns:
-
-        """
 
     def save(self, internal=False, meta=None):
         """
@@ -385,7 +368,7 @@ class Model(Node):
             internal (bool): True if called within model.
                 Used to prevent unneccessary calls to pre_save and
                 post_save methods.
-            meta (dict): JSON serializable meta data for logging of this save operation.
+            meta (dict): JSON serializable meta data for logging of save operation.
 
         Returns:
              Saved model instance.
@@ -399,7 +382,7 @@ class Model(Node):
         self.just_created = not self.exist
         if self._just_created is None:
             self._just_created = self.just_created
-        self.objects._save_model(self)
+        self.objects.save_model(self, meta_data=meta)
         self._handle_changed_fields(old_data)
         self._process_relations()
         if not (internal or self._post_save_hook_called):
