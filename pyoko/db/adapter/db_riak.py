@@ -59,14 +59,11 @@ class Adapter(BaseAdapter):
         super(Adapter, self).__init__(**conf)
         self.bucket = riak.RiakBucket
         self.version_bucket = riak.RiakBucket
-        self._model = None
         self._client = self._cfg.pop('client', client)
         self.index_name = ''
 
-        if 'model' in conf:
-            self._set_model(model=conf['model'])
-        elif 'model_class' in conf:
-            self._set_model(model_class=conf['model_class'])
+        if '_model_class' in conf:
+            self._model_class = conf['model_class']
 
         self._set_bucket(self._model_class.Meta.bucket_type,
                          self._model_class._get_bucket_name())
@@ -99,8 +96,9 @@ class Adapter(BaseAdapter):
                 dct[fresult[i]] = fresult[i + 1]
         return dct
 
-    def _clear_bucket(self):
+    def _clear(self):
         """
+        clear outs the all content of current bucket
         only for development purposes
         """
         i = 0
@@ -178,7 +176,7 @@ class Adapter(BaseAdapter):
                  'key': key,
                  'meta': meta,
                  'timestamp': time.time()}
-        obj = self.version_bucket.new(vdata)
+        obj = self.version_bucket.new(data=vdata)
         obj.add_index('key_bin', key)
         obj.add_index('timestamp_int', int(vdata['timestamp']))
         obj.store()
@@ -194,6 +192,7 @@ class Adapter(BaseAdapter):
         Returns:
 
         """
+        meta_data = meta_data or {}
         meta_data.update({
             'key': version_key,
             'timestamp':time.time(),
@@ -201,7 +200,7 @@ class Adapter(BaseAdapter):
         if self._current_context:
             meta_data['user_id'] = self._current_context.user_id
             meta_data['role_id'] = self._current_context.role_id
-        obj = log_bucket.new(meta_data)
+        obj = log_bucket.new(data=meta_data)
         obj.add_index('key_bin', version_key)
         obj.add_index('timestamp_int', int(meta_data['timestamp']))
         obj.store()
@@ -263,46 +262,6 @@ class Adapter(BaseAdapter):
         #     })
         return model
 
-    def update(self, **kwargs):
-        """
-        Updates the matching objects for specified fields.
-
-        Note:
-            Unlike RDBMS systems, this method makes individual save calls
-            to backend DB store. So this is exists as more of a comfortable
-            utility method and not a performance enhancement.
-
-        Args:
-            simple_update (bool): True. By default performs updates on
-             Riak objects. This works faster and supports top level
-             properties of an object. Set to **False** if you need to
-             update nested (Node, ListNode) properties which works on
-             Pyoko model instances. Either way, post/pre save hooks and
-             signals will NOT triggered.
-
-            \*\*kwargs: Fields with their corresponding values to be updated.
-
-        Returns:
-            Int. Number of updated objects.
-
-        Example:
-            .. code-block:: python
-
-                Entry.objects.filter(pub_date__lte=2014).update(comments_on=False)
-        """
-        do_simple_update = kwargs.get('simple_update', True)
-        no_of_updates = 0
-        queryset = self if not do_simple_update else self.data()
-        for item in queryset:
-            no_of_updates += 1
-            if do_simple_update:
-                item.data.update(kwargs)
-                item.store()
-            else:
-                item._load_data(kwargs)
-                item.save(internal=True)
-        return no_of_updates
-
 
     def get(self, key=None, **kwargs):
         if key:
@@ -355,6 +314,38 @@ class Adapter(BaseAdapter):
             self.set_params(rows=0)
             self._exec_query()
         return self._solr_cache.get('num_found', -1)
+
+    def search_on(self, *fields, **query):
+        """
+        Search for query on given fields.
+
+        Query modifier can be one of these:
+            * exact
+            * contains
+            * startswith
+            * endswith
+            * range
+            * lte
+            * gte
+
+        Args:
+            \*fields (str): Field list to be searched on
+            \*\*query:  Search query. While it's implemented as \*\*kwargs
+             we only support one (first) keyword argument.
+
+        Returns:
+            Self. Queryset object.
+
+        Examples:
+            >>> Person.objects.search_on('name', 'surname', contains='john')
+            >>> Person.objects.search_on('name', 'surname', startswith='jo')
+        """
+        clone = copy.deepcopy(self)
+        search_type = list(query.keys())[0]
+        parsed_query = self._parse_query_modifier(search_type,
+                                                  self._escape_query(query[search_type]))
+        clone._add_query([("OR_QRY", dict([(f, parsed_query) for f in fields]), True)])
+        return clone
 
     def order_by(self, *args):
         """
@@ -588,9 +579,9 @@ class Adapter(BaseAdapter):
         Returns:
             Self.
         """
-        if not self._solr_cache and self._cfg['rtype'] != ReturnType.Solr:
-            self.set_params(
-                fl='_yz_rk')  # we're going to riak, fetch only keys
+        #https://github.com/basho/riak-python-client/issues/362
+        # if not self._solr_cache:
+        #     self.set_params(fl='_yz_rk')  # we're going to riak, fetch only keys
         if not self._solr_locked:
             if not self.compiled_query:
                 self._compile_query()
@@ -601,14 +592,14 @@ class Adapter(BaseAdapter):
                 self._solr_cache = self.bucket.search(self.compiled_query,
                                                       self.index_name,
                                                       **solr_params)
-                if settings.DEBUG:
-                    sys.PYOKO_STAT_COUNTER['search'] += 1
-                    sys._debug_db_queries.append({
-                        'TIMESTAMP': t1,
-                        'QUERY': self.compiled_query,
-                        'BUCKET': self.index_name,
-                        'QUERY_PARAMS': solr_params,
-                        'TIME': round(time.time() - t1, 4)})
+                # if settings.DEBUG:
+                #     sys.PYOKO_STAT_COUNTER['search'] += 1
+                #     sys._debug_db_queries.append({
+                #         'TIMESTAMP': t1,
+                #         'QUERY': self.compiled_query,
+                #         'BUCKET': self.index_name,
+                #         'QUERY_PARAMS': solr_params,
+                #         'TIME': round(time.time() - t1, 4)})
             except riak.RiakError as err:
                 err.value += self._get_debug_data()
                 raise

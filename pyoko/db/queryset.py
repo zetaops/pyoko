@@ -10,11 +10,11 @@ this module contains a base class for other db access classes
 from collections import defaultdict
 import copy
 from enum import Enum
-from adapter.riak import Adapter
+from .adapter.db_riak import Adapter
 from pyoko.exceptions import MultipleObjectsReturned
 import sys
 
-ReturnType = Enum('ReturnType', 'Solr Object Model')
+ReturnType = Enum('ReturnType', 'Object Model')
 
 sys.PYOKO_STAT_COUNTER = {
     "save": 0,
@@ -43,9 +43,9 @@ class QuerySet(object):
         self.index_name = ''
         self.is_clone = False
         if 'model' in conf:
-            self._set_model(model=conf['model'])
+            self.set_model(model=conf['model'])
         elif 'model_class' in conf:
-            self._set_model(model_class=conf['model_class'])
+            self.set_model(model_class=conf['model_class'])
         self.adapter = None
 
 
@@ -62,13 +62,16 @@ class QuerySet(object):
             self._model = model
             self._model_class = model.__class__
             self._current_context = self._model._context
+            self._cfg['_current_context'] = self._model._context
         elif model_class:
             self._model = None
             self._model_class = model_class
             self._current_context = None
         else:
             raise Exception("QuerySet should be called with a model instance or class")
-        self.adapter = Adapter()
+        self._cfg['_model_class'] = self._model_class
+
+        self.adapter = Adapter(**self._cfg)
 
     def distinct_values_of(self, field):
         """
@@ -90,7 +93,11 @@ class QuerySet(object):
 
     def __getitem__(self, index):
         if isinstance(index, int):
-            return self.adapter.set_params(rows=1, start=index).get_one()
+            self.adapter.set_params(rows=1, start=index)
+            data, key = self.adapter.get_one()
+            return (self._make_model(data, key)
+                    if self._cfg['rtype'] == ReturnType.Model
+                    else (data, key))
         elif isinstance(index, slice):
             if index.start is not None:
                 start = int(index.start)
@@ -350,8 +357,8 @@ class QuerySet(object):
 
         """
         results = []
-        for item in self.data():
-            results.append([item.data[val] if val != 'key' else item.key for val in args])
+        for data,key in self.data():
+            results.append([data[val] if val != 'key' else key for val in args])
         return results if len(args) > 1 or not kwargs.get('flatten', True) else [
             i[0] for i in results]
 
@@ -381,8 +388,8 @@ class QuerySet(object):
 
         """
         results = []
-        for item in self.data():
-            results.append(item.data)
+        for data in self.data():
+            results.append(data)
         return results
 
     def or_filter(self, **filters):
@@ -429,10 +436,7 @@ class QuerySet(object):
             >>> Person.objects.search_on('name', 'surname', startswith='jo')
         """
         clone = copy.deepcopy(self)
-        search_type = list(query.keys())[0]
-        parsed_query = self._parse_query_modifier(search_type,
-                                                  self._escape_query(query[search_type]))
-        clone._add_query([("OR_QRY", dict([(f, parsed_query) for f in fields]), True)])
+        clone.adapter.search_on(*fields, **query)
         return clone
 
     def count(self):
@@ -442,6 +446,13 @@ class QuerySet(object):
         :rtype: int
         """
         return copy.deepcopy(self).adapter.count()
+
+    def _clear(self):
+        """
+        Removes all data from model.
+        Should be used only for development purposes
+        """
+        return self.adapter._clear()
 
     def order_by(self, *args):
         """
@@ -466,16 +477,9 @@ class QuerySet(object):
         add/update solr query parameters
         """
         clone = copy.deepcopy(self)
-        clone.adapter.set_params(params)
+        clone.adapter.set_params(**params)
         return clone
 
-    def solr(self):
-        """
-        set return type for raw solr docs
-        """
-        clone = copy.deepcopy(self)
-        clone._cfg['rtype'] = ReturnType.Solr
-        return clone
 
     def data(self):
         """

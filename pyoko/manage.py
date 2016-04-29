@@ -165,7 +165,7 @@ class FlushDB(Command):
                 models = [model for model in models if model not in excluded_models]
 
         for mdl in models:
-            num_of_records = mdl.objects._clear_bucket()
+            num_of_records = mdl.objects._clear()
             print("%s object(s) deleted from %s " % (num_of_records, mdl.__name__))
 
 class ReIndex(Command):
@@ -371,28 +371,28 @@ class DumpData(Command):
             if typ == self.CSV:
                 bucket.set_decoder('application/json', lambda a: a)
             for i in range(rounds):
-                for obj in model.objects.data().raw('*:*').set_params(
+                for data, key in model.objects.data().raw('*:*').set_params(
                                                     sort="timestamp asc",
                                                     rows=batch_size,
                                                     start=i * batch_size):
-                    if obj.data is not None:
+                    if data is not None:
                         if typ == self.JSON:
-                            out = json.dumps((bucket.name, obj.key, obj.data))
+                            out = json.dumps((bucket.name, key, data))
                             if to_file:
                                 outfile.write(out + "\n")
                             else:
                                 print(out)
                         elif typ == self.TREE:
-                            data[bucket.name].append((obj.key, obj.data))
+                            data[bucket.name].append((key, data))
                         elif typ == self.CSV:
                             if PY2:
-                                out = bucket.name + "/|" + obj.key + "/|" + obj.data
+                                out = bucket.name + "/|" + key + "/|" + data
                                 if to_file:
                                     outfile.write(out + "\n")
                                 else:
                                     print(out)
                             else:
-                                out = bucket.name + "/|" + obj.key + "/|" + obj.data.decode('utf-8')
+                                out = bucket.name + "/|" + key + "/|" + data.decode('utf-8')
                                 if to_file:
                                     outfile.write(out + "\n")
                                 else:

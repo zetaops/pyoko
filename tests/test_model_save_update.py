@@ -22,7 +22,7 @@ class TestCase:
     def prepare_testbed(cls, reset=False):
         if (not cls.cleaned_up) or reset:
             for model in [Student]:
-                model.objects._clear_bucket()
+                model.objects._clear()
             sleep(2)
             cls.cleaned_up = True
 

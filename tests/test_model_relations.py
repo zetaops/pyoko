@@ -26,7 +26,7 @@ class TestCase:
         if not cls.cleaned_up:
             for model in [User, Employee, Scholar, TimeTable, Permission,
                           AbstractRole, Role]:
-                model.objects._clear_bucket()
+                model.objects._clear()
             sleep(2)
             cls.cleaned_up = True
 

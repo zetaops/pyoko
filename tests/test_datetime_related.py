@@ -22,7 +22,7 @@ class TestCase:
     def prepare_testbed(cls):
         if not cls.cleaned_up:
             for model in [DateModel,]:
-                model.objects._clear_bucket()
+                model.objects._clear()
             sleep(2)
             cls.cleaned_up = True
 
