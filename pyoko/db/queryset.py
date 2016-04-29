@@ -52,6 +52,12 @@ class QuerySet(object):
     # ######## Development Methods  #########
 
     def set_model(self, model=None, model_class=None):
+        """
+
+        Args:
+            model: Model name
+            model_class: Model class
+        """
         if model:
             self._model = model
             self._model_class = model.__class__
@@ -65,6 +71,13 @@ class QuerySet(object):
         self.adapter = Adapter()
 
     def distinct_values_of(self, field):
+        """
+        Args:
+            field: field name
+
+        Returns:
+            Distinct values of given field.
+        """
         return self.adapter.distinct_values_of(field)
 
 
@@ -140,7 +153,7 @@ class QuerySet(object):
 
         Args:
             data: Model data returned from DB.
-            riak_obj:
+            key: Object key
         Returns:
             pyoko.Model object.
         """

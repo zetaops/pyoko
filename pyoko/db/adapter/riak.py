@@ -62,7 +62,6 @@ class Adapter(BaseAdapter):
         self._model = None
         self._client = self._cfg.pop('client', client)
         self.index_name = ''
-        self.is_clone = False
 
         if 'model' in conf:
             self._set_model(model=conf['model'])
@@ -389,39 +388,6 @@ class Adapter(BaseAdapter):
                             )
         self._solr_params.update(params)
 
-    def _set_return_type(self, type):
-        self._cfg['rtype'] = type
-
-    def solr(self):
-        """
-        set return type for raw solr docs
-        """
-        clone = copy.deepcopy(self)
-        clone._set_return_type(ReturnType.Solr)
-        return clone
-
-    # def data(self):
-    #     """
-    #     set return type as riak objects instead of pyoko models
-    #     """
-    #     clone = copy.deepcopy(self)
-    #     clone._set_return_type(ReturnType.Object)
-    #     return clone
-
-    def raw(self, query, **params):
-        """
-        make a raw query
-
-        Args:
-        query (str): solr query
-        \*\*params: solr parameters
-        """
-        clone = copy.deepcopy(self)
-        clone.compiled_query = query
-        if params is not None:
-            clone._solr_params = params
-        return clone
-
     def add_query(self, filters):
         self._solr_query.extend([f if len(f) == 3 else (f[0], f[1], False) for f in filters])
 
@@ -622,8 +588,6 @@ class Adapter(BaseAdapter):
         Returns:
             Self.
         """
-        if not self.is_clone:
-            raise Exception("QuerySet cannot be directly used")
         if not self._solr_cache and self._cfg['rtype'] != ReturnType.Solr:
             self.set_params(
                 fl='_yz_rk')  # we're going to riak, fetch only keys
