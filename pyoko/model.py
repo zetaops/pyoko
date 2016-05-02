@@ -403,7 +403,14 @@ class Model(Node):
         self.save()
         while is_new and not self.objects.filter(key=self.key).count():
             time.sleep(0.3)
-        # cache.set(self.key, self._data, 2)
+
+    def blocking_delete(self):
+        """
+        Deletes and waits till the backend properly update indexes for just deleted object.
+        """
+        self.delete()
+        while self.objects.filter(key=self.key).count():
+            time.sleep(0.3)
 
     def _traverse_relations(self):
         for lnk in self.get_links(link_source=False):
