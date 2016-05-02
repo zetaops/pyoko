@@ -14,6 +14,7 @@ import codecs
 from collections import defaultdict
 import json
 
+import time
 from os import environ
 import os
 from riak import ConflictError
@@ -152,6 +153,7 @@ class FlushDB(Command):
 
     def run(self):
         from pyoko.conf import settings
+        from pyoko.model import super_context
         from importlib import import_module
         import_module(settings.MODELS_MODULE)
         registry = import_module('pyoko.model').model_registry
@@ -167,6 +169,11 @@ class FlushDB(Command):
         for mdl in models:
             num_of_records = mdl.objects._clear()
             print("%s object(s) deleted from %s " % (num_of_records, mdl.__name__))
+        for mdl in models:
+            mdl.objects._current_context = super_context
+            while mdl.objects.count():
+                time.sleep(0.3)
+
 
 class ReIndex(Command):
     CMD_NAME = 'reindex'
@@ -217,7 +224,6 @@ class ReIndex(Command):
             print("Re-indexed %s records of %s" % (i, mdl.__name__))
             if unsaved_keys:
                 print("\nThese keys cannot be updated:\n\n", unsaved_keys)
-
 
 class SmartFormatter(HelpFormatter):
     def _split_lines(self, text, width):

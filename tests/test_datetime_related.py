@@ -8,6 +8,7 @@
 # (GPLv3).  See LICENSE.txt for details.
 from time import sleep
 
+from pyoko.manage import FlushDB
 from tests.models.date_models import *
 
 
@@ -21,8 +22,7 @@ class TestCase:
     @classmethod
     def prepare_testbed(cls):
         if not cls.cleaned_up:
-            for model in [DateModel,]:
-                model.objects._clear()
+            FlushDB(model='DateModel').run()
             cls.cleaned_up = True
 
 

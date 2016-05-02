@@ -10,7 +10,7 @@ from time import sleep
 import pytest
 from pyoko.conf import settings
 from pyoko.exceptions import MultipleObjectsReturned
-from pyoko.manage import ManagementCommands
+from pyoko.manage import ManagementCommands, FlushDB
 from tests.data.test_data import data, clean_data
 from tests.models import Student, TimeTable
 
@@ -26,9 +26,7 @@ class TestCase:
     @classmethod
     def clear_bucket(cls, reset):
         if not cls.cleaned_up or reset:
-            something_deleted = 0
-            for mdl in [Student, TimeTable]:
-                mdl.objects._clear()
+            FlushDB(model='Student,TimeTable').run()
             cls.cleaned_up = True
 
     @classmethod
