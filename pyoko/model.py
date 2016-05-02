@@ -7,6 +7,7 @@
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 import six
+import time
 
 from pyoko.db.connection import cache
 from pyoko.exceptions import IntegrityError
@@ -394,9 +395,15 @@ class Model(Node):
                 self.post_creation()
         return self
 
-    def cached_save(self):
+    def blocking_save(self):
+        """
+        Saves object to DB. Waits till the backend properly indexes the new object.
+        """
+        is_new = self.exist
         self.save()
-        cache.set(self.key, self._data, 2)
+        while is_new and not self.objects.filter(key=self.key).count():
+            time.sleep(0.3)
+        # cache.set(self.key, self._data, 2)
 
     def _traverse_relations(self):
         for lnk in self.get_links(link_source=False):
