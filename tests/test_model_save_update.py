@@ -7,6 +7,8 @@
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 from time import sleep
+
+from pyoko.manage import FlushDB
 from tests.data.test_data import data
 from tests.models import *
 
@@ -21,9 +23,7 @@ class TestCase:
     @classmethod
     def prepare_testbed(cls, reset=False):
         if (not cls.cleaned_up) or reset:
-            for model in [Student]:
-                model.objects._clear_bucket()
-            sleep(2)
+            FlushDB(model=','.join(('Student',))).run()
             cls.cleaned_up = True
 
     # def test_one_to_one_simple_benchmarked(self, benchmark):

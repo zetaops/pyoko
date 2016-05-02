@@ -8,6 +8,7 @@
 # (GPLv3).  See LICENSE.txt for details.
 from time import sleep
 
+from pyoko.manage import FlushDB
 from tests.models.perm_tests import *
 
 
@@ -21,10 +22,7 @@ class TestCase:
     @classmethod
     def prepare_testbed(cls):
         if not cls.cleaned_up:
-            for model in [Person,]:
-                clean_count = model.objects._clear_bucket()
-            if clean_count:
-                sleep(2)
+            FlushDB(model='Person').run()
             cls.cleaned_up = True
 
 
