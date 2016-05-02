@@ -28,10 +28,8 @@ class TestCase:
         if not cls.cleaned_up or reset:
             something_deleted = 0
             for mdl in [Student, TimeTable]:
-                something_deleted += mdl.objects._clear()
+                mdl.objects._clear()
             cls.cleaned_up = True
-            if something_deleted:
-                sleep(2)
 
     @classmethod
     def get_or_create_new_obj(cls, reset):
@@ -140,6 +138,7 @@ class TestCase:
         st2_data = students[0][0]
         clean_data['timestamp'] = st2_data['timestamp']
         clean_data['updated_at'] = st2_data['updated_at']
+        clean_data['deleted_at'] = st2_data['deleted_at']
 
         assert clean_data == st2_data
 

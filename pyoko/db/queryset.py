@@ -11,7 +11,7 @@ from collections import defaultdict
 import copy
 from enum import Enum
 from .adapter.db_riak import Adapter
-from pyoko.exceptions import MultipleObjectsReturned
+from pyoko.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 import sys
 
 ReturnType = Enum('ReturnType', 'Object Model')
@@ -85,11 +85,12 @@ class QuerySet(object):
 
 
     def __iter__(self):
-        for data, key in self.adapter:
-            yield (self._make_model(data, key) if self._cfg['rtype'] == ReturnType.Model else data)
+        clone = copy.deepcopy(self)
+        for data, key in clone.adapter:
+            yield (clone._make_model(data, key) if self._cfg['rtype'] == ReturnType.Model else data)
 
     def __len__(self):
-        return self.adapter.count()
+        return copy.deepcopy(self).adapter.count()
 
     def __getitem__(self, index):
         if isinstance(index, int):
@@ -164,8 +165,8 @@ class QuerySet(object):
         Returns:
             pyoko.Model object.
         """
-        if not data:
-            raise Exception("No data returned from DB\n")
+        if data['deleted']:
+            raise ObjectDoesNotExist('Deleted object returned')
         model = self._model_class(self._current_context,
                                   _pass_perm_checks=self._pass_perm_checks)
         model.key = key if key else data.get('key')
@@ -247,19 +248,22 @@ class QuerySet(object):
 
 
         """
-        clone = copy.deepcopy(self)
-        existing = list(clone.filter(**kwargs))
+        existing = list(self.filter(**kwargs))
         count = len(existing)
-        if count:
+        try:
             if count > 1:
                 raise MultipleObjectsReturned(
                     "%s objects returned for %s" % (count,
                                                     self._model_class.__name__))
+            if existing[0].deleted:
+                raise ObjectDoesNotExist('Sync Issue, deleted object returned!')
             return existing[0], False
-        else:
-            data = defaults or {}
-            data.update(kwargs)
-            return self._model_class(**data).save(), True
+        except (ObjectDoesNotExist, IndexError):
+            pass
+
+        data = defaults or {}
+        data.update(kwargs)
+        return self._model_class(**data).save(), True
 
     def update(self, **kwargs):
         """
@@ -407,7 +411,7 @@ class QuerySet(object):
 
         """
         clone = copy.deepcopy(self)
-        clone._add_query([("OR_QRY", filters)])
+        clone.adapter.add_query([("OR_QRY", filters)])
         return clone
 
     def search_on(self, *fields, **query):

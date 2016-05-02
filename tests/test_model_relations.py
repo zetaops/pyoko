@@ -27,7 +27,6 @@ class TestCase:
             for model in [User, Employee, Scholar, TimeTable, Permission,
                           AbstractRole, Role]:
                 model.objects._clear()
-            sleep(2)
             cls.cleaned_up = True
 
     # def test_one_to_one_simple_benchmarked(self, benchmark):

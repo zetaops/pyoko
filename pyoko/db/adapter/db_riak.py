@@ -20,6 +20,7 @@ from datetime import datetime
 from riak.util import bytes_to_str
 
 from pyoko.db.adapter.base import BaseAdapter
+from pyoko.fields import DATE_FORMAT, DATE_TIME_FORMAT
 
 try:
     from urllib.request import urlopen
@@ -96,7 +97,7 @@ class Adapter(BaseAdapter):
                 dct[fresult[i]] = fresult[i + 1]
         return dct
 
-    def _clear(self):
+    def _clear(self, wait=True):
         """
         clear outs the all content of current bucket
         only for development purposes
@@ -105,6 +106,11 @@ class Adapter(BaseAdapter):
         for k in self.bucket.get_keys():
             i += 1
             self.bucket.get(k).delete()
+        if wait:
+            t1 = time.time()
+            while self._model_class.objects.count():
+                time.sleep(0.5)
+            print("\nDELETION TOOK: %s" % round(time.time() - t1, 2))
         return i
 
     def __iter__(self):
@@ -113,6 +119,8 @@ class Adapter(BaseAdapter):
             # if settings.DEBUG:
             #     t1 = time.time()
             obj = self.bucket.get(doc['_yz_rk'])
+            if not obj.exists:
+                raise ObjectDoesNotExist("Possibly a Riak <-> Solr sync delay issue!")
             yield obj.data, obj.key
             # if settings.DEBUG:
             #     sys.PYOKO_STAT_COUNTER['read'] += 1
@@ -141,6 +149,7 @@ class Adapter(BaseAdapter):
             else:
                 obj.__dict__[k] = copy.deepcopy(v, memo)
         obj.compiled_query = ''
+        obj._solr_locked = False
         return obj
 
     def _set_bucket(self, type, name):
@@ -340,12 +349,10 @@ class Adapter(BaseAdapter):
             >>> Person.objects.search_on('name', 'surname', contains='john')
             >>> Person.objects.search_on('name', 'surname', startswith='jo')
         """
-        clone = copy.deepcopy(self)
         search_type = list(query.keys())[0]
         parsed_query = self._parse_query_modifier(search_type,
                                                   self._escape_query(query[search_type]))
-        clone._add_query([("OR_QRY", dict([(f, parsed_query) for f in fields]), True)])
-        return clone
+        self.add_query([("OR_QRY", dict([(f, parsed_query) for f in fields]), True)])
 
     def order_by(self, *args):
         """
@@ -493,6 +500,8 @@ class Adapter(BaseAdapter):
                 val = val.strftime(DATE_FORMAT)
             elif isinstance(val, datetime):
                 val = val.strftime(DATE_TIME_FORMAT)
+            elif key == 'key':
+                key = '_yz_rk'
             # if it's not one of the expected objects, it should be a string
             # if key == "OR_QRY" then join them with "OR" after escaping & parsing
             elif key == 'OR_QRY':
@@ -604,4 +613,3 @@ class Adapter(BaseAdapter):
                 err.value += self._get_debug_data()
                 raise
             self._solr_locked = True
-        return self

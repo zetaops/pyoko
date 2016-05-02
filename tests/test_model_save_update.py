@@ -23,7 +23,6 @@ class TestCase:
         if (not cls.cleaned_up) or reset:
             for model in [Student]:
                 model.objects._clear()
-            sleep(2)
             cls.cleaned_up = True
 
     # def test_one_to_one_simple_benchmarked(self, benchmark):

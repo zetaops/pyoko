@@ -23,8 +23,6 @@ class TestCase:
         if not cls.cleaned_up:
             for model in [Person,]:
                 clean_count = model.objects._clear()
-            if clean_count:
-                sleep(2)
             cls.cleaned_up = True
 
 
