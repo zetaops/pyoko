@@ -65,6 +65,8 @@ class Adapter(BaseAdapter):
 
         if '_model_class' in conf:
             self._model_class = conf['model_class']
+        if '_current_context' in conf:
+            self._current_context = conf['_current_context']
 
         self._set_bucket(self._model_class.Meta.bucket_type,
                          self._model_class._get_bucket_name())
