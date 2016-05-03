@@ -36,6 +36,8 @@ class MockContext(object):
         }
         self.perms.update(kwargs)
         self.user = type('', (), {})
+        self.user_id = None
+        self.role_id = None
         self.user.section = 'Section_A'
 
     def has_permission(self, perm):

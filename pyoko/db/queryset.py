@@ -63,15 +63,15 @@ class QuerySet(object):
             self._model_class = model.__class__
             self._current_context = self._model._context
             self._cfg['_current_context'] = self._model._context
-        elif model_class:
-            self._model = None
+        if model_class:
+            self._model = self._model or None
             self._model_class = model_class
-            self._current_context = None
-        else:
-            raise Exception("QuerySet should be called with a model instance or class")
+            self._current_context = self._current_context or None
         self._cfg['_model_class'] = self._model_class
-
+        self._cfg['_objects'] = self.__class__
         self.adapter = Adapter(**self._cfg)
+
+
 
     def distinct_values_of(self, field):
         """

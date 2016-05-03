@@ -167,11 +167,12 @@ class FlushDB(Command):
                 models = [model for model in models if model not in excluded_models]
 
         for mdl in models:
-            num_of_records = mdl.objects._clear()
+
+            num_of_records = mdl(super_context).objects._clear()
             print("%s object(s) deleted from %s " % (num_of_records, mdl.__name__))
         for mdl in models:
-            mdl.objects._current_context = super_context
-            while mdl.objects.count():
+
+            while mdl(super_context).objects.count():
                 time.sleep(0.3)
 
 

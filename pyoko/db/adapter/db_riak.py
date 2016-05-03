@@ -140,6 +140,8 @@ class Adapter(BaseAdapter):
         """
         obj = self.__class__(**self._cfg)
         for k, v in self.__dict__.items():
+            if k.endswith(('_current_context', 'model_class')):
+                obj.__dict__[k] = v
             if k == '_riak_cache':
                 obj.__dict__[k] = []
             elif k == '_solr_cache':
