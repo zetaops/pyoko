@@ -46,7 +46,6 @@ class QuerySet(object):
             self.set_model(model=conf['model'])
         elif 'model_class' in conf:
             self.set_model(model_class=conf['model_class'])
-        self.adapter = None
 
 
     # ######## Development Methods  #########

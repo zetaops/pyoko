@@ -208,7 +208,7 @@ class Adapter(BaseAdapter):
         meta_data = meta_data or {}
         meta_data.update({
             'key': version_key,
-            'timestamp':time.time(),
+            'timestamp': time.time(),
         })
         if self._current_context:
             meta_data['user_id'] = self._current_context.user_id
@@ -275,7 +275,6 @@ class Adapter(BaseAdapter):
         #     })
         return model
 
-
     def get(self, key=None, **kwargs):
         if key:
             self._riak_cache = [self.bucket.get(key)]
@@ -304,14 +303,14 @@ class Adapter(BaseAdapter):
             #     t1 = time.time()
             self._riak_cache = [self.bucket.get(self._solr_cache['docs'][0]['_yz_rk'])]
             # if settings.DEBUG:
-                # sys.PYOKO_LOGS[self._model_class.__name__].append(
-                #     self._solr_cache['docs'][0]['_yz_rk'])
-                # sys.PYOKO_STAT_COUNTER['read'] += 1
-                # sys._debug_db_queries.append({
-                #     'TIMESTAMP': t1,
-                #     'KEY': self._solr_cache['docs'][0]['_yz_rk'],
-                #     'BUCKET': self.index_name,
-                #     'TIME': round(time.time() - t1, 5)})
+            # sys.PYOKO_LOGS[self._model_class.__name__].append(
+            #     self._solr_cache['docs'][0]['_yz_rk'])
+            # sys.PYOKO_STAT_COUNTER['read'] += 1
+            # sys._debug_db_queries.append({
+            #     'TIMESTAMP': t1,
+            #     'KEY': self._solr_cache['docs'][0]['_yz_rk'],
+            #     'BUCKET': self.index_name,
+            #     'TIME': round(time.time() - t1, 5)})
         if not self._riak_cache[0].exists:
             raise ObjectDoesNotExist("%s %s" % (self.index_name,
                                                 self._riak_cache[0].key))
@@ -372,13 +371,8 @@ class Adapter(BaseAdapter):
             raise Exception("Query already executed, no changes can be made."
                             "%s %s" % (self._solr_query, self._solr_params)
                             )
-        sort_by = []
-        for arg in args:
-            if arg.startswith('-'):
-                sort_by.append('%s desc' % arg[1:])
-            else:
-                sort_by.append('%s asc' % arg)
-        self._solr_params['sort'] = ', '.join(sort_by)
+        self._solr_params['sort'] = ', '.join(['%s desc' % arg[1:] if arg.startswith('-')
+                                               else '%s asc' % arg for arg in args])
 
     def set_params(self, **params):
         """
@@ -487,9 +481,9 @@ class Adapter(BaseAdapter):
         # http://lucene.apache.org/core/2_9_4/queryparsersyntax.html
         query = []
         want_deleted = False
-        filtered_query = self._model_class.row_level_access(self._current_context, self)
-        if filtered_query is not None:
-            self._solr_query += filtered_query._solr_query
+        # filtered_query = self._model_class.row_level_access(self._current_context, self)
+        # if filtered_query is not None:
+        #     self._solr_query += filtered_query._solr_query
         # print(self._solr_query)
         for key, val, is_escaped in self._solr_query:
             # querying on a linked model by model instance
@@ -592,7 +586,7 @@ class Adapter(BaseAdapter):
         Returns:
             Self.
         """
-        #https://github.com/basho/riak-python-client/issues/362
+        # https://github.com/basho/riak-python-client/issues/362
         # if not self._solr_cache:
         #     self.set_params(fl='_yz_rk')  # we're going to riak, fetch only keys
         if not self._solr_locked:

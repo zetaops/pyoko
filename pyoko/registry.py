@@ -11,6 +11,11 @@ from collections import defaultdict
 
 from pyoko.lib.utils import un_camel
 
+class FakeContext(object):
+    def has_permission(self, perm):
+        return True
+
+super_fake_context = FakeContext()
 
 class Registry(object):
     def __init__(self):
@@ -88,7 +93,7 @@ class Registry(object):
 
     def _process_links_from_nodes_of_mdl(self, source_mdl):
         # print("Node: %s" % source_mdl.__name__)
-        _src_mdl_ins = source_mdl()
+        _src_mdl_ins = source_mdl(super_fake_context)
         for node_name in source_mdl._nodes.keys():
             node = getattr(_src_mdl_ins, node_name)
             # print(node)

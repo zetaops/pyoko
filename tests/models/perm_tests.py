@@ -18,6 +18,8 @@ class Person(Model):
     def row_level_access(current, objects):
         if not current.has_permission("access_to_other_sections"):
             return objects.filter(section=current.user.section)
+        return objects
+
 
     class Meta:
         field_permissions = {

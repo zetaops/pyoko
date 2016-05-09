@@ -78,8 +78,9 @@ class Model(Node):
         super(Model, self).__init__(**kwargs)
 
         self.objects.set_model(model=self)
+        self.objects = self.row_level_access(self._context, self.objects)
         self._instance_registry.add(weakref.ref(self))
-        self.saved_models = []
+        # self.saved_models = []
 
     def __str__(self):
         try:
@@ -208,11 +209,11 @@ class Model(Node):
     @staticmethod
     def row_level_access(context, objects):
         """
-        If defined, will be called just before query
-        compiling step and it's output summed up to existing query filter.
-
         Can be used to implement context-aware implicit filtering.
         You can define your query filters in here to enforce row level access control.
+
+        If defined, will be called at queryset initialization step and
+        it's return value used as Model.objects.
 
         Args:
             context: An object that contain required user attributes and permissions.
@@ -220,8 +221,11 @@ class Model(Node):
 
         Examples:
             >>> return objects.filter(user=context.user)
+
+        Returns:
+            Queryset object.
         """
-        pass
+        return objects
 
     @lazy_property
     def _name(self):
