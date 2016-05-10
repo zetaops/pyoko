@@ -16,11 +16,9 @@ from redis import Redis
 redis_host, redis_port = settings.REDIS_SERVER.split(':')
 cache = Redis(redis_host, redis_port)
 
-
-
 client = riak.RiakClient(protocol=settings.RIAK_PROTOCOL,
                          host=settings.RIAK_SERVER,
                          http_port=settings.RIAK_PORT)
 
-log_bucket = client.bucket_type(settings.DEFAULT_BUCKET_TYPE + '_log'
-                            ).bucket(settings.DEFAULT_BUCKET_TYPE + '_log')
+log_bucket = client.bucket_type(settings.ACTIVITY_LOGGING_BUCKET).bucket(
+    settings.ACTIVITY_LOGGING_BUCKET)

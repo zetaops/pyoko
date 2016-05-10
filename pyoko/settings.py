@@ -18,3 +18,16 @@ REDIS_SERVER = os.environ.get('REDIS_SERVER', '127.0.0.1:6379')
 
 #: Redis password (password).
 REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD', None)
+
+#: Set True to enable versioning on write-once buckets
+ENABLE_VERSIONS = os.environ.get('ENABLE_VERSIONS', 'False') == 'True'
+
+#: Suffix for version buckets
+VERSION_SUFFIX = os.environ.get('VERSION_SUFFIX', '_version')
+
+#: Set True to enable auto-logging of all DB operations to a
+#: write-once log bucket
+ENABLE_ACTIVITY_LOGGING = os.environ.get('VERSION_SUFFIX', 'False') == 'True'
+
+#: Set the name of logging bucket type and bucket name.
+ACTIVITY_LOGGING_BUCKET = os.environ.get('ACTIVITY_LOGGING_BUCKET', DEFAULT_BUCKET_TYPE + '_log')

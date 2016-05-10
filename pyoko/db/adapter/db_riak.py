@@ -227,8 +227,12 @@ class Adapter(BaseAdapter):
             obj = self.bucket.get(key)
             obj.data = data
             obj.store()
-        version_key = self._write_version(data, key, meta_data)
-        self._write_log(version_key, meta_data)
+        if settings.ENABLE_VERSIONS:
+            version_key = self._write_version(data, key, meta_data)
+        else:
+            version_key = ''
+        if settings.ENABLE_ACTIVITY_LOGGING:
+            self._write_log(version_key, meta_data)
         return obj.key
 
     def save_model(self, model, meta_data=None):

@@ -108,7 +108,8 @@ class SchemaUpdater(object):
         pack_size = int(num_models / self.threads) or 1
         n_val = self.client.bucket_type(settings.DEFAULT_BUCKET_TYPE).get_property('n_val')
         self.client.create_search_index('foo_index', '_yz_default', n_val=n_val)
-        self._handle_log_bucket()
+        if settings.ENABLE_ACTIVITY_LOGGING:
+            self._handle_log_bucket()
         for i in range(0, num_models, pack_size):
             job_pack = []
             for model in models[i:i + pack_size]:
@@ -179,7 +180,7 @@ class SchemaUpdater(object):
 
     @staticmethod
     def _handle_version_bucket(client, model):
-        bucket_name = model._get_bucket_name() + '_version'
+        bucket_name = model._get_bucket_name() + settings.VERSION_SUFFIX
         bucket_type = client.bucket_type(settings.DEFAULT_BUCKET_TYPE + '_version')
         bucket = bucket_type.bucket(bucket_name)
         bucket.set_property('search_index', '_dont_index_')
@@ -201,7 +202,8 @@ class SchemaUpdater(object):
         """
         for new_schema, model in job_pack:
             try:
-                SchemaUpdater._handle_version_bucket(client, model)
+                if settings.ENABLE_VERSIONS:
+                    SchemaUpdater._handle_version_bucket(client, model)
                 bucket_name = model._get_bucket_name()
                 bucket_type = client.bucket_type(settings.DEFAULT_BUCKET_TYPE)
                 bucket = bucket_type.bucket(bucket_name)
