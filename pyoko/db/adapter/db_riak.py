@@ -279,11 +279,9 @@ class Adapter(BaseAdapter):
         #     })
         return model
 
-    def get(self, key=None, **kwargs):
+    def get(self, key=None):
         if key:
             self._riak_cache = [self.bucket.get(key)]
-        elif kwargs:
-            return self.filter(**kwargs).get()
         else:
             self._exec_query()
             if self.count() > 1:

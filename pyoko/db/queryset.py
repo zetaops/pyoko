@@ -318,7 +318,12 @@ class QuerySet(object):
             MultipleObjectsReturned: If there is more than one (1) record is returned.
         """
         clone = copy.deepcopy(self)
-        data, key = clone.adapter.get(key, **kwargs)
+        if key:
+            data, key = clone.adapter.get(key)
+        elif kwargs:
+            data, key = clone.filter(**kwargs).adapter.get()
+        else:
+            data, key = clone50.adapter.get()
         return self._make_model(data, key)
 
     def delete(self, confirm=False):
