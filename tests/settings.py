@@ -8,6 +8,7 @@ project settings for a pyoko based example project
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 import os
+from pyoko.settings import *
 
 RIAK_SERVER = os.environ.get('RIAK_SERVER', 'localhost')
 RIAK_PROTOCOL = os.environ.get('RIAK_PROTOCOL', 'http')
