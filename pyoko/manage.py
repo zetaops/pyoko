@@ -14,6 +14,7 @@ import codecs
 from collections import defaultdict
 import json
 
+import time
 from os import environ
 import os
 from riak import ConflictError
@@ -152,6 +153,7 @@ class FlushDB(Command):
 
     def run(self):
         from pyoko.conf import settings
+        from pyoko.model import super_context
         from importlib import import_module
         import_module(settings.MODELS_MODULE)
         registry = import_module('pyoko.model').model_registry
@@ -165,8 +167,14 @@ class FlushDB(Command):
                 models = [model for model in models if model not in excluded_models]
 
         for mdl in models:
-            num_of_records = mdl.objects._clear_bucket()
+
+            num_of_records = mdl(super_context).objects._clear()
             print("%s object(s) deleted from %s " % (num_of_records, mdl.__name__))
+        for mdl in models:
+
+            while mdl(super_context).objects.count():
+                time.sleep(0.3)
+
 
 class ReIndex(Command):
     CMD_NAME = 'reindex'
@@ -217,7 +225,6 @@ class ReIndex(Command):
             print("Re-indexed %s records of %s" % (i, mdl.__name__))
             if unsaved_keys:
                 print("\nThese keys cannot be updated:\n\n", unsaved_keys)
-
 
 class SmartFormatter(HelpFormatter):
     def _split_lines(self, text, width):
@@ -307,6 +314,7 @@ class ManagementCommands(object):
 
 
 class DumpData(Command):
+    # FIXME: Should be refactored to a backend agnostic form
     CMD_NAME = 'dump_data'
     HELP = 'Dumps all data to stdout or to given file'
     CSV = 'csv'
@@ -367,33 +375,32 @@ class DumpData(Command):
             model = mdl(super_context)
             count = model.objects.count()
             rounds = int(count / batch_size) + 1
-            bucket = model.objects.bucket
+            bucket = model.objects.adapter.bucket
             if typ == self.CSV:
                 bucket.set_decoder('application/json', lambda a: a)
             for i in range(rounds):
-                for obj in model.objects.data().raw('*:*',
+                for data, key in model.objects.data().raw('*:*').set_params(
                                                     sort="timestamp asc",
                                                     rows=batch_size,
                                                     start=i * batch_size):
-                    # print("Object %s" % obj.key)
-                    if obj.data is not None:
+                    if data is not None:
                         if typ == self.JSON:
-                            out = json.dumps((bucket.name, obj.key, obj.data))
+                            out = json.dumps((bucket.name, key, data))
                             if to_file:
                                 outfile.write(out + "\n")
                             else:
                                 print(out)
                         elif typ == self.TREE:
-                            data[bucket.name].append((obj.key, obj.data))
+                            data[bucket.name].append((key, data))
                         elif typ == self.CSV:
                             if PY2:
-                                out = bucket.name + "/|" + obj.key + "/|" + obj.data
+                                out = bucket.name + "/|" + key + "/|" + data
                                 if to_file:
                                     outfile.write(out + "\n")
                                 else:
                                     print(out)
                             else:
-                                out = bucket.name + "/|" + obj.key + "/|" + obj.data.decode('utf-8')
+                                out = bucket.name + "/|" + key + "/|" + data.decode('utf-8')
                                 if to_file:
                                     outfile.write(out + "\n")
                                 else:
@@ -413,6 +420,7 @@ class DumpData(Command):
 
 
 class LoadData(Command):
+    # FIXME: Should be refactored to a backend agnostic form
     """
     Loads previously dumped data into DB.
     """
@@ -462,7 +470,7 @@ and .js extensions will be loaded."""},
         loads buckets to bucket cache. disables the default json encoders if CSV is selected
         """
         for mdl in self.registry.get_base_models():
-            bucket = mdl(super_context).objects.bucket
+            bucket = mdl(super_context).objects.adapter.bucket
             if self.typ == self.CSV:
                 bucket.set_encoder("application/json", lambda a: a)
             self.buckets[bucket.name] = bucket
@@ -484,7 +492,7 @@ and .js extensions will be loaded."""},
 
         for mdl in self.registry.get_base_models():
             if self.typ == self.CSV:
-                mdl(super_context).objects.bucket.set_encoder("application/json",
+                mdl(super_context).objects.adapter.bucket.set_encoder("application/json",
                                                               binary_json_encoder)
 
     def read_whole_file(self, file):
@@ -533,7 +541,7 @@ class TestGetKeys(Command):
         seen_in = defaultdict(list)
         for mdl in models:
             print("Checking keys of %s" % mdl.Meta.verbose_name)
-            bucket = mdl.objects.bucket
+            bucket = mdl.objects.adapter.bucket
             for k in bucket.get_keys():
                 obj = bucket.get(k)
                 if obj.data is None:
@@ -543,7 +551,7 @@ class TestGetKeys(Command):
             print("Found %s empty records" % len(empty_records))
             for mdl in models:
                 print("Searching wrong keys in %s" % (mdl.Meta.verbose_name,))
-                bucket = mdl.objects.bucket
+                bucket = mdl.objects.adapter.bucket
                 for k in list(empty_records):
                     obj = bucket.get(k)
                     if obj.data is not None:

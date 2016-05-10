@@ -8,6 +8,8 @@
 # (GPLv3).  See LICENSE.txt for details.
 from pprint import pprint
 from time import sleep, time
+
+from pyoko.manage import FlushDB
 from tests.models import *
 import pytest
 
@@ -24,10 +26,9 @@ class TestCase:
     @classmethod
     def prepare_testbed(cls):
         if not cls.cleaned_up:
-            for model in [User, Employee, Scholar, TimeTable, Permission,
-                          AbstractRole, Role]:
-                model.objects._clear_bucket()
-            sleep(2)
+            FlushDB(model=('User,Employee,Scholar,TimeTable,'
+                                    'Permission,AbstractRole,Role')
+                                   ).run()
             cls.cleaned_up = True
 
     # def test_one_to_one_simple_benchmarked(self, benchmark):

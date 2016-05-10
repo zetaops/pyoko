@@ -23,7 +23,6 @@ class TestCase():
     def prepare_testbed(cls, reset=False):
         if (not cls.cleaned_up) or reset:
             FlushDB(model=','.join(('Uniques',))).run()
-            sleep(3)
             cls.cleaned_up = True
 
     def test_unique(self):

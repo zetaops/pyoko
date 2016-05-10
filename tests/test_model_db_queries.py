@@ -10,7 +10,7 @@ from time import sleep
 import pytest
 from pyoko.conf import settings
 from pyoko.exceptions import MultipleObjectsReturned
-from pyoko.manage import ManagementCommands
+from pyoko.manage import ManagementCommands, FlushDB
 from tests.data.test_data import data, clean_data
 from tests.models import Student, TimeTable
 
@@ -26,12 +26,8 @@ class TestCase:
     @classmethod
     def clear_bucket(cls, reset):
         if not cls.cleaned_up or reset:
-            something_deleted = 0
-            for mdl in [Student, TimeTable]:
-                something_deleted += mdl.objects._clear_bucket()
+            FlushDB(model='Student,TimeTable').run()
             cls.cleaned_up = True
-            if something_deleted:
-                sleep(2)
 
     @classmethod
     def get_or_create_new_obj(cls, reset):
@@ -96,13 +92,17 @@ class TestCase:
 
         assert len(filter_result) == 0
 
-    def test_raw_query(self):
+    def test_riak_raw_query(self):
         self.prepare_testbed()
         assert 'Jack' == Student.objects.raw('name:Jack').get().name
-        no_row_result = Student.objects.raw('name:Jack', rows=0)._exec_query()._solr_cache
+        qset = Student.objects.raw('name:Jack').set_params(rows=0)
+        qset.adapter._exec_query()
+        no_row_result = qset.adapter._solr_cache
         assert no_row_result['docs'] == []
         assert no_row_result['num_found'] == 1
-        assert not bool(list(Student.objects.raw('name:Nope')))
+        st_queryset = Student.objects.raw('name:Nope')
+        st_list = list(st_queryset)
+        assert not bool(st_list)
 
     def test_exclude(self):
         # exclude by name, if name equals filtered names then append to list
@@ -135,21 +135,21 @@ class TestCase:
         self.prepare_testbed()
         students = Student.objects.data().filter(
                 auth_info__email=data['auth_info']['email'])
-        st2_data = students[0].data
+        st2_data = students[0][0]
         clean_data['timestamp'] = st2_data['timestamp']
         clean_data['updated_at'] = st2_data['updated_at']
+        clean_data['deleted_at'] = st2_data['deleted_at']
 
         assert clean_data == st2_data
 
-    def test_save_query_list_solr_docs(self):
+    def test_riak_save_query_list_solr_docs(self):
         # FIXME: order of multivalued field values varies between solr versions
         st = self.prepare_testbed()
-        st2_doc = Student.objects.solr().filter(
-                auth_info__email=data['auth_info']['email'])[0]
+        qset = Student.objects.filter(auth_info__email=data['auth_info']['email'])
+        qset.adapter._exec_query()
+        st2_doc = qset.adapter._solr_cache['docs'][0]
         assert st2_doc['_yz_rb'] == 'student'
         assert st2_doc['_yz_rt'] == settings.DEFAULT_BUCKET_TYPE
-        assert st2_doc['_yz_id'] == st2_doc['_yz_id']
-        assert st2_doc['score'] == st2_doc['score']
         assert st2_doc['_yz_rk'] == st.key
 
     def test_lte_gte(self):

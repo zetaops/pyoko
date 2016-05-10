@@ -7,6 +7,7 @@
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 import six
+import time
 
 from pyoko.db.connection import cache
 from pyoko.exceptions import IntegrityError
@@ -67,6 +68,7 @@ class Model(Node):
         self._is_one_to_one = kwargs.pop('one_to_one', False)
         self.title = kwargs.pop('title', self.__class__.__name__)
         self._root_node = self
+        self.save_meta_data = None
         # used as a internal storage to wary of circular overwrite of the self.just_created
         self._just_created = None
         self._pre_save_hook_called = False
@@ -75,9 +77,10 @@ class Model(Node):
         kwargs['context'] = context
         super(Model, self).__init__(**kwargs)
 
-        self.objects._set_model(model=self)
+        self.objects.set_model(model=self)
+        self.objects = self.row_level_access(self._context, self.objects)
         self._instance_registry.add(weakref.ref(self))
-        self.saved_models = []
+        # self.saved_models = []
 
     def __str__(self):
         try:
@@ -206,11 +209,11 @@ class Model(Node):
     @staticmethod
     def row_level_access(context, objects):
         """
-        If defined, will be called just before query
-        compiling step and it's output summed up to existing query filter.
-
         Can be used to implement context-aware implicit filtering.
         You can define your query filters in here to enforce row level access control.
+
+        If defined, will be called at queryset initialization step and
+        it's return value used as Model.objects.
 
         Args:
             context: An object that contain required user attributes and permissions.
@@ -218,8 +221,11 @@ class Model(Node):
 
         Examples:
             >>> return objects.filter(user=context.user)
+
+        Returns:
+            Queryset object.
         """
-        pass
+        return objects
 
     @lazy_property
     def _name(self):
@@ -355,25 +361,7 @@ class Model(Node):
                         "Unique together mismatch: %s combination already exists for %s"
                         % (vals, self.__class__.__name__))
 
-    def _write_version(self):
-        """
-            Writes a copy of the objects current state to write-once mirror bucket.
 
-        Returns:
-            Key of version record.
-        """
-        return None
-
-    def _write_log(self, version_key, meta_data):
-        """
-        Creates a log entry for current object,
-        Args:
-            version_key:
-            meta_data:
-
-        Returns:
-
-        """
 
     def save(self, internal=False, meta=None):
         """
@@ -385,7 +373,7 @@ class Model(Node):
             internal (bool): True if called within model.
                 Used to prevent unneccessary calls to pre_save and
                 post_save methods.
-            meta (dict): JSON serializable meta data for logging of this save operation.
+            meta (dict): JSON serializable meta data for logging of save operation.
 
         Returns:
              Saved model instance.
@@ -399,7 +387,7 @@ class Model(Node):
         self.just_created = not self.exist
         if self._just_created is None:
             self._just_created = self.just_created
-        self.objects._save_model(self)
+        self.objects.save_model(self, meta_data=meta)
         self._handle_changed_fields(old_data)
         self._process_relations()
         if not (internal or self._post_save_hook_called):
@@ -411,9 +399,22 @@ class Model(Node):
                 self.post_creation()
         return self
 
-    def cached_save(self):
+    def blocking_save(self):
+        """
+        Saves object to DB. Waits till the backend properly indexes the new object.
+        """
+        is_new = self.exist
         self.save()
-        cache.set(self.key, self._data, 2)
+        while is_new and not self.objects.filter(key=self.key).count():
+            time.sleep(0.3)
+
+    def blocking_delete(self):
+        """
+        Deletes and waits till the backend properly update indexes for just deleted object.
+        """
+        self.delete()
+        while self.objects.filter(key=self.key).count():
+            time.sleep(0.3)
 
     def _traverse_relations(self):
         for lnk in self.get_links(link_source=False):
