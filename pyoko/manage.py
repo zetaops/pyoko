@@ -60,6 +60,7 @@ class Command(object):
             - default: Optional. Define a default value for the parameter
             - action: 'store_true' see the official argparse documentation for more info
     """
+
     # https://docs.python.org/2/howto/argparse.html
     # https://docs.python.org/2/library/argparse.html
 
@@ -83,7 +84,6 @@ class Command(object):
                         'args': type('args', (object,), kw)
                     })
 
-
     def __init__(self, manager=None, **kwargs):
         self.manager = manager or self._make_manager(kwargs)
 
@@ -98,14 +98,14 @@ class Command(object):
 class Shell(Command):
     CMD_NAME = 'shell'
     PARAMS = [
-              {'name': 'no_model', 'action': 'store_true',
-               'help': 'Do not import models'},
-              ]
+        {'name': 'no_model', 'action': 'store_true',
+         'help': 'Do not import models'},
+    ]
     HELP = 'Run IPython shell'
 
     def run(self):
         if not self.manager.args.no_model:
-            exec('from %s import *' % settings.MODELS_MODULE)
+            exec ('from %s import *' % settings.MODELS_MODULE)
         try:
             from IPython import start_ipython
             start_ipython(argv=[], user_ns=locals())
@@ -163,11 +163,11 @@ class FlushDB(Command):
         else:
             models = registry.get_base_models()
             if self.manager.args.exclude:
-                excluded_models = [registry.get_model(name) for name in self.manager.args.exclude.split(',')]
+                excluded_models = [registry.get_model(name) for name in
+                                   self.manager.args.exclude.split(',')]
                 models = [model for model in models if model not in excluded_models]
 
         for mdl in models:
-
             num_of_records = mdl(super_context).objects._clear()
             print("%s object(s) deleted from %s " % (num_of_records, mdl.__name__))
         for mdl in models:
@@ -196,7 +196,8 @@ class ReIndex(Command):
         else:
             models = registry.get_base_models()
             if self.manager.args.exclude:
-                excluded_models = [registry.get_model(name) for name in self.manager.args.exclude.split(',')]
+                excluded_models = [registry.get_model(name) for name in
+                                   self.manager.args.exclude.split(',')]
                 models = [model for model in models if model not in excluded_models]
 
         for mdl in models:
@@ -225,6 +226,7 @@ class ReIndex(Command):
             print("Re-indexed %s records of %s" % (i, mdl.__name__))
             if unsaved_keys:
                 print("\nThese keys cannot be updated:\n\n", unsaved_keys)
+
 
 class SmartFormatter(HelpFormatter):
     def _split_lines(self, text, width):
@@ -379,32 +381,36 @@ class DumpData(Command):
             if typ == self.CSV:
                 bucket.set_decoder('application/json', lambda a: a)
             for i in range(rounds):
-                for data, key in model.objects.data().raw('*:*').set_params(
-                                                    sort="timestamp asc",
-                                                    rows=batch_size,
-                                                    start=i * batch_size):
-                    if data is not None:
-                        if typ == self.JSON:
-                            out = json.dumps((bucket.name, key, data))
-                            if to_file:
-                                outfile.write(out + "\n")
-                            else:
-                                print(out)
-                        elif typ == self.TREE:
-                            data[bucket.name].append((key, data))
-                        elif typ == self.CSV:
-                            if PY2:
-                                out = bucket.name + "/|" + key + "/|" + data
+                q = model.objects.data().raw('*:*').set_params(sort="timestamp asc",
+                                                               rows=batch_size,
+                                                               start=i * batch_size)
+                try:
+                    for data_key in q:
+                        data, key = data_key
+                        if data is not None:
+                            if typ == self.JSON:
+                                out = json.dumps((bucket.name, key, data))
                                 if to_file:
                                     outfile.write(out + "\n")
                                 else:
                                     print(out)
-                            else:
-                                out = bucket.name + "/|" + key + "/|" + data.decode('utf-8')
-                                if to_file:
-                                    outfile.write(out + "\n")
+                            elif typ == self.TREE:
+                                data[bucket.name].append((key, data))
+                            elif typ == self.CSV:
+                                if PY2:
+                                    out = bucket.name + "/|" + key + "/|" + data
+                                    if to_file:
+                                        outfile.write(out + "\n")
+                                    else:
+                                        print(out)
                                 else:
-                                    print(out)
+                                    out = bucket.name + "/|" + key + "/|" + data.decode('utf-8')
+                                    if to_file:
+                                        outfile.write(out + "\n")
+                                    else:
+                                        print(out)
+                except ValueError:
+                    raise
             bucket.set_decoder('application/json', binary_json_decoder)
         if typ in [self.TREE, self.PRETTY]:
             if typ == self.PRETTY:
@@ -433,7 +439,7 @@ class LoadData(Command):
     PRETTY = 'pretty'
     CHOICES = (CSV, JSON, TREE, PRETTY)
     PARAMS = [
-        {'name': 'path', 'required': True, 'help':"""R|Path of the data file or fixture directory.
+        {'name': 'path', 'required': True, 'help': """R|Path of the data file or fixture directory.
 When loading from a directory, files with .csv (for CSV format)
 and .js extensions will be loaded."""},
         {'name': 'update', 'action': 'store_true',
@@ -493,7 +499,7 @@ and .js extensions will be loaded."""},
         for mdl in self.registry.get_base_models():
             if self.typ == self.CSV:
                 mdl(super_context).objects.adapter.bucket.set_encoder("application/json",
-                                                              binary_json_encoder)
+                                                                      binary_json_encoder)
 
     def read_whole_file(self, file):
         data = json.loads(file.read())
@@ -589,4 +595,3 @@ class FindDuplicateKeys(Command):
                 keys[r['_yz_rk']].append(mdl.__name__)
             if is_mdl_ok:
                 print("~~~~~~~~ %s is OK!" % mdl.Meta.verbose_name)
-

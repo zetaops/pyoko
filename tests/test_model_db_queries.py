@@ -67,14 +67,14 @@ class TestCase:
     def test_get_multiple_objects_exception(self):
         self.prepare_testbed()
         s2 = Student(name='Foo').save()
-        sleep(2)
+        sleep(1)
         with pytest.raises(MultipleObjectsReturned):
             Student.objects.get()
 
     def test_delete_model(self):
         self.prepare_testbed(True)
         s2 = Student(name='Foo').save()
-        sleep(2)
+        sleep(1)
         assert Student.objects.filter(name='Foo').count() == 1
         assert Student.objects.filter(deleted=True).count() == 0
         assert Student.objects.count() == 2

@@ -86,7 +86,7 @@ class QuerySet(object):
     def __iter__(self):
         clone = copy.deepcopy(self)
         for data, key in clone.adapter:
-            yield (clone._make_model(data, key) if self._cfg['rtype'] == ReturnType.Model else data)
+            yield (clone._make_model(data, key) if self._cfg['rtype'] == ReturnType.Model else (data, key))
 
     def __len__(self):
         return copy.deepcopy(self).adapter.count()

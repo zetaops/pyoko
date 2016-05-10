@@ -99,7 +99,7 @@ class Adapter(BaseAdapter):
                 dct[fresult[i]] = fresult[i + 1]
         return dct
 
-    def _clear(self, wait=True):
+    def _clear(self, wait=False):
         """
         clear outs the all content of current bucket
         only for development purposes
