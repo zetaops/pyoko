@@ -100,7 +100,9 @@ class TestCase:
         no_row_result = qset.adapter._solr_cache
         assert no_row_result['docs'] == []
         assert no_row_result['num_found'] == 1
-        assert not bool(list(Student.objects.raw('name:Nope')))
+        st_queryset = Student.objects.raw('name:Nope')
+        st_list = list(st_queryset)
+        assert not bool(st_list)
 
     def test_exclude(self):
         # exclude by name, if name equals filtered names then append to list

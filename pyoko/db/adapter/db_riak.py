@@ -111,7 +111,7 @@ class Adapter(BaseAdapter):
         if wait:
             t1 = time.time()
             while self._model_class.objects.count():
-                time.sleep(0.5)
+                time.sleep(0.3)
             print("\nDELETION TOOK: %s" % round(time.time() - t1, 2))
         return i
 
@@ -152,7 +152,7 @@ class Adapter(BaseAdapter):
                 obj.__dict__[k] = v
             else:
                 obj.__dict__[k] = copy.deepcopy(v, memo)
-        obj.compiled_query = ''
+        obj.compiled_query = obj._pre_compiled_query or ''
         obj._solr_locked = False
         return obj
 

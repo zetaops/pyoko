@@ -27,6 +27,7 @@ class BaseAdapter(object):
 
     def __init__(self, **conf):
         self._current_context = None
+        self._pre_compiled_query = ''
         # pass permission checks to genareted model instances
         self._pass_perm_checks = False
         self._cfg = {'row_size': 1000,

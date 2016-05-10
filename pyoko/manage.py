@@ -314,6 +314,7 @@ class ManagementCommands(object):
 
 
 class DumpData(Command):
+    # FIXME: Should be refactored to a backend agnostic form
     CMD_NAME = 'dump_data'
     HELP = 'Dumps all data to stdout or to given file'
     CSV = 'csv'
@@ -374,7 +375,7 @@ class DumpData(Command):
             model = mdl(super_context)
             count = model.objects.count()
             rounds = int(count / batch_size) + 1
-            bucket = model.objects.bucket
+            bucket = model.objects.adapter.bucket
             if typ == self.CSV:
                 bucket.set_decoder('application/json', lambda a: a)
             for i in range(rounds):
@@ -419,6 +420,7 @@ class DumpData(Command):
 
 
 class LoadData(Command):
+    # FIXME: Should be refactored to a backend agnostic form
     """
     Loads previously dumped data into DB.
     """
@@ -468,7 +470,7 @@ and .js extensions will be loaded."""},
         loads buckets to bucket cache. disables the default json encoders if CSV is selected
         """
         for mdl in self.registry.get_base_models():
-            bucket = mdl(super_context).objects.bucket
+            bucket = mdl(super_context).objects.adapter.bucket
             if self.typ == self.CSV:
                 bucket.set_encoder("application/json", lambda a: a)
             self.buckets[bucket.name] = bucket
@@ -490,7 +492,7 @@ and .js extensions will be loaded."""},
 
         for mdl in self.registry.get_base_models():
             if self.typ == self.CSV:
-                mdl(super_context).objects.bucket.set_encoder("application/json",
+                mdl(super_context).objects.adapter.bucket.set_encoder("application/json",
                                                               binary_json_encoder)
 
     def read_whole_file(self, file):
@@ -539,7 +541,7 @@ class TestGetKeys(Command):
         seen_in = defaultdict(list)
         for mdl in models:
             print("Checking keys of %s" % mdl.Meta.verbose_name)
-            bucket = mdl.objects.bucket
+            bucket = mdl.objects.adapter.bucket
             for k in bucket.get_keys():
                 obj = bucket.get(k)
                 if obj.data is None:
@@ -549,7 +551,7 @@ class TestGetKeys(Command):
             print("Found %s empty records" % len(empty_records))
             for mdl in models:
                 print("Searching wrong keys in %s" % (mdl.Meta.verbose_name,))
-                bucket = mdl.objects.bucket
+                bucket = mdl.objects.adapter.bucket
                 for k in list(empty_records):
                     obj = bucket.get(k)
                     if obj.data is not None:
