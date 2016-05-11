@@ -323,7 +323,7 @@ class QuerySet(object):
         elif kwargs:
             data, key = clone.filter(**kwargs).adapter.get()
         else:
-            data, key = clone50.adapter.get()
+            data, key = clone.adapter.get()
         return self._make_model(data, key)
 
     def delete(self, confirm=False):
