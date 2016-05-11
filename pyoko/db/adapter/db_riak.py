@@ -427,38 +427,48 @@ class Adapter(BaseAdapter):
             query = query.replace(e, "\\%s" % e)
         return query
 
-    def _parse_query_modifier(self, modifier, query_value):
+    def _parse_query_modifier(self, modifier, qval, is_escaped):
         """
         Parses query_value according to query_type
 
         Args:
             modifier (str): Type of query. Exact, contains, lte etc.
-            query_value: Value partition of the query.
+            qval: Value partition of the query.
 
         Returns:
             Parsed query_value.
         """
         if modifier == 'range':
-            start = query_value[0] or '*'
-            end = query_value[1] or '*'
-            query_value = '[%s TO %s]' % (start, end)
+            if not qval[0]:
+                start = '*'
+            elif not is_escaped:
+                start = self._escape_query(qval[0])
+            else:
+                start = qval[0]
+            if not qval[1]:
+                end = '*'
+            elif not is_escaped:
+                end = self._escape_query(qval[1])
+            else:
+                end = qval[1]
+            qval = '[%s TO %s]' % (start, end)
         else:
-            query_value = query_value
+            qval = qval if is_escaped else self._escape_query(qval)
             if modifier == 'exact':
-                query_value = query_value
+                qval = qval
             elif modifier == 'contains':
-                query_value = "*%s*" % query_value
+                qval = "*%s*" % qval
             elif modifier == 'startswith':
-                query_value = "%s*" % query_value
+                qval = "%s*" % qval
             elif modifier == 'endswith':
-                query_value = "%s*" % query_value
+                qval = "%s*" % qval
             elif modifier == 'lte':
-                query_value = '[* TO %s]' % query_value
+                qval = '[* TO %s]' % qval
             elif modifier == 'gte':
-                query_value = '[%s TO *]' % query_value
-        return query_value
+                qval = '[%s TO *]' % qval
+        return qval
 
-    def _parse_query_key(self, key, val):
+    def _parse_query_key(self, key, val, is_escaped):
         """
         Strips query modifier from key and call's the appropriate value modifier.
 
@@ -471,24 +481,24 @@ class Adapter(BaseAdapter):
         """
         if key.endswith('__contains'):
             key = key[:-10]
-            val = self._parse_query_modifier('contains', val)
+            val = self._parse_query_modifier('contains', val, is_escaped)
         elif key.endswith('__range'):
             key = key[:-7]
-            val = self._parse_query_modifier('range', val)
+            val = self._parse_query_modifier('range', val, is_escaped)
         elif key.endswith('__startswith'):
             key = key[:-12]
-            val = self._parse_query_modifier('startswith', val)
+            val = self._parse_query_modifier('startswith', val, is_escaped)
         elif key.endswith('__endswith'):
             key = key[:-10]
-            val = self._parse_query_modifier('endswith', val)
+            val = self._parse_query_modifier('endswith', val, is_escaped)
         # lower than or equal
         elif key.endswith('__lte'):
             key = key[:-5]
-            val = self._parse_query_modifier('lte', val)
+            val = self._parse_query_modifier('lte', val, is_escaped)
         # greater than or equal
         elif key.endswith('__gte'):
             key = key[:-5]
-            val = self._parse_query_modifier('gte', val)
+            val = self._parse_query_modifier('gte', val, is_escaped)
         return key, val
 
     def _compile_query(self):
@@ -526,7 +536,7 @@ class Adapter(BaseAdapter):
             elif key == 'OR_QRY':
                 key = 'NOKEY'
                 val = ' OR '.join(
-                    ['%s:%s' % self._parse_query_key(k, self._escape_query(v, is_escaped)) for
+                    ['%s:%s' % self._parse_query_key(k, v, is_escaped) for
                      k, v in val.items()])
             # __in query is same as OR_QRY but key stays same for all values
             elif key.endswith('__in'):
@@ -538,12 +548,13 @@ class Adapter(BaseAdapter):
             elif val is None:
                 key = ('-%s' % key).replace('--', '')
                 val = '[* TO *]'
-            # then at least be sure that val is properly escaped
-            else:
-                val = self._escape_query(val, is_escaped)
+
 
             # parse the query
-            key, val = self._parse_query_key(key, val)
+            key, val = self._parse_query_key(key, val, is_escaped)
+
+            # be sure that val is properly escaped
+            # val = self._escape_query(val, is_escaped)
 
             # as long as not explicitly asked for,
             # we filter out records with deleted flag

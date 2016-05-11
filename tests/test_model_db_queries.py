@@ -9,6 +9,7 @@
 from time import sleep
 import pytest
 from pyoko.conf import settings
+from pyoko.db.adapter.db_riak import BlockSave
 from pyoko.exceptions import MultipleObjectsReturned
 from pyoko.manage import ManagementCommands, FlushDB
 from tests.data.test_data import data, clean_data
@@ -181,3 +182,13 @@ class TestCase:
         assert 2 == Student.objects.search_on('name', 'surname', contains='rob').count()
         assert 2 == Student.objects.or_filter(name__contains='rob',
                                               surname__startswith='rob').count()
+
+    def test_range_queries(self):
+        self.prepare_testbed()
+        with BlockSave(TimeTable):
+            TimeTable(week_day=4, hours=2).save()
+            TimeTable(week_day=2, hours=4).save()
+            TimeTable(week_day=5, hours=1).save()
+            TimeTable(week_day=3, hours=6).save()
+        assert TimeTable.objects.filter(week_day__range=[2,4]).count() == 3
+        assert TimeTable.objects.or_filter(week_day__range=[2,4], hours__range=[1, 4]).count() == 4
