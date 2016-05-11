@@ -12,7 +12,7 @@ import pytest
 
 from pyoko.exceptions import IntegrityError
 from pyoko.manage import FlushDB
-from tests.models import Uniques, UniqRelation, OtherUniqRelation
+from .models import Uniques, UniqRelation, OtherUniqRelation
 
 
 class TestCase():
@@ -22,7 +22,7 @@ class TestCase():
     @classmethod
     def prepare_testbed(cls, reset=False):
         if (not cls.cleaned_up) or reset:
-            FlushDB(model=','.join(('Uniques',))).run()
+            FlushDB(model='Uniques,UniqRelation,OtherUniqRelation', wait_sync=True).run()
             cls.cleaned_up = True
 
     def test_unique(self):

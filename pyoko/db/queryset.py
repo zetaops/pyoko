@@ -326,7 +326,7 @@ class QuerySet(object):
             data, key = clone.adapter.get()
         return self._make_model(data, key)
 
-    def delete(self, confirm=False):
+    def delete(self):
         """
         Deletes all objects that matches to the queryset.
 
@@ -335,9 +335,6 @@ class QuerySet(object):
             to backend DB store. So this is exists as more of a comfortable
             utility method and not a performance enhancement.
 
-        Args:
-            confirm (bool): False. Should be True to execute the deletion.
-
         Returns:
             List of deleted objects or None if *confirm* not set.
 
@@ -345,7 +342,7 @@ class QuerySet(object):
             >>> Person.objects.filter(age__gte=16, name__startswith='jo').delete()
 
         """
-        return [item.delete() and item for item in self] if confirm else None
+        return [item.delete() and item for item in self]
 
     def values_list(self, *args, **kwargs):
         """

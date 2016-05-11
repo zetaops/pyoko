@@ -144,11 +144,14 @@ class SchemaUpdate(Command):
 
 class FlushDB(Command):
     CMD_NAME = 'flush_model'
-    HELP = 'REALLY DELETES the contents of buckets'
+    HELP = 'REALLY DELETES the contents of models'
     PARAMS = [{'name': 'model', 'required': True,
                'help': 'Models name(s) to be cleared. Say "all" to clear all models'},
               {'name': 'exclude',
-               'help': 'Models name(s) to be excluded, comma separated'}
+               'help': 'Models name(s) to be excluded, comma separated'},
+              {'name': 'wait_sync', 'action': 'store_true',
+               'help': 'Wait till indexes synced. Default: False'
+                       'Wait till flushing reflects to indexes.'},
               ]
 
     def run(self):
@@ -170,10 +173,10 @@ class FlushDB(Command):
         for mdl in models:
             num_of_records = mdl(super_context).objects._clear()
             print("%s object(s) deleted from %s " % (num_of_records, mdl.__name__))
-        for mdl in models:
-
-            while mdl(super_context).objects.count():
-                time.sleep(0.3)
+        if self.manager.args.wait_sync:
+            for mdl in models:
+                while mdl(super_context).objects.count():
+                    time.sleep(0.3)
 
 
 class ReIndex(Command):

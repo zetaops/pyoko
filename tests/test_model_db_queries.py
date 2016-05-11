@@ -26,7 +26,7 @@ class TestCase:
     @classmethod
     def clear_bucket(cls, reset):
         if not cls.cleaned_up or reset:
-            FlushDB(model='Student,TimeTable').run()
+            FlushDB(model='Student,TimeTable', wait_sync=True).run()
             cls.cleaned_up = True
 
     @classmethod

@@ -49,13 +49,26 @@ sys.PYOKO_STAT_COUNTER = {
 }
 sys.PYOKO_LOGS = defaultdict(list)
 
+class BlockSave(object):
+    def __init__(self, mdl):
+        self.mdl = mdl
+
+    def __enter__(self):
+        Adapter.block_saved_keys = []
+        Adapter.COLLECT_SAVES = True
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        indexed_obj_count = self.mdl.objects.filter(key__in=Adapter.block_saved_keys)
+        while Adapter.block_saved_keys and indexed_obj_count.count() < len(Adapter.block_saved_keys):
+            time.sleep(.4)
+        Adapter.COLLECT_SAVES = False
 
 # noinspection PyTypeChecker
 class Adapter(BaseAdapter):
     """
     QuerySet is a lazy data access layer for Riak.
     """
-
+    COLLECT_SAVES = False
     def __init__(self, **conf):
         super(Adapter, self).__init__(**conf)
         self.bucket = riak.RiakBucket
@@ -218,22 +231,22 @@ class Adapter(BaseAdapter):
         obj.add_index('timestamp_int', int(meta_data['timestamp']))
         obj.store()
 
-    def save(self, data, key=None, meta_data=None):
-        if key is not None:
-            obj = self.bucket.get(key)
-            obj.data = data
-            obj.store()
-        else:
-            obj = self.bucket.get(key)
-            obj.data = data
-            obj.store()
-        if settings.ENABLE_VERSIONS:
-            version_key = self._write_version(data, key, meta_data)
-        else:
-            version_key = ''
-        if settings.ENABLE_ACTIVITY_LOGGING:
-            self._write_log(version_key, meta_data)
-        return obj.key
+    # def save(self, data, key=None, meta_data=None):
+    #     if key is not None:
+    #         obj = self.bucket.get(key)
+    #         obj.data = data
+    #         obj.store()
+    #     else:
+    #         obj = self.bucket.get(key)
+    #         obj.data = data
+    #         obj.store()
+    #     if settings.ENABLE_VERSIONS:
+    #         version_key = self._write_version(data, key, meta_data)
+    #     else:
+    #         version_key = ''
+    #     if settings.ENABLE_ACTIVITY_LOGGING:
+    #         self._write_log(version_key, meta_data)
+    #     return obj.key
 
     def save_model(self, model, meta_data=None):
         """
@@ -242,8 +255,8 @@ class Adapter(BaseAdapter):
         """
         # if model:
         #     self._model = model
-        # if settings.DEBUG:
-        #     t1 = time.time()
+        if settings.DEBUG:
+            t1 = time.time()
         clean_value = model.clean_value()
         model._data = clean_value
         if settings.DEBUG:
@@ -259,16 +272,22 @@ class Adapter(BaseAdapter):
             obj.store()
 
         meta_data = meta_data or model.save_meta_data
-        model.version_key = self._write_version(clean_value, model.key, meta_data)
-        self._write_log(model.version_key, meta_data)
+        if settings.ENABLE_VERSIONS:
+            version_key = self._write_version(clean_value, model.key, meta_data)
+        else:
+            version_key = ''
+        if settings.ENABLE_ACTIVITY_LOGGING:
+            self._write_log(version_key, meta_data)
         #
-        # if settings.DEBUG:
-        #     if new_obj:
-        #         sys.PYOKO_STAT_COUNTER['save'] += 1
-        #         sys.PYOKO_LOGS['new'].append(obj.key)
-        #     else:
-        #         sys.PYOKO_LOGS[self._model_class.__name__].append(obj.key)
-        #         sys.PYOKO_STAT_COUNTER['update'] += 1
+        if self.COLLECT_SAVES and new_obj:
+            self.block_saved_keys.append(obj.key)
+        if settings.DEBUG:
+            if new_obj:
+                sys.PYOKO_STAT_COUNTER['save'] += 1
+                sys.PYOKO_LOGS['new'].append(obj.key)
+            else:
+                sys.PYOKO_LOGS[self._model_class.__name__].append(obj.key)
+                sys.PYOKO_STAT_COUNTER['update'] += 1
         #     sys._debug_db_queries.append({
         #         'TIMESTAMP': t1,
         #         'KEY': obj.key,
@@ -476,9 +495,6 @@ class Adapter(BaseAdapter):
         """
         Builds SOLR query and stores it into self.compiled_query
         """
-        # TODO: This and all Riak/Solr targeted methods should be refactored
-        # into another class. http://pm.ulakbus.net/5049
-
         # https://wiki.apache.org/solr/SolrQuerySyntax
         # http://lucene.apache.org/core/2_9_4/queryparsersyntax.html
         query = []
@@ -490,6 +506,11 @@ class Adapter(BaseAdapter):
         for key, val, is_escaped in self._solr_query:
             # querying on a linked model by model instance
             # it should be a Model, not a Node!
+            if key == 'key':
+                key = '_yz_rk'
+            elif key[:5] == 'key__':  # to handle key__in etc.
+                key = '_yz_rk__' + key[5:]
+
             if hasattr(val, '_TYPE'):
                 val = val.key
                 key += "_id"
@@ -500,8 +521,6 @@ class Adapter(BaseAdapter):
                 val = val.strftime(DATE_FORMAT)
             elif isinstance(val, datetime):
                 val = val.strftime(DATE_TIME_FORMAT)
-            elif key == 'key':
-                key = '_yz_rk'
             # if it's not one of the expected objects, it should be a string
             # if key == "OR_QRY" then join them with "OR" after escaping & parsing
             elif key == 'OR_QRY':
