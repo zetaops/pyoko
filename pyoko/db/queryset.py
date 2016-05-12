@@ -123,9 +123,12 @@ class QuerySet(object):
         """
         obj = self.__class__(**self._cfg)
         for k, v in self.__dict__.items():
-            if k.endswith(('current_context', 'model', 'model_class', '_cfg')):
+            if k.endswith(('current_context', 'model', 'model_class')):
                 obj.__dict__[k] = v
+            elif k == '_cfg':
+                obj._cfg = v.copy()
             else:
+                if k == '_cfg': print("CFG %s" % v.keys())
                 obj.__dict__[k] = copy.deepcopy(v, memo)
         obj.is_clone = True
         return obj

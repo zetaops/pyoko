@@ -23,7 +23,7 @@ class TestCase:
     @classmethod
     def prepare_testbed(cls, reset=False):
         if (not cls.cleaned_up) or reset:
-            FlushDB(model='Student').run()
+            FlushDB(model='Student', wait_sync=True).run()
             cls.cleaned_up = True
 
     # def test_one_to_one_simple_benchmarked(self, benchmark):
