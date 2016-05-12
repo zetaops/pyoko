@@ -67,7 +67,7 @@ class QuerySet(object):
             self._model_class = model_class
             self._current_context = self._current_context or None
         self._cfg['_model_class'] = self._model_class
-        self._cfg['_objects'] = self.__class__
+        # self._cfg['_objects'] = self.__class__
         self.adapter = Adapter(**self._cfg)
 
 
@@ -123,7 +123,7 @@ class QuerySet(object):
         """
         obj = self.__class__(**self._cfg)
         for k, v in self.__dict__.items():
-            if k.endswith(('current_context', 'model', 'model_class')):
+            if k.endswith(('current_context', 'model', 'model_class', '_cfg')):
                 obj.__dict__[k] = v
             else:
                 obj.__dict__[k] = copy.deepcopy(v, memo)

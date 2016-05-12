@@ -153,16 +153,14 @@ class Adapter(BaseAdapter):
         """
         obj = self.__class__(**self._cfg)
         for k, v in self.__dict__.items():
-            if k.endswith(('_current_context', 'model_class')):
+            if k.endswith(('_current_context', 'bucket', '_client', 'model_class', '_cfg')):
                 obj.__dict__[k] = v
-            if k == '_riak_cache':
+            elif k == '_riak_cache':
                 obj.__dict__[k] = []
             elif k == '_solr_cache':
                 obj.__dict__[k] = {}
             elif k == '_solr_query':
                 obj.__dict__[k] = v[:]
-            elif k.endswith(('bucket', '_client',)):
-                obj.__dict__[k] = v
             else:
                 obj.__dict__[k] = copy.deepcopy(v, memo)
         obj.compiled_query = obj._pre_compiled_query or ''
@@ -374,8 +372,7 @@ class Adapter(BaseAdapter):
             >>> Person.objects.search_on('name', 'surname', startswith='jo')
         """
         search_type = list(query.keys())[0]
-        parsed_query = self._parse_query_modifier(search_type,
-                                                  self._escape_query(query[search_type]))
+        parsed_query = self._parse_query_modifier(search_type, query[search_type], False)
         self.add_query([("OR_QRY", dict([(f, parsed_query) for f in fields]), True)])
 
     def order_by(self, *args):

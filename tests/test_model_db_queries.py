@@ -184,7 +184,7 @@ class TestCase:
                                               surname__startswith='rob').count()
 
     def test_range_queries(self):
-        self.prepare_testbed()
+        TimeTable.objects.delete()
         with BlockSave(TimeTable):
             TimeTable(week_day=4, hours=2).save()
             TimeTable(week_day=2, hours=4).save()
