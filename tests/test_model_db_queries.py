@@ -155,11 +155,11 @@ class TestCase:
 
     def test_lte_gte(self):
         self.prepare_testbed()
-        TimeTable(week_day=4, hours=2).save()
-        TimeTable(week_day=2, hours=4).save()
-        TimeTable(week_day=5, hours=1).save()
-        TimeTable(week_day=3, hours=6).save()
-        sleep(1)
+        with BlockSave(TimeTable):
+            TimeTable(week_day=4, hours=2).save()
+            TimeTable(week_day=2, hours=4).save()
+            TimeTable(week_day=5, hours=1).save()
+            TimeTable(week_day=3, hours=6).save()
         assert TimeTable.objects.filter(hours__gte=4).count() == 2
         assert TimeTable.objects.filter(hours__lte=4).count() == 3
 
@@ -192,3 +192,11 @@ class TestCase:
             TimeTable(week_day=3, hours=6).save()
         assert TimeTable.objects.filter(week_day__range=[2,4]).count() == 3
         assert TimeTable.objects.or_filter(week_day__range=[2,4], hours__range=[1, 4]).count() == 4
+
+    def test_escaping(self):
+        Student.objects.delete()
+        with BlockSave(Student):
+            Student(name='jhon smith', surname='jr.').save()
+            Student(name='jhon smith', surname='sr.').save()
+        # assert Student.objects.filter(name__contains='on sm').count() == 2
+        assert Student.objects.filter(name='jhon smith').count() == 2

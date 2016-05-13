@@ -496,6 +496,8 @@ class Adapter(BaseAdapter):
         elif key.endswith('__gte'):
             key = key[:-5]
             val = self._parse_query_modifier('gte', val, is_escaped)
+        elif key != 'NOKEY' and not is_escaped:
+            val = self._escape_query(val)
         return key, val
 
     def _compile_query(self):
@@ -524,6 +526,7 @@ class Adapter(BaseAdapter):
                 if val is None:
                     key = ('-%s' % key).replace('--', '')
                     val = '[* TO *]'
+                    is_escaped = True
             elif isinstance(val, date):
                 val = val.strftime(DATE_FORMAT)
             elif isinstance(val, datetime):
@@ -535,16 +538,19 @@ class Adapter(BaseAdapter):
                 val = ' OR '.join(
                     ['%s:%s' % self._parse_query_key(k, v, is_escaped) for
                      k, v in val.items()])
+                is_escaped = True
             # __in query is same as OR_QRY but key stays same for all values
             elif key.endswith('__in'):
                 key = key[:-4]
                 val = ' OR '.join(
                     ['%s:%s' % (key, self._escape_query(v, is_escaped)) for v in val])
                 key = 'NOKEY'
+                is_escaped = True
             # val is None means we're searching for empty values
             elif val is None:
                 key = ('-%s' % key).replace('--', '')
                 val = '[* TO *]'
+                is_escaped = True
 
 
             # parse the query
