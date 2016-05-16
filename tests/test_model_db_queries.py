@@ -6,6 +6,7 @@
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
+import datetime
 from time import sleep
 import pytest
 from pyoko.conf import settings
@@ -116,7 +117,7 @@ class TestCase:
     def test_save_query_get_first(self):
         self.prepare_testbed()
         st2 = Student.objects.filter(
-                auth_info__email=data['auth_info']['email'])[0]
+            auth_info__email=data['auth_info']['email'])[0]
         clean_value = st2.clean_value()
         clean_data['timestamp'] = clean_value['timestamp']
         clean_data['updated_at'] = clean_value['updated_at']
@@ -125,7 +126,7 @@ class TestCase:
     def test_save_query_list_models(self):
         self.prepare_testbed()
         students = Student.objects.filter(
-                auth_info__email=data['auth_info']['email'])
+            auth_info__email=data['auth_info']['email'])
         st2 = students[0]
         clean_value = st2.clean_value()
         clean_data['timestamp'] = clean_value['timestamp']
@@ -135,7 +136,7 @@ class TestCase:
     def test_save_query_list_riak_objects(self):
         self.prepare_testbed()
         students = Student.objects.data().filter(
-                auth_info__email=data['auth_info']['email'])
+            auth_info__email=data['auth_info']['email'])
         st2_data = students[0][0]
         clean_data['timestamp'] = st2_data['timestamp']
         clean_data['updated_at'] = st2_data['updated_at']
@@ -164,6 +165,7 @@ class TestCase:
         assert TimeTable.objects.filter(hours__lte=4).count() == 3
 
     def test_or_queries(self):
+        Student.objects.delete()
         d = {'s1': ['ali', 'veli'],
              's2': ['joe', 'roby'],
              's3': ['rob', 'zombie'],
@@ -173,11 +175,11 @@ class TestCase:
                 Student(name=v[0], surname=v[1]).save()
             sleep(1)
         assert 3 == Student.objects.filter(
-                name__in=(d['s1'][0], d['s2'][0], d['s3'][0])).count()
+            name__in=(d['s1'][0], d['s2'][0], d['s3'][0])).count()
 
         assert 3 == Student.objects.filter(
-                name__in=(d['s1'][0], d['s2'][0], d['s3'][0])).filter(
-                surname__in=(d['s1'][1], d['s2'][1], d['s3'][1])).count()
+            name__in=(d['s1'][0], d['s2'][0], d['s3'][0])).filter(
+            surname__in=(d['s1'][1], d['s2'][1], d['s3'][1])).count()
 
         assert 2 == Student.objects.search_on('name', 'surname', contains='rob').count()
         assert 2 == Student.objects.or_filter(name__contains='rob',
@@ -186,12 +188,20 @@ class TestCase:
     def test_range_queries(self):
         TimeTable.objects.delete()
         with BlockSave(TimeTable):
-            TimeTable(week_day=4, hours=2).save()
-            TimeTable(week_day=2, hours=4).save()
-            TimeTable(week_day=5, hours=1).save()
-            TimeTable(week_day=3, hours=6).save()
-        assert TimeTable.objects.filter(week_day__range=[2,4]).count() == 3
-        assert TimeTable.objects.or_filter(week_day__range=[2,4], hours__range=[1, 4]).count() == 4
+            TimeTable(week_day=4, hours=2, adate=datetime.date.today(),
+                      bdate=datetime.date.today() - datetime.timedelta(days=2)).save()
+            TimeTable(week_day=2, hours=4, bdate=datetime.date.today(),
+                      adate=datetime.date.today() + datetime.timedelta(2)).save()
+            TimeTable(week_day=5, hours=1, adate=datetime.date.today() - datetime.timedelta(1),
+                      bdate=datetime.date.today() + datetime.timedelta(12)).save()
+            TimeTable(week_day=3, hours=6, adate=datetime.date.today() + datetime.timedelta(10),
+                      bdate=datetime.date.today() - datetime.timedelta(2)).save()
+        assert TimeTable.objects.filter(week_day__range=[2, 4]).count() == 3
+        assert TimeTable.objects.or_filter(week_day__range=[2, 4], hours__range=[1, 4]).count() == 4
+        assert TimeTable.objects.or_filter(
+            adate__range=(datetime.date.today() - datetime.timedelta(10),
+                          datetime.date.today() + datetime.timedelta(10),
+                          ), hours__range=[1, 4]).count() == 4
 
     def test_escaping(self):
         Student.objects.delete()

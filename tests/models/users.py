@@ -80,6 +80,8 @@ class TimeTable(Model):
     lecture = field.String("Lecture", index=True)
     week_day = field.Integer("Week day", index=True)
     hours = field.Integer("Hours", index=True)
+    adate = field.Date()
+    bdate = field.Date()
 
     def __unicode__(self):
         return 'TimeTable for %s' % self.lecture

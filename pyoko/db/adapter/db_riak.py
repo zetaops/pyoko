@@ -438,12 +438,20 @@ class Adapter(BaseAdapter):
         if modifier == 'range':
             if not qval[0]:
                 start = '*'
+            elif isinstance(qval[0], date):
+                start = self._handle_date(qval[0])
+            elif isinstance(qval[0], datetime):
+                start = self._handle_datetime(qval[0])
             elif not is_escaped:
                 start = self._escape_query(qval[0])
             else:
                 start = qval[0]
             if not qval[1]:
                 end = '*'
+            elif isinstance(qval[1], date):
+                end = self._handle_date(qval[1])
+            elif isinstance(qval[1], datetime):
+                end = self._handle_datetime(qval[1])
             elif not is_escaped:
                 end = self._escape_query(qval[1])
             else:
@@ -500,6 +508,35 @@ class Adapter(BaseAdapter):
             val = self._escape_query(val)
         return key, val
 
+    def _handle_date(self, val, key=None):
+        return val.strftime(DATE_FORMAT)
+
+    def _handle_model(self, val, key=None):
+        val = val.key
+        key += "_id"
+        if val is None:
+            key = ('-%s' % key).replace('--', '')
+            val = '[* TO *]'
+        return key, val
+
+    def _handle_datetime(self, val, key=None):
+        return val.strftime(DATE_TIME_FORMAT)
+
+    def _process_query_val(self, key, val, escaped=False):
+        if isinstance(val, date):
+            return key, self._handle_date(val), True
+        if isinstance(val, datetime):
+            return key, self._handle_datetime(val), True
+        if hasattr(val, '_TYPE'):
+            key, val = self._handle_model(val, key)
+            return key, val, True
+        # val is None means we're searching for empty values
+        if val is None:
+            key = ('-%s' % key).replace('--', '')
+            val = '[* TO *]'
+            return key, val, True
+        return key, val, escaped
+
     def _compile_query(self):
         """
         Builds SOLR query and stores it into self.compiled_query
@@ -520,23 +557,13 @@ class Adapter(BaseAdapter):
             elif key[:5] == 'key__':  # to handle key__in etc.
                 key = '_yz_rk__' + key[5:]
 
-            if hasattr(val, '_TYPE'):
-                val = val.key
-                key += "_id"
-                if val is None:
-                    key = ('-%s' % key).replace('--', '')
-                    val = '[* TO *]'
-                    is_escaped = True
-            elif isinstance(val, date):
-                val = val.strftime(DATE_FORMAT)
-            elif isinstance(val, datetime):
-                val = val.strftime(DATE_TIME_FORMAT)
+            key, val, is_escaped = self._process_query_val(key, val, is_escaped)
             # if it's not one of the expected objects, it should be a string
             # if key == "OR_QRY" then join them with "OR" after escaping & parsing
-            elif key == 'OR_QRY':
+            if key == 'OR_QRY':
                 key = 'NOKEY'
                 val = ' OR '.join(
-                    ['%s:%s' % self._parse_query_key(k, v, is_escaped) for
+                    ['%s:%s' % self._parse_query_key(*self._process_query_val(k, v, is_escaped)) for
                      k, v in val.items()])
                 is_escaped = True
             # __in query is same as OR_QRY but key stays same for all values
@@ -546,27 +573,15 @@ class Adapter(BaseAdapter):
                     ['%s:%s' % (key, self._escape_query(v, is_escaped)) for v in val])
                 key = 'NOKEY'
                 is_escaped = True
-            # val is None means we're searching for empty values
-            elif val is None:
-                key = ('-%s' % key).replace('--', '')
-                val = '[* TO *]'
-                is_escaped = True
-
-
             # parse the query
             key, val = self._parse_query_key(key, val, is_escaped)
-
-            # be sure that val is properly escaped
-            # val = self._escape_query(val, is_escaped)
 
             # as long as not explicitly asked for,
             # we filter out records with deleted flag
             if key == 'deleted':
                 want_deleted = True
-
             # convert two underscores to dot notation
             key = key.replace('__', '.')
-
             # NOKEY means we already combined key partition in to "val"
             if key == 'NOKEY':
                 query.append("(%s)" % val)
