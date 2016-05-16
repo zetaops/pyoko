@@ -204,7 +204,7 @@ class ReIndex(Command):
                 models = [model for model in models if model not in excluded_models]
 
         for mdl in models:
-            stream = mdl.objects.bucket.stream_keys()
+            stream = mdl.objects.adapter.bucket.stream_keys()
             i = 0
             unsaved_keys = []
             for key_list in stream:
