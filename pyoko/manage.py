@@ -522,13 +522,13 @@ and .js extensions will be loaded."""},
 
     def save_obj(self, bucket_name, key, val):
         key = key or None
-        if self.manager.args.update or key is None:
+        if key is None:
             data = val.encode('utf-8') if self.typ == self.CSV else val
             self.buckets[bucket_name].new(key, data).store()
             self.record_counter += 1
         else:
             obj = self.buckets[bucket_name].get(key)
-            if not obj.exists:
+            if not obj.exists or self.manager.args.update:
                 obj.data = val.encode('utf-8') if self.typ == self.CSV else val
                 obj.store()
                 self.record_counter += 1
