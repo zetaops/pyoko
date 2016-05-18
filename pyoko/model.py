@@ -53,7 +53,7 @@ class Model(Node):
     _SEARCH_INDEX = ''
 
     def __init__(self, context=None, **kwargs):
-        self.key = None
+        self.key = kwargs.pop('key', None)
         # holds list of banned fields for current context
         self._unpermitted_fields = []
         # this indicates cell filters applied and we can filter on them
