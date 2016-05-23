@@ -137,14 +137,14 @@ class Adapter(BaseAdapter):
             if not obj.exists:
                 raise ObjectDoesNotExist("Possibly a Riak <-> Solr sync delay issue!")
             yield obj.data, obj.key
-            # if settings.DEBUG:
-            #     sys.PYOKO_STAT_COUNTER['read'] += 1
-            #     sys.PYOKO_LOGS[self._model_class.__name__].append(doc['_yz_rk'])
-            #     sys._debug_db_queries.append({
-            #         'TIMESTAMP': t1,
-            #         'KEY': doc['_yz_rk'],
-            #         'BUCKET': self.index_name,
-            #         'TIME': round(time.time() - t1, 5)})
+            if settings.DEBUG:
+                sys.PYOKO_STAT_COUNTER['read'] += 1
+                sys.PYOKO_LOGS[self._model_class.__name__].append(doc['_yz_rk'])
+                # sys._debug_db_queries.append({
+                #     'TIMESTAMP': t1,
+                #     'KEY': doc['_yz_rk'],
+                #     'BUCKET': self.index_name,
+                #     'TIME': round(time.time() - t1, 5)})
 
     def __deepcopy__(self, memo=None):
         """
@@ -322,8 +322,8 @@ class Adapter(BaseAdapter):
             #     t1 = time.time()
             self._riak_cache = [self.bucket.get(self._solr_cache['docs'][0]['_yz_rk'])]
             # if settings.DEBUG:
-            # sys.PYOKO_LOGS[self._model_class.__name__].append(
-            #     self._solr_cache['docs'][0]['_yz_rk'])
+            sys.PYOKO_LOGS[self._model_class.__name__].append(
+                self._solr_cache['docs'][0]['_yz_rk'])
             # sys.PYOKO_STAT_COUNTER['read'] += 1
             # sys._debug_db_queries.append({
             #     'TIMESTAMP': t1,
@@ -509,7 +509,7 @@ class Adapter(BaseAdapter):
         return key, val
 
     def _handle_date(self, val, key=None):
-        return val.strftime(DATE_FORMAT)
+        return self._escape_query(val.strftime(DATE_FORMAT))
 
     def _handle_model(self, val, key=None):
         val = val.key
