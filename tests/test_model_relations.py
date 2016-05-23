@@ -128,7 +128,7 @@ class TestCase:
         assert mate1 in ceo.workers
         assert len(ceo.workers) == 2
 
-        # FIXME: THIS SHOULD PASS!!!
+        # FIXME: THIS SHOULD PASS!!! #5342 #GH-63
         # FIXME: THIS SHOULD PASS!!!
         # assert ceo not in mate1.workers
 
