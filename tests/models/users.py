@@ -28,12 +28,11 @@ class AbstractRole(Model):
 
 
 class User(Model):
-    name = field.String('Full Name', index=True)
+    name = field.String('Full Name')
     supervisor = LinkProxy('User', verbose_name='Supervisor', reverse_name='workers')
+
     def __unicode__(self):
         return "User %s" % self.name
-
-
 
 
 class Role(Model):
@@ -75,11 +74,13 @@ class Employee(Model):
         self.post_save_counter -= 1
 
 
+TIMES = ((1, 'One'), (2, 'Two'), (3, 'Three'))
+
 
 class TimeTable(Model):
-    lecture = field.String("Lecture", index=True)
-    week_day = field.Integer("Week day", index=True)
-    hours = field.Integer("Hours", index=True)
+    lecture = field.String("Lecture")
+    week_day = field.Integer("Week day")
+    hours = field.Integer("Hours", default=1, choices=TIMES)
     adate = field.Date()
     bdate = field.Date()
 
@@ -88,13 +89,11 @@ class TimeTable(Model):
 
 
 class Scholar(Model):
-    name = field.String("Name", index=True)
+    name = field.String("Name")
 
     def __unicode__(self):
         return 'Scholar named %s' % self.name
 
     class TimeTables(ListNode):
         timetable = TimeTable()
-        confirmed = field.Boolean("Is confirmed", index=True)
-
-
+        confirmed = field.Boolean("Is confirmed")

@@ -20,7 +20,7 @@ class Settings(object):
         self.DEBUG = bool(os.environ.get('DEBUG'))
         self.DEBUG_LEVEL = int(os.environ.get('DEBUG_LEVEL', 0))
         self.SEARCH_INDEXES = {}
-        self.CATALOG_DATA_MANAGER = "pyoko.lib.utils.SimpleChoicesManager"
+        self.CATALOG_DATA_MANAGER = "pyoko.lib.utils.simple_choices_manager"
         self.FILE_MANAGER = "pyoko.lib.utils.SimpleRiakFileManager"
         self.DATE_DEFAULT_FORMAT = ""
         self.DATETIME_DEFAULT_FORMAT = ""

@@ -201,7 +201,7 @@ class TestCase:
         assert TimeTable.objects.or_filter(
             adate__range=(datetime.date.today() - datetime.timedelta(10),
                           datetime.date.today() + datetime.timedelta(10),
-                          ), hours__range=[1, 4]).count() == 3
+                          ), hours__range=[1, 4]).count() == 4
 
     def test_escaping(self):
         Student.objects.delete()

@@ -287,28 +287,39 @@ class Node(object):
         Args:
             kwargs: Field values
         """
-        if kwargs:
-            for name, _field in self._fields.items():
-                if name in kwargs:
-                    val = kwargs.get(name, self._field_values.get(name))
-                    path_name = self._path_of(name)
-                    _root_node = self._root_node or self
-                    if path_name in _root_node.get_unpermitted_fields():
-                        self._secured_data[path_name] = val
-                        continue
-                    if not kwargs.get('from_db'):
-                        setattr(self, name, val)
-                    else:
-                        _field._load_data(self, val)
-                    if _field.choices is not None:
-                        self._choice_fields.append(name)
+        # if kwargs:
+        for name, _field in self._fields.items():
+            if name in kwargs:
+                val = kwargs.get(name, self._field_values.get(name))
+                path_name = self._path_of(name)
+                _root_node = self._root_node or self
+                if path_name in _root_node.get_unpermitted_fields():
+                    self._secured_data[path_name] = val
+                    continue
+            elif _field.default:
+                val = _field.default() if callable(_field.default) else _field.default
+            else:
+                continue
+            if not kwargs.get('from_db'):
+                setattr(self, name, val)
+            else:
+                _field._load_data(self, val)
 
-                        # adding get_%s_display() methods for fields which has "choices" attribute
-                        def foo():
-                            choices, value = copy(_field.choices), copy(val)
-                            return lambda: self._choices_manager(choices, value)
+            # if not self._field_values.get(name):
+            #     self._field_values[name] = getattr(self, name)
+            if _field.choices is not None:
+                self._choice_fields.append(name)
 
-                        setattr(self, 'get_%s_display' % name, foo())
+                self._set_get_choice_display_method(name, _field, val)
+
+
+    def _set_get_choice_display_method(self, name, _field, val):
+        # adding get_%s_display() methods for fields which has "choices" attribute
+        def foo():
+            choices, value = copy(_field.choices), copy(val)
+            return lambda: self._choices_manager(choices, value)
+
+        setattr(self, 'get_%s_display' % name, foo())
 
     def _collect_index_fields(self, in_multi=False):
         """

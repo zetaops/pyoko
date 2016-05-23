@@ -29,6 +29,8 @@ class SimpleChoicesManager(object):
     def get_all(choices):
         return choices
 
+simple_choices_manager = SimpleChoicesManager()
+
 class SimpleRiakFileManager(object):
     # Untested, POC!
 

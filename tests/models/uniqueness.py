@@ -23,7 +23,7 @@ class Uniques(Model):
     foo_id = field.String()
     name = field.String()
     username = field.String(unique=True)
-    join_date = field.Date(unique=True, default='now')
+    join_date = field.DateTime(unique=True, default='now')
 
     class Meta:
         unique_together = [('id', 'foo_id'), ('rel', 'other_rel')]

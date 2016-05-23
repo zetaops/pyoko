@@ -69,6 +69,8 @@ class BaseField(object):
 
     def __set__(self, instance, value):
         instance._field_values[self.name] = value
+        instance._set_get_choice_display_method(self.name, self, value)
+
 
     def _load_data(self, instance, value):
         """
@@ -154,7 +156,7 @@ class DateTime(BaseField):
         if self.default is None:
             self.default = EMPTY_DATETIME
         elif self.default == 'now':
-            self.default = lambda: datetime.datetime.now().strftime(DATE_TIME_FORMAT)
+            self.default = lambda: datetime.datetime.now().strftime(self.format)
 
     def clean_value(self, val):
         if not val:
@@ -163,12 +165,14 @@ class DateTime(BaseField):
             return val.strftime(DATE_TIME_FORMAT)
 
     def __set__(self, instance, value):
+        if value == EMPTY_DATETIME:
+            value = None
+        # elif callable(value):
+        #     value = value()
         if isinstance(value, six.string_types) and value:
-            if value != '0000-00-00T00:00:00Z':
-                value = datetime.datetime.strptime(value, self.format)
-            else:
-                value = None
-        instance._field_values[self.name] = value
+            value = datetime.datetime.strptime(value, self.format)
+        super(DateTime, self).__set__(instance, value)
+        # instance._field_values[self.name] = value
 
     def _load_data(self, instance, value):
         if value is None or value == EMPTY_DATETIME:
@@ -192,12 +196,17 @@ class Date(BaseField):
         if self.default is None:
             self.default = EMPTY_DATETIME
         elif self.default == 'now':
-            self.default = lambda: datetime.datetime.now().strftime(DATE_FORMAT)
+            self.default = lambda: datetime.datetime.now().strftime(self.format)
 
     def __set__(self, instance, value):
+        if value == EMPTY_DATETIME:
+            value = None
+        # elif callable(value):
+        #     value = value()
         if isinstance(value, six.string_types) and value:
             value = datetime.datetime.strptime(value, self.format).date()
-        instance._field_values[self.name] = value
+        super(Date, self).__set__(instance, value)
+        # instance._field_values[self.name] = value
 
     def clean_value(self, val):
         if not val:
