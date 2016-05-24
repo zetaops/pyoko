@@ -56,10 +56,13 @@ class BlockSave(object):
     def __enter__(self):
         Adapter.block_saved_keys = []
         Adapter.COLLECT_SAVES = True
+        Adapter.COLLECT_SAVES_FOR_MODEL = self.mdl.__name__
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        indexed_obj_count = self.mdl.objects.filter(key__in=Adapter.block_saved_keys)
-        while Adapter.block_saved_keys and indexed_obj_count.count() < len(Adapter.block_saved_keys):
+        key_list = list(set(Adapter.block_saved_keys))
+        indexed_obj_count = self.mdl.objects.filter(key__in=key_list)
+        while Adapter.block_saved_keys and indexed_obj_count.count() < len(key_list):
+            print("save %s" % Adapter.block_saved_keys)
             time.sleep(.4)
         Adapter.COLLECT_SAVES = False
 
@@ -70,10 +73,12 @@ class BlockDelete(object):
     def __enter__(self):
         Adapter.block_saved_keys = []
         Adapter.COLLECT_SAVES = True
+        Adapter.COLLECT_SAVES_FOR_MODEL = self.mdl.__name__
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         indexed_obj_count = self.mdl.objects.filter(key__in=Adapter.block_saved_keys)
         while Adapter.block_saved_keys and indexed_obj_count.count():
+
             time.sleep(.4)
         Adapter.COLLECT_SAVES = False
 
@@ -291,7 +296,7 @@ class Adapter(BaseAdapter):
         if settings.ENABLE_ACTIVITY_LOGGING:
             self._write_log(version_key, meta_data)
         #
-        if self.COLLECT_SAVES:
+        if self.COLLECT_SAVES and self.COLLECT_SAVES_FOR_MODEL == model.__class__.__name__:
             self.block_saved_keys.append(obj.key)
         if settings.DEBUG:
             if new_obj:
