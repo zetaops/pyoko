@@ -63,6 +63,20 @@ class BlockSave(object):
             time.sleep(.4)
         Adapter.COLLECT_SAVES = False
 
+class BlockDelete(object):
+    def __init__(self, mdl):
+        self.mdl = mdl
+
+    def __enter__(self):
+        Adapter.block_saved_keys = []
+        Adapter.COLLECT_SAVES = True
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        indexed_obj_count = self.mdl.objects.filter(key__in=Adapter.block_saved_keys)
+        while Adapter.block_saved_keys and indexed_obj_count.count():
+            time.sleep(.4)
+        Adapter.COLLECT_SAVES = False
+
 # noinspection PyTypeChecker
 class Adapter(BaseAdapter):
     """
@@ -277,7 +291,7 @@ class Adapter(BaseAdapter):
         if settings.ENABLE_ACTIVITY_LOGGING:
             self._write_log(version_key, meta_data)
         #
-        if self.COLLECT_SAVES and new_obj:
+        if self.COLLECT_SAVES:
             self.block_saved_keys.append(obj.key)
         if settings.DEBUG:
             if new_obj:
