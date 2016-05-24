@@ -62,7 +62,6 @@ class BlockSave(object):
         key_list = list(set(Adapter.block_saved_keys))
         indexed_obj_count = self.mdl.objects.filter(key__in=key_list)
         while Adapter.block_saved_keys and indexed_obj_count.count() < len(key_list):
-            print("save %s" % Adapter.block_saved_keys)
             time.sleep(.4)
         Adapter.COLLECT_SAVES = False
 
@@ -154,7 +153,8 @@ class Adapter(BaseAdapter):
             #     t1 = time.time()
             obj = self.bucket.get(doc['_yz_rk'])
             if not obj.exists:
-                raise ObjectDoesNotExist("Possibly a Riak <-> Solr sync delay issue!")
+                raise ObjectDoesNotExist("We got %s from Solr for %s bucket but cannot find it in the Riak" % (
+                    doc['_yz_rk'], self._model_class))
             yield obj.data, obj.key
             if settings.DEBUG:
                 sys.PYOKO_STAT_COUNTER['read'] += 1
