@@ -289,6 +289,7 @@ class Node(object):
         """
         # if kwargs:
         for name, _field in self._fields.items():
+            val = None
             if name in kwargs:
                 val = kwargs.get(name, self._field_values.get(name))
                 path_name = self._path_of(name)
@@ -298,28 +299,26 @@ class Node(object):
                     continue
             elif _field.default:
                 val = _field.default() if callable(_field.default) else _field.default
-            else:
-                continue
-            if not kwargs.get('from_db'):
-                setattr(self, name, val)
-            else:
-                _field._load_data(self, val)
+            if val:
+                if not kwargs.get('from_db'):
+                    setattr(self, name, val)
+                else:
+                    _field._load_data(self, val)
 
             # if not self._field_values.get(name):
             #     self._field_values[name] = getattr(self, name)
             if _field.choices is not None:
                 self._choice_fields.append(name)
-
                 self._set_get_choice_display_method(name, _field, val)
 
 
     def _set_get_choice_display_method(self, name, _field, val):
         # adding get_%s_display() methods for fields which has "choices" attribute
-        def foo():
+        def get_choice_display_closure():
             choices, value = copy(_field.choices), copy(val)
             return lambda: self._choices_manager(choices, value)
 
-        setattr(self, 'get_%s_display' % name, foo())
+        setattr(self, 'get_%s_display' % name, get_choice_display_closure())
 
     def _collect_index_fields(self, in_multi=False):
         """
