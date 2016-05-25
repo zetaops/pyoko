@@ -403,7 +403,7 @@ class Model(Node):
         """
         Saves object to DB. Waits till the backend properly indexes the new object.
         """
-        is_new = self.exist
+        is_new = not self.exist
         self.save()
         while is_new and not self.objects.filter(key=self.key).count():
             time.sleep(0.3)
