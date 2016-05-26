@@ -327,6 +327,8 @@ class QuerySet(object):
             data, key = clone.filter(**kwargs).adapter.get()
         else:
             data, key = clone.adapter.get()
+        if clone._cfg['rtype'] == ReturnType.Object:
+            return data, key
         return self._make_model(data, key)
 
     def delete(self):
