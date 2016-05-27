@@ -53,32 +53,45 @@ class Model(Node):
     _SEARCH_INDEX = ''
 
     def __init__(self, context=None, **kwargs):
-        self.key = kwargs.pop('key', None)
+        self.setattr('key', kwargs.pop('key', None))
         # holds list of banned fields for current context
-        self._unpermitted_fields = []
+        # self._unpermitted_fields = []
         # this indicates cell filters applied and we can filter on them
-        self._is_unpermitted_fields_set = False
-        self._context = context
-        self.verbose_name = kwargs.get('verbose_name')
-        self.null = kwargs.get('null', False)
-        self.unique = kwargs.get('unique')
-        self.reverse_name = kwargs.get('reverse_name')
-        self._pass_perm_checks = kwargs.pop('_pass_perm_checks', False)
-        self.objects._pass_perm_checks = self._pass_perm_checks
-        self._is_one_to_one = kwargs.pop('one_to_one', False)
-        self.title = kwargs.pop('title', self.__class__.__name__)
-        self._root_node = self
-        self.save_meta_data = None
+        # self._is_unpermitted_fields_set = False
+        # self._context = context
+        self.setattrs(
+            _unpermitted_fields=[],
+            _context=context,
+            verbose_name=kwargs.get('verbose_name'),
+            null=kwargs.get('null', False),
+            unique=kwargs.get('unique'),
+            reverse_name=kwargs.get('reverse_name'),
+            _pass_perm_checks=kwargs.pop('_pass_perm_checks', False),
+            _is_one_to_one=kwargs.pop('one_to_one', False),
+            title=kwargs.pop('title', self.__class__.__name__),
+            _root_node=self,
+            new_back_links={},
+        )
+        # self.verbose_name = kwargs.get('verbose_name')
+        # self.null = kwargs.get('null', False)
+        # self.unique = kwargs.get('unique')
+        # self.reverse_name = kwargs.get('reverse_name')
+        # self._pass_perm_checks = kwargs.pop('_pass_perm_checks', False)
+        # self._is_one_to_one = kwargs.pop('one_to_one', False)
+        # self.title = kwargs.pop('title', self.__class__.__name__)
+        # self._root_node = self
+        # self.save_meta_data = None
         # used as a internal storage to wary of circular overwrite of the self.just_created
-        self._just_created = None
-        self._pre_save_hook_called = False
-        self._post_save_hook_called = False
-        self.new_back_links = {}
+        # self._just_created = None
+        # self._pre_save_hook_called = False
+        # self._post_save_hook_called = False
+        # self.new_back_links = {}
+        self.objects._pass_perm_checks = self._pass_perm_checks
         kwargs['context'] = context
         super(Model, self).__init__(**kwargs)
 
         self.objects.set_model(model=self)
-        self.objects = self.row_level_access(self._context, self.objects)
+        self.setattrs(objects=self.row_level_access(self._context, self.objects))
         self._instance_registry.add(weakref.ref(self))
         # self.saved_models = []
 
@@ -190,7 +203,7 @@ class Model(Node):
         Returns:
             List of unpermitted fields names.
         """
-        self._is_unpermitted_fields_set = True
+        self.setattrs(_is_unpermitted_fields_set=True)
         for perm, fields in self.Meta.field_permissions.items():
             if not context.has_permission(perm):
                 self._unpermitted_fields.extend(fields)
@@ -255,7 +268,7 @@ class Model(Node):
                     remote_set(**{remote_field_name: self._root_node})
                     linked_mdl_ins.save(internal=True)
             else:
-                setattr(linked_mdl_ins, remote_field_name, self._root_node)
+                linked_mdl_ins.setattr(remote_field_name, self._root_node)
                 linked_mdl_ins.save(internal=True)
 
     def _add_back_link(self, linked_mdl, link):
@@ -361,8 +374,6 @@ class Model(Node):
                         "Unique together mismatch: %s combination already exists for %s"
                         % (vals, self.__class__.__name__))
 
-
-
     def save(self, internal=False, meta=None):
         """
         Save's object to DB.
@@ -384,9 +395,9 @@ class Model(Node):
         if not self.exist:
             self._handle_uniqueness()
         old_data = self._data.copy()
-        self.just_created = not self.exist
+        self.setattrs(just_created=not self.exist)
         if self._just_created is None:
-            self._just_created = self.just_created
+            self.setattrs(_just_created=self.just_created)
         self.objects.save_model(self, meta_data=meta)
         self._handle_changed_fields(old_data)
         self._process_relations()
@@ -394,8 +405,8 @@ class Model(Node):
             self._post_save_hook_called = True
             self.post_save()
             if self._just_created:
-                self.just_created = self._just_created
-                self._just_created = False
+                self.setattrs(just_created=self._just_created,
+                              _just_created=False)
                 self.post_creation()
         return self
 

@@ -51,13 +51,20 @@ class ListNode(Node):
     _TYPE = 'ListNode'
 
     def __init__(self, **kwargs):
-        self._is_item = False
-        self._from_db = False
-        self.values = []
-        self.node_stack = []
-        self.node_dict = {}
+        # self._is_item = False
+        # self._from_db = False
+        # self.values = []
+        # self.node_stack = []
+        # self.node_dict = {}
+        self.setattrs(
+            _is_item=False,
+            _from_db=False,
+            values=[],
+            node_stack=[],
+            node_dict={},
+        )
         super(ListNode, self).__init__(**kwargs)
-        self._data = []
+        self.setattrs(_data=[])
 
     def _load_data(self, data, from_db=False):
         """
@@ -93,8 +100,8 @@ class ListNode(Node):
         """
         node_data['from_db'] = self._from_db
         clone = self.__call__(**node_data)
-        clone.container = self
-        clone._is_item = True
+        clone.setattrs(container = self,
+                    _is_item = True)
         for name in self._nodes:
             _name = un_camel(name)
             if _name in node_data:  # check for partial data
@@ -167,7 +174,7 @@ class ListNode(Node):
         kwargs['_root_node'] = self._root_node
         clone = self.__class__(**kwargs)
         # clone._root_node = self._root_node
-        clone._is_item = True
+        clone.setattrs(_is_item = True)
         self.node_stack.append(clone)
         _key = clone._get_linked_model_key()
         if _key:

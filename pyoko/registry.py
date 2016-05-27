@@ -135,11 +135,11 @@ class Registry(object):
 
     def _create_one_to_one(self, source_mdl, target_mdl, field_name):
         mdl_instance = source_mdl(one_to_one=True)
-        mdl_instance._is_auto_created = True
+        mdl_instance.setattrs(_is_auto_created = True)
         for instance_ref in target_mdl._instance_registry:
             mdl = instance_ref()
             if mdl:  # if not yet garbage collected
-                setattr(mdl, field_name, mdl_instance)
+                mdl.setattr(field_name, mdl_instance)
                 # target_mdl._add_linked_model(source_mdl, o2o=True, field=field_name)
 
     def _create_one_to_many(self, source_mdl, target_mdl, listnode_name=None, verbose_name=None):
@@ -149,7 +149,7 @@ class Registry(object):
             listnode_name = '%s_set' % un_camel(source_mdl.__name__)
         from .listnode import ListNode
         source_instance = source_mdl()
-        source_instance._is_auto_created = True
+        source_instance.setattrs(_is_auto_created = True)
         # create a new class which extends ListNode
         listnode = type(listnode_name, (ListNode,),
                         {un_camel(source_mdl.__name__): source_instance,

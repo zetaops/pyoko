@@ -74,26 +74,51 @@ class Node(object):
     _TYPE = 'Node'
     _is_auto_created = False
 
+    def setattr(self, key, val):
+        object.__setattr__(self, key, val)
+
+    def setattrs(self, **kwargs):
+        self.__dict__.update(kwargs)
+
+    def __setattr__(self, key, val):
+        if (key not in self.__dict__ and
+                    key not in self.__class__.__dict__ and
+                    key not in self._fields):
+            raise AttributeError("Unexpected assignment, mistyped a field name \"%s\" ?" % key)
+        object.__setattr__(self, key, val)
+
     def __init__(self, **kwargs):
+        self.setattrs(
+            _node_path=[],
+            _field_values={},
+            _secured_data={},
+            _choice_fields=[],
+            _data={},
+            _choices_manager=get_object_from_path(settings.CATALOG_DATA_MANAGER),
+                      )
         super(Node, self).__init__()
-        self._node_path = []
         try:
             self._root_node
         except:
-            self._root_node = kwargs.pop('_root_node', None)
-        self._context = kwargs.pop('context', None)
-        self._field_values = {}
-        self._data = {}
-        self._choice_fields = []
-        self._choices_manager = get_object_from_path(settings.CATALOG_DATA_MANAGER)
+            self.setattr('_root_node', kwargs.pop('_root_node', None))
+            self.setattrs(
+                _context=kwargs.pop('context', None),
+                _model_in_node=defaultdict(list)
+            )
+        # self._context = kwargs.pop('context', None)
+        # self._field_values = {}
+        # self._data = {}
+        # self._choice_fields = []
+        # self._choices_manager = get_object_from_path(settings.CATALOG_DATA_MANAGER)
         # if model has cell_filters that applies to current user,
         # filtered values will be kept in _secured_data dict
-        self._secured_data = {}
+        # self._secured_data = {}
         # linked models registry for finding the list_nodes that contains a link to us
-        self._model_in_node = defaultdict(list)
+        # self._model_in_node = defaultdict(list)
         self._instantiate_linked_models(kwargs)
         self._instantiate_nodes()
         self._set_fields_values(kwargs)
+
 
     def get_verbose_name(self):
         return self.__class__.__name__
@@ -201,11 +226,11 @@ class Node(object):
                                         lnk['verbose'])
                         obj.key = data[_name]
                         obj.null = lnk['null']
-                        setattr(self, lnk['field'], obj)
+                        self.setattr(lnk['field'], obj)
                     else:
                         # creating a lazy proxy for empty linked model
                         # Note: this should be explicitly saved before _root_node model!
-                        setattr(self, lnk['field'],
+                        self.setattr(lnk['field'],
                                 foo_model(lnk['mdl'],
                                           self._context,
                                           lnk['null'],
@@ -213,7 +238,7 @@ class Node(object):
             else:
                 # creating an lazy proxy for empty linked model
                 # Note: this should be explicitly saved before _root_node model!
-                setattr(self, lnk['field'], foo_model(lnk['mdl'],
+                self.setattr(lnk['field'], foo_model(lnk['mdl'],
                                                       self._context,
                                                       lnk['null'],
                                                       lnk['verbose']))
@@ -223,8 +248,8 @@ class Node(object):
         # instantiate given node, pass path and _root_node info
         ins = klass(**{'context': self._context,
                        '_root_node': self._root_node or self})
-        ins._node_path = self._node_path + [un_camel(self.__class__.__name__)]
-        setattr(self, name, ins)
+        ins.setattr('_node_path', self._node_path + [un_camel(self.__class__.__name__)])
+        self.setattr(name, ins)
         return ins
 
     def _instantiate_nodes(self):
@@ -301,7 +326,7 @@ class Node(object):
                 val = _field.default() if callable(_field.default) else _field.default
             if val:
                 if not kwargs.get('from_db'):
-                    setattr(self, name, val)
+                    self.setattr(name, val)
                 else:
                     _field._load_data(self, val)
 
@@ -318,7 +343,7 @@ class Node(object):
             choices, value = copy(_field.choices), copy(val)
             return lambda: self._choices_manager(choices, value)
 
-        setattr(self, 'get_%s_display' % name, get_choice_display_closure())
+        self.setattr('get_%s_display' % name, get_choice_display_closure())
 
     def _collect_index_fields(self, in_multi=False):
         """
