@@ -117,7 +117,6 @@ class ModelMeta(type):
         attrs['_instance_registry'] = set()
         attrs['_is_unpermitted_fields_set'] = False
         attrs['save_meta_data'] = None
-        attrs['_just_created'] = None
         attrs['_pre_save_hook_called'] = False
         attrs['_post_save_hook_called'] = False
         DEFAULT_META = {'bucket_type': settings.DEFAULT_BUCKET_TYPE,

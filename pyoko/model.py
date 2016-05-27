@@ -53,13 +53,13 @@ class Model(Node):
     _SEARCH_INDEX = ''
 
     def __init__(self, context=None, **kwargs):
-        self.setattr('key', kwargs.pop('key', None))
         # holds list of banned fields for current context
         # self._unpermitted_fields = []
         # this indicates cell filters applied and we can filter on them
         # self._is_unpermitted_fields_set = False
         # self._context = context
         self.setattrs(
+            key=kwargs.pop('key', None),
             _unpermitted_fields=[],
             _context=context,
             verbose_name=kwargs.get('verbose_name'),
@@ -71,6 +71,8 @@ class Model(Node):
             title=kwargs.pop('title', self.__class__.__name__),
             _root_node=self,
             new_back_links={},
+            _just_created=None,
+            just_created=None,
         )
         # self.verbose_name = kwargs.get('verbose_name')
         # self.null = kwargs.get('null', False)
@@ -395,7 +397,8 @@ class Model(Node):
         if not self.exist:
             self._handle_uniqueness()
         old_data = self._data.copy()
-        self.setattrs(just_created=not self.exist)
+        if self.just_created is None:
+            self.setattrs(just_created=not self.exist)
         if self._just_created is None:
             self.setattrs(_just_created=self.just_created)
         self.objects.save_model(self, meta_data=meta)

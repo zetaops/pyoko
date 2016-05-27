@@ -58,7 +58,7 @@ else:
             if obj is None:
                 return None
             value = self.fget(obj)
-            setattr(obj, self.func_name, value)
+            obj.__dict__[self.func_name] = value
             return value
 
 
