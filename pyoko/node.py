@@ -6,6 +6,8 @@
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
+import difflib
+
 import datetime
 from copy import copy
 
@@ -80,11 +82,19 @@ class Node(object):
     def setattrs(self, **kwargs):
         self.__dict__.update(kwargs)
 
+    @lazy_property
+    def _prop_list(self):
+        return self.__dict__.keys() + self.__class__.__dict__.keys() + self._fields.keys()
+
     def __setattr__(self, key, val):
         if (key not in self.__dict__ and
                     key not in self.__class__.__dict__ and
                     key not in self._fields):
-            raise AttributeError("Unexpected assignment, mistyped a field name \"%s\" ?" % key)
+            matches = list(set(difflib.get_close_matches(key, self._prop_list, 4, 0.5)))
+            error_msg = "Unexpected assignment, mistyped a field name \"%s\"." % key
+            if matches:
+                error_msg += '\n\nDid you mean one of these?  \033[32m%s\033[0m' % '\033[0m   \033[32m'.join(matches)
+            raise AttributeError(error_msg)
         object.__setattr__(self, key, val)
 
     def __init__(self, **kwargs):
