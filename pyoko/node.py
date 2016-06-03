@@ -19,7 +19,7 @@ from uuid import uuid4
 
 from collections import defaultdict
 
-from pyoko.exceptions import ObjectDoesNotExist
+from pyoko.exceptions import ObjectDoesNotExist, ValidationError
 from .conf import settings
 from .lib.utils import get_object_from_path, lazy_property, un_camel, un_camel_id
 from .modelmeta import ModelMeta
@@ -84,17 +84,28 @@ class Node(object):
 
     @lazy_property
     def _prop_list(self):
-        return self.__dict__.keys() + self.__class__.__dict__.keys() + self._fields.keys()
+        return (list(self.__dict__.keys()) +
+                list(self.__class__.__dict__.keys()) +
+                list(self._fields.keys()))
 
     def __setattr__(self, key, val):
         if (key not in self.__dict__ and
                     key not in self.__class__.__dict__ and
                     key not in self._fields):
             matches = list(set(difflib.get_close_matches(key, self._prop_list, 4, 0.5)))
-            error_msg = "Unexpected assignment, mistyped a field name \"%s\"." % key
+            error_msg = "Unexpected assignment, do you mistyped a field name \"%s\"." % key
             if matches:
                 error_msg += '\n\nDid you mean one of these?  \033[32m%s\033[0m' % '\033[0m   \033[32m'.join(matches)
+            print(self._prop_list)
             raise AttributeError(error_msg)
+        if key not in self._fields:
+            _attr = getattr(self, key)
+            if _attr.__class__.__name__ != val.__class__.__name__:
+                raise ValidationError("Assigned objects (%s) type (%s) not matching to \"%s %s\" " %
+                                  (key,
+                                   val.__class__.__name__,
+                                   _attr.__class__.__name__,
+                                   _attr.__class__._TYPE))
         object.__setattr__(self, key, val)
 
     def __init__(self, **kwargs):

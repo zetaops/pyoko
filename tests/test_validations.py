@@ -7,8 +7,11 @@
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 import pytest
+from .models import AbstractRole
 
-from tests.models import User
+from pyoko.exceptions import ValidationError
+from tests.models import User, Role, Permission
+
 
 # class FF(object):
 #     def __init__(self):
@@ -32,6 +35,30 @@ class TestCase:
         with pytest.raises(AttributeError):
             u = User()
             u.foo = 'bar'
+
+
+    def test_raise_assign_to_nodes(self):
+        with pytest.raises(ValidationError):
+            r = AbstractRole()
+            p = Permission()
+            r.Permissions = p
+
+        with pytest.raises(ValidationError):
+            r = AbstractRole()
+            r.Permissions = 'Foo'
+
+        with pytest.raises(ValidationError):
+            r = Role()
+            p = Permission()
+            r.usr = p
+
+        with pytest.raises(ValidationError):
+            r = Role()
+            r.usr = 'Foo'
+
+        r = Role()
+        u = User()
+        r.usr = u
 
 
 
