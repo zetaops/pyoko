@@ -229,10 +229,11 @@ class ListNode(Node):
             raise TypeError("This an item of the parent ListNode")
         list(self._generate_instances())
         if isinstance(obj, six.string_types):
-            obj = self.node_dict[obj]
+            _obj = self.node_dict[obj]
         elif not isinstance(obj, self.__class__):
-            obj = self.node_dict[obj.key]
-        self.node_stack.remove(obj)
+            _obj = self.node_dict[obj.key]
+            del self.node_dict[obj.key]
+        self.node_stack.remove(_obj)
 
     def remove(self):
         """
