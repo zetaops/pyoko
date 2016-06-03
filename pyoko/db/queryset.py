@@ -171,7 +171,7 @@ class QuerySet(object):
             raise ObjectDoesNotExist('Deleted object returned')
         model = self._model_class(self._current_context,
                                   _pass_perm_checks=self._pass_perm_checks)
-        model.key = key if key else data.get('key')
+        model.setattr(key, key if key else data.get('key'))
         return model.set_data(data, from_db=True)
 
     def __repr__(self):
