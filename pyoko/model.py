@@ -345,7 +345,15 @@ class Model(Node):
         """
         Called after object's creation (first save).
         Can be overriden to do things that should be done after object
-        created and saved to DB.
+        saved to DB.
+        """
+        pass
+
+    def pre_creation(self):
+        """
+        Called before object's creation (first save).
+        Can be overriden to do things that should be done before object
+        saved to DB.
         """
         pass
 
@@ -396,6 +404,7 @@ class Model(Node):
             self.pre_save()
         if not self.exist:
             self._handle_uniqueness()
+            self.pre_creation()
         old_data = self._data.copy()
         if self.just_created is None:
             self.setattrs(just_created=not self.exist)

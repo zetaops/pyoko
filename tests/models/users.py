@@ -15,6 +15,11 @@ class Permission(Model):
     name = field.String('Name', index=False)
     codename = field.String('Codename', index=False)
 
+    def pre_creation(self):
+        self.key = self.codename
+
+    def __unicode__(self):
+        return "Perm %s" % self.codename
     #
     # class abstract_role_set(ListNode):
     #     abstract_role = AbstractRole()
@@ -25,6 +30,7 @@ class AbstractRole(Model):
 
     class Permissions(ListNode):
         permission = Permission()
+
 
 
 class User(Model):
