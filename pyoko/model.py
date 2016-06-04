@@ -73,6 +73,7 @@ class Model(Node):
             new_back_links={},
             _just_created=None,
             just_created=None,
+            on_save=[],
         )
         # self.verbose_name = kwargs.get('verbose_name')
         # self.null = kwargs.get('null', False)
@@ -307,7 +308,7 @@ class Model(Node):
         """
         Reloads current instance from DB store
         """
-        self = self.objects.get(self.key)
+        self._load_data(self.objects.data().filter(key=self.key)[0][0])
 
     def pre_save(self):
         """
@@ -399,6 +400,8 @@ class Model(Node):
         Returns:
              Saved model instance.
         """
+        for f in self.on_save:
+            f(self)
         if not (internal or self._pre_save_hook_called):
             self._pre_save_hook_called = True
             self.pre_save()
@@ -430,6 +433,7 @@ class Model(Node):
         self.save()
         while is_new and not self.objects.filter(key=self.key).count():
             time.sleep(0.3)
+        return self
 
     def blocking_delete(self):
         """
@@ -442,15 +446,20 @@ class Model(Node):
     def _traverse_relations(self):
         for lnk in self.get_links(link_source=False):
             yield (lnk,
-                   lnk['mdl'].objects.filter(**{'%s_id' % un_camel(lnk['reverse']): self.key}))
+                   list(lnk['mdl'].objects.filter(**{'%s_id' % un_camel(lnk['reverse']): self.key})))
 
     def _delete_relations(self, dry=False):
         for lnk, rels in self._traverse_relations():
-            from pprint import pprint
-            print("\n==================\n")
-            pprint(lnk)
             for rel in rels:
-                print(rel.__class__, rel)
+                key = lnk['reverse'].split('.')[0]
+                lnkd_model = getattr(rel, key)
+                if lnkd_model._TYPE == 'ListNode':
+                    del lnkd_model[self]
+                elif lnkd_model._TYPE == 'Model':
+                    rel.setattr(key, None)
+                # binding actual relation's save to our save
+                self.on_save.append(lambda self: rel.save(internal=True))
+
 
         return [], []
 

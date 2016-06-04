@@ -6,13 +6,12 @@
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
-from pprint import pprint
+from pprint import pprint, pformat
 from time import sleep, time
 
 from pyoko.manage import FlushDB
 from tests.models import *
 import pytest
-
 
 
 class TestCase:
@@ -24,17 +23,16 @@ class TestCase:
     index_checked = False
 
     @classmethod
-    def prepare_testbed(cls):
-        if not cls.cleaned_up:
+    def prepare_testbed(cls, force=False):
+        if force or not cls.cleaned_up:
             FlushDB(model=('User,Employee,Scholar,TimeTable,'
-                                    'Permission,AbstractRole,Role')
-                                   ).run()
+                           'Permission,AbstractRole,Role')
+                    ).run()
             cls.cleaned_up = True
 
     # def test_one_to_one_simple_benchmarked(self, benchmark):
     #     benchmark(self.test_one_to_one_simple)
 
-    @pytest.mark.first
     def test_one_to_one_simple(self):
         self.prepare_testbed()
         user = User(name='Joe').save()
@@ -105,7 +103,6 @@ class TestCase:
         r = Role(usr=u, name="Foo Frighters").save()
         assert Role.objects.get(r.key).usr.name == u.name
 
-
     @pytest.mark.second
     def test_lazy_links(self):
         self.prepare_testbed()
@@ -116,37 +113,56 @@ class TestCase:
         assert db_role.teammate.name == mate.name
         assert db_role.usr.name == u.name
 
-
-
     @pytest.mark.second
     def test_self_reference(self):
         self.prepare_testbed()
         ceo = User(name="CEO").save()
-        mate1 = User(name="Mate", supervisor=ceo).save()
-        mate2 = User(name="Mate2", supervisor=ceo).save()
+        mate1 = User(name="Mate", supervisor=ceo).blocking_save()
+        mate2 = User(name="Mate2", supervisor=ceo).blocking_save()
         ceo.reload()
         assert mate1 in ceo.workers
         assert len(ceo.workers) == 2
 
         # FIXME: THIS SHOULD PASS!!! #5342 #GH-63
-        # FIXME: THIS SHOULD PASS!!!
         # assert ceo not in mate1.workers
 
 
+    def test_delete_rel_many_to_one(self, force=True):
+        self.prepare_testbed()
+        can_sleep = Permission(name="can sleep", codename='can_sleep').save()
+        can_eat = Permission(name="can eat", codename='can_eat').save()
+        arole = AbstractRole(name="arole")
+        arole.Permissions(permission=can_sleep)
+        arole.Permissions(permission=can_eat)
+        arole.blocking_save()
+        can_eat.blocking_delete()
+        arole.reload()
+        assert can_eat not in arole.Permissions
+        assert can_sleep in arole.Permissions
 
+    @pytest.mark.first
+    def test_delete_rel_many_to_many(self, force=True):
+        self.prepare_testbed()
+        can_eat = Permission(name="can eat", codename='can_eat').blocking_save()
+        arole = AbstractRole(key="arole").save()
+        brole = AbstractRole(key="brole").save()
+        arole.Permissions(permission=can_eat)
+        brole.Permissions(permission=can_eat)
+        arole.blocking_save()
+        brole.blocking_save()
+        del arole.Permissions[can_eat]
+        arole.save()
+        can_eat.reload()
+        assert arole not in can_eat.abstract_role_set
+        assert brole in can_eat.abstract_role_set
 
-
-
-
-
-
-
-
-
-
-
-
-
+    def test_delete_rel_one_to_many(self):
+        self.prepare_testbed()
+        user = User(name='foobar').save()
+        role = Role(usr=user).blocking_save()
+        user.blocking_delete()
+        role.reload()
+        assert not role.usr.exist
 
 
 

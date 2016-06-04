@@ -75,6 +75,11 @@ class ListNode(Node):
             from_db (bool): Default False. Is this data coming from DB or not.
         """
         self._data = data[:]
+        self.setattrs(
+            values=[],
+            node_stack=[],
+            node_dict={},
+        )
         self._from_db = from_db
 
     def _generate_instances(self):
@@ -215,7 +220,7 @@ class ListNode(Node):
             raise TypeError("This an item of the parent ListNode")
         self.node_stack[key] = value
 
-    def __delitem__(self, obj):
+    def __delitem__(self, obj, sync=True):
         """
         Allow usage of "del" statement on ListNodes with bracket notation.
 
@@ -228,12 +233,25 @@ class ListNode(Node):
         if self._is_item:
             raise TypeError("This an item of the parent ListNode")
         list(self._generate_instances())
+        _lnk_key = None
         if isinstance(obj, six.string_types):
+            _lnk_key = obj
             _obj = self.node_dict[obj]
         elif not isinstance(obj, self.__class__):
+            _lnk_key = obj.key
             _obj = self.node_dict[obj.key]
             del self.node_dict[obj.key]
         self.node_stack.remove(_obj)
+        if _lnk_key and sync:
+            # this is a "many_to_n" relationship,
+            # we should cleanup other side too.
+            rel_name = "%s.%s" % (_obj.__class__.__name__,
+                                  _obj.get_link()['field'])
+            remote_node_name = self._root_node.get_link(field=rel_name)['reverse']
+            _lnk_obj = getattr(_obj, _obj.get_link()['field'])
+            getattr(_lnk_obj, remote_node_name).__delitem__(self._root_node.key, sync=False)
+            # binding relation's save to root objects save
+            self._root_node.on_save.append(_lnk_obj.save)
 
     def remove(self):
         """

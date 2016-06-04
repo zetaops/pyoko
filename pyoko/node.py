@@ -100,12 +100,12 @@ class Node(object):
             raise AttributeError(error_msg)
         if key not in self._fields:
             _attr = getattr(self, key)
-            if _attr.__class__.__name__ != val.__class__.__name__:
-                raise ValidationError("Assigned objects (%s) type (%s) not matching to \"%s %s\" " %
+            if _attr is not None and _attr.__class__.__name__ != val.__class__.__name__:
+                raise ValidationError("Assigned object's (%s) type (%s) does not matches to \"%s %s\" " %
                                   (key,
                                    val.__class__.__name__,
                                    _attr.__class__.__name__,
-                                   _attr.__class__._TYPE))
+                                   getattr(_attr,'_TYPE', None)))
         object.__setattr__(self, key, val)
 
     def __init__(self, **kwargs):
@@ -121,8 +121,8 @@ class Node(object):
         try:
             self._root_node
         except:
-            self.setattr('_root_node', kwargs.pop('_root_node', None))
             self.setattrs(
+                _root_node=kwargs.pop('_root_node', None),
                 _context=kwargs.pop('context', None),
                 _model_in_node=defaultdict(list)
             )
@@ -216,7 +216,7 @@ class Node(object):
                     # this should be coming from user,
                     # and it should be a model instance
                     linked_mdl_ins = data[lnk['field']]
-                    setattr(self, lnk['field'], linked_mdl_ins)
+                    self.setattr(lnk['field'], linked_mdl_ins)
                     try:
                         self._root_node._add_back_link(
                             linked_mdl_ins,
