@@ -2,7 +2,7 @@
     :target: http://pyoko.readthedocs.org/en/latest/?badge=latest
     :alt: Documentation Status
 
-Pyoko: A Django-esque ORM for Riak KV
+Pyoko: A Django-esque NoSQL ORM for Riak KV
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Features
@@ -17,20 +17,15 @@ Features
 -  Row level access control, permission based cell filtering.
 -  Self referencing model relations.
 -  Works with latest Riak (2.1.2)
+-  Automatic versioning on write-once buckets.
+-  Customizable activity logging to write-once buckets.
 
-Work in progress
-^^^^^^^^^^^^^^^^
-
--  Documentation.
--  Clenup of invalid/removed relations.
 
 Planned
 ^^^^^^^
 
--  Automatic versioning on write-once buckets.
 -  Configurable auto-denormalization (aka reactive joins / write-time
    joins) for relations.
--  Performance optimizations.
 -  Custom migrations with migration history.
 -  CRDT based models.
 
