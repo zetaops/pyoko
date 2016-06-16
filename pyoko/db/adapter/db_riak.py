@@ -13,7 +13,7 @@ import copy
 
 # noinspection PyCompatibility
 import json
-from datetime import date
+from datetime import date, timedelta
 import time
 from datetime import datetime
 
@@ -477,7 +477,8 @@ class Adapter(BaseAdapter):
                 end = qval[1]
             qval = '[%s TO %s]' % (start, end)
         else:
-            qval = qval if is_escaped else self._escape_query(qval)
+            if not is_escaped and not isinstance(qval, (date, datetime, int, float)):
+                qval = self._escape_query(qval)
             if modifier == 'exact':
                 qval = qval
             elif modifier == 'contains':
@@ -489,6 +490,14 @@ class Adapter(BaseAdapter):
             elif modifier == 'lte':
                 qval = '[* TO %s]' % qval
             elif modifier == 'gte':
+                qval = '[%s TO *]' % qval
+            elif modifier == 'lt':
+                if isinstance(qval, int):
+                    qval -= 1
+                qval = '[* TO %s]' % qval
+            elif modifier == 'gt':
+                if isinstance(qval, int):
+                    qval += 1
                 qval = '[%s TO *]' % qval
         return qval
 
@@ -515,6 +524,14 @@ class Adapter(BaseAdapter):
         elif key.endswith('__endswith'):
             key = key[:-10]
             val = self._parse_query_modifier('endswith', val, is_escaped)
+        # lower than
+        elif key.endswith('__lt'):
+            key = key[:-4]
+            val = self._parse_query_modifier('lt', val, is_escaped)
+        # greater than
+        elif key.endswith('__gt'):
+            key = key[:-4]
+            val = self._parse_query_modifier('gt', val, is_escaped)
         # lower than or equal
         elif key.endswith('__lte'):
             key = key[:-5]
@@ -528,6 +545,10 @@ class Adapter(BaseAdapter):
         return key, val
 
     def _handle_date(self, val, key=None):
+        if key.endswith('__lt'):
+            val = val - timedelta(days=1)
+        if key.endswith('__gt'):
+            val = val + timedelta(days=1)
         return self._escape_query(val.strftime(DATE_FORMAT))
 
     def _handle_model(self, val, key=None):
@@ -539,13 +560,17 @@ class Adapter(BaseAdapter):
         return key, val
 
     def _handle_datetime(self, val, key=None):
+        if key.endswith('__lt'):
+            val = val - timedelta(seconds=1)
+        if key.endswith('__gt'):
+            val = val + timedelta(seconds=1)
         return val.strftime(DATE_TIME_FORMAT)
 
     def _process_query_val(self, key, val, escaped=False):
         if isinstance(val, date):
-            return key, self._handle_date(val), True
+            return key, self._handle_date(val, key), True
         if isinstance(val, datetime):
-            return key, self._handle_datetime(val), True
+            return key, self._handle_datetime(val, key), True
         if hasattr(val, '_TYPE'):
             key, val = self._handle_model(val, key)
             return key, val, True
@@ -616,13 +641,6 @@ class Adapter(BaseAdapter):
         # if query is empty, use '*:*' instead to get anything from db.
         if joined_query == '':
             joined_query = '*:*'
-        # if DEBUG is on and DEBUG_LEVEL set to a value higher than 5
-        # print query in to console.
-        if settings.DEBUG and settings.DEBUG_LEVEL >= 5:
-            try:
-                print("QRY => %s" % joined_query)
-            except:
-                pass
 
         self.compiled_query = joined_query
 
@@ -634,6 +652,8 @@ class Adapter(BaseAdapter):
         Returns:
             Processed self._solr_params dict.
         """
+        import ipdb;
+        ipdb.set_trace()
         if 'rows' not in self._solr_params:
             self._solr_params['rows'] = self._cfg['row_size']
         for key, val in self._solr_params.items():
@@ -668,7 +688,16 @@ class Adapter(BaseAdapter):
                 self._solr_cache = self.bucket.search(self.compiled_query,
                                                       self.index_name,
                                                       **solr_params)
-                # if settings.DEBUG:
+                # if DEBUG is on and DEBUG_LEVEL set to a value higher than 5
+                # print query in to console.
+                if settings.DEBUG and settings.DEBUG_LEVEL >= 5:
+                    try:
+                        print("QRY => %s\nSOLR_PARAMS => %s" % (self.compiled_query,
+                                                                solr_params))
+                    except:
+                        pass
+
+                        # if settings.DEBUG:
                 #     sys.PYOKO_STAT_COUNTER['search'] += 1
                 #     sys._debug_db_queries.append({
                 #         'TIMESTAMP': t1,
