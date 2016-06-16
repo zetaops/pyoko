@@ -24,6 +24,7 @@ from riak.client import binary_json_decoder, binary_json_encoder
 from sys import argv, stdout
 from six import add_metaclass, PY2
 from pyoko.model import super_context
+from pyoko.lib import utils
 
 
 class CommandRegistry(type):
@@ -598,3 +599,164 @@ class FindDuplicateKeys(Command):
                 keys[r['_yz_rk']].append(mdl.__name__)
             if is_mdl_ok:
                 print("~~~~~~~~ %s is OK!" % mdl.Meta.verbose_name)
+
+
+class GenerateDiagrams(Command):
+    CMD_NAME = 'generate_diagrams'
+    HELP = 'Generate PlantUML diagrams from the models.'
+    PARAMS = [
+        {'name': 'model', 'required': True,
+         'help': 'Models name(s) to generate diagrams for. Say "all" to generate diagrams for all models'},
+        {'name': 'path', 'required': False,
+         'help': 'Instead of stdout, write to given file'},
+    ]
+
+    # Representations of the different link types
+    _one_to_one = '"1" -- "1"'
+    _one_to_many = '"1" -- "0..*"'
+    _many_to_many = '"0..*" -- "0..*"'
+    # Markers used to denote required and null
+    _marker_true = '*'
+    _marker_false = ' '
+    # Extra padding, placed after field names and types
+    _padding_after_name = 3
+    _padding_after_type = 2
+    # Class start and end delimiters
+    _class_start = '\n\nclass %s<<(M,orchid)>>{'
+    _class_end = '}\n'
+    # The beginning and the end of the diagram
+    _diagram_start = """@startuml
+
+skinparam classAttributeFontName Monospaced
+skinparam classBackgroundColor #FFFFFF
+skinparam classBorderColor #D8D8D8
+skinparam packageBorderColor #BDBDBD
+skinparam classArrowColor #0B615E
+skinparam shadowing false
+
+title
+<size:24>Entity Based Model Diagram</size>
+( All Models extends <b>pyoko.Model</b> class )
+endtitle
+"""
+    _diagram_end = "@enduml"
+    # Prefixes for the items
+    _field_prefix = '  '
+    _nodelist_field_prefix = '|_'
+    # The function used to print output. Replaced with one that prints to file when path is given
+    _print = print
+
+    def run(self):
+        from pyoko.conf import settings
+        from importlib import import_module
+        import_module(settings.MODELS_MODULE)
+        registry = import_module('pyoko.model').model_registry
+        selected_models = self.manager.args.model
+        if selected_models != 'all':
+            models = [registry.get_model(name) for name in selected_models.split(',')]
+        else:
+            models = registry.get_base_models()
+        to_file = self.manager.args.path
+        if to_file:
+            outfile = codecs.open(self.manager.args.path, 'w', encoding='utf-8')
+            self._print = lambda s: outfile.write(s + '\n')
+        self._print_diagram(models)
+        if to_file:
+            outfile.close()
+
+    def _print_diagram(self, models):
+        self._print(self._diagram_start)
+        # Generate the models & their fields
+        for mdl in models:
+            model = mdl(super_context)
+            self._print(self._class_start % model.title)
+            fields = []
+            fields.extend(self._get_model_fields(model))
+            links = model.get_links(link_source=True)
+            fields.extend(self._format_links_fields(links))
+            fields.append(('', '', '', ''))  # Empty line
+            fields.extend(self._format_listnodes(self._get_model_nodes(model)))
+            self._print_fields(fields)
+            self._print(self._class_end)
+            # Generate the links of the current model
+            self._print_links(model, links)
+        self._print(self._diagram_end)
+
+    def _print_fields(self, fields):
+        """Print the fields, padding the names as necessary to align them."""
+        # Prepare a formatting string that aligns the names and types based on the longest ones
+        longest_name = max(fields, key=lambda f: len(f[1]))[1]
+        longest_type = max(fields, key=lambda f: len(f[2]))[2]
+        field_format = '%s%-{}s %-{}s %s'.format(
+            len(longest_name) + self._padding_after_name,
+            len(longest_type) + self._padding_after_type)
+        for field in fields:
+            self._print(field_format % field)
+
+    def _format_listnodes(self, listnodes):
+        """
+        Format ListNodes and their fields into tuples that can be printed with _print_fields().
+        """
+        fields = list()
+        for name, node in listnodes:
+            fields.append(('--', '', '', '--'))
+            fields.append(('', '**%s(ListNode)**' % name, '', ''))
+            for link in node.get_links():
+                linked_model = link['mdl'](super_context)
+                null = self._marker_true if link['null'] is True else self._marker_false
+                fields.append((self._nodelist_field_prefix, link['field'],
+                               '%s()' % linked_model.title, null))
+            fields.extend(self._get_model_fields(node, self._nodelist_field_prefix))
+        return fields
+
+    def _get_model_fields(self, model, prefix=_field_prefix):
+        """
+        Find all fields of given model that are not default models.
+        """
+        fields = list()
+        for field_name, field in model._fields.items():
+            # Filter the default fields
+            if field_name not in getattr(model, '_DEFAULT_BASE_FIELDS', []):
+                type_name = utils.to_camel(field.solr_type)
+                required = self._marker_true if field.required is True else self._marker_false
+                fields.append((prefix, field_name, type_name, required))
+        fields.sort(key=lambda f: f[1])
+        return fields
+
+    def _get_model_nodes(self, model):
+        """
+        Find all the non-auto created nodes of the model.
+        """
+        nodes = [(name, node) for name, node in model._nodes.items()
+                if node._is_auto_created is False]
+        nodes.sort(key=lambda n: n[0])
+        return nodes
+
+    def _format_links_fields(self, links):
+        """
+        Format the fields containing links into 4-tuples printable by _print_fields().
+        """
+        fields = list()
+        for link in links:
+            linked_model = link['mdl'](super_context)
+            null = self._marker_true if link['null'] is True else self._marker_false
+            # In LinkProxy, if reverse_name is empty then only reverse has the name
+            # of the field on the link_source side
+            field_name = link['field'] or link['reverse']
+            fields.append((self._field_prefix, field_name, '%s()' % linked_model.title, null))
+        fields.sort(key=lambda f: f[1])
+        return fields
+
+    def _print_links(self, model, links):
+        """
+        Print links that start from model.
+        """
+        for link in links:
+            if link['o2o'] is True:
+                link_type = self._one_to_one
+            elif link['m2m'] is True:
+                link_type = self._many_to_many
+            else:
+                link_type = self._one_to_many
+            linked_model = link['mdl'](super_context)
+            self._print('%s %s %s' % (model.title, link_type, linked_model.title))
