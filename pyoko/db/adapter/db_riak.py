@@ -545,10 +545,11 @@ class Adapter(BaseAdapter):
         return key, val
 
     def _handle_date(self, val, key=None):
-        if key.endswith('__lt'):
-            val = val - timedelta(days=1)
-        if key.endswith('__gt'):
-            val = val + timedelta(days=1)
+        if key is not None:
+            if key.endswith('__lt'):
+                val = val - timedelta(days=1)
+            if key.endswith('__gt'):
+                val = val + timedelta(days=1)
         return self._escape_query(val.strftime(DATE_FORMAT))
 
     def _handle_model(self, val, key=None):
@@ -560,10 +561,11 @@ class Adapter(BaseAdapter):
         return key, val
 
     def _handle_datetime(self, val, key=None):
-        if key.endswith('__lt'):
-            val = val - timedelta(seconds=1)
-        if key.endswith('__gt'):
-            val = val + timedelta(seconds=1)
+        if key is not None:
+            if key.endswith('__lt'):
+                val = val - timedelta(seconds=1)
+            if key.endswith('__gt'):
+                val = val + timedelta(seconds=1)
         return val.strftime(DATE_TIME_FORMAT)
 
     def _process_query_val(self, key, val, escaped=False):
