@@ -178,7 +178,12 @@ class QuerySet(object):
         if not self.is_clone:
             return "QuerySet for %s" % self._model_class
         try:
-            return [obj for obj in self[:10]].__repr__()
+            c = []
+            for obj in self:
+                c.append(obj.__repr__())
+                if len(c) == 10:
+                    break
+            return c.__repr__()
         except AssertionError as e:
             return e.msg
         except TypeError:
