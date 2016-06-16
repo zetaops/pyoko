@@ -10,7 +10,7 @@ import datetime
 from time import sleep
 import pytest
 from pyoko.conf import settings
-from pyoko.db.adapter.db_riak import BlockSave
+from pyoko.db.adapter.db_riak import BlockSave, BlockDelete
 from pyoko.exceptions import MultipleObjectsReturned
 from pyoko.manage import ManagementCommands, FlushDB
 from tests.data.test_data import data, clean_data
@@ -163,6 +163,25 @@ class TestCase:
             TimeTable(week_day=3, hours=6).save()
         assert TimeTable.objects.filter(hours__gte=4).count() == 2
         assert TimeTable.objects.filter(hours__lte=4).count() == 3
+
+    def test_lt_gt(self):
+        self.prepare_testbed()
+        with BlockSave(TimeTable):
+            TimeTable.objects.get_or_create(week_day=4, hours=2)
+            TimeTable.objects.get_or_create(week_day=2, hours=4)
+            TimeTable.objects.get_or_create(week_day=5, hours=1)
+            TimeTable.objects.get_or_create(week_day=3, hours=6)
+        assert TimeTable.objects.filter(hours__gt=4).count() == 1
+        assert TimeTable.objects.filter(hours__lt=4).count() == 2
+
+    def test_slicing(self):
+        with BlockDelete(TimeTable):
+            TimeTable.objects.delete()
+        with BlockSave(TimeTable):
+            for i in range(5):
+                TimeTable(week_day=i, hours=i).save()
+        items = TimeTable.objects.filter()[1:2]
+        assert len(list(items)) == 1
 
     def test_or_queries(self):
         Student.objects.delete()
