@@ -130,14 +130,14 @@ class TestCase:
     def test_delete_rel_many_to_one(self, force=True):
         self.prepare_testbed()
         can_sleep = Permission(name="can sleep", codename='can_sleep').save()
-        can_eat = Permission(name="can eat", codename='can_eat').save()
+        can_feat = Permission(name="can feat", codename='can_feat').save()
         arole = AbstractRole(name="arole")
         arole.Permissions(permission=can_sleep)
-        arole.Permissions(permission=can_eat)
+        arole.Permissions(permission=can_feat)
         arole.blocking_save()
-        can_eat.blocking_delete()
+        can_feat.blocking_delete()
         arole.reload()
-        assert can_eat not in arole.Permissions
+        assert can_feat not in arole.Permissions
         assert can_sleep in arole.Permissions
 
     @pytest.mark.first
