@@ -652,8 +652,6 @@ class Adapter(BaseAdapter):
         Returns:
             Processed self._solr_params dict.
         """
-        import ipdb;
-        ipdb.set_trace()
         if 'rows' not in self._solr_params:
             self._solr_params['rows'] = self._cfg['row_size']
         for key, val in self._solr_params.items():
