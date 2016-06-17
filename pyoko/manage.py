@@ -605,13 +605,24 @@ class FindDuplicateKeys(Command):
 class GenerateDiagrams(Command):
     CMD_NAME = 'generate_diagrams'
     HELP = 'Generate PlantUML diagrams from the models.'
+    SPLIT_APP = 'app'
+    SPLIT_MODEL = 'model'
+    SPLIT_NO = 'no'
+    SPLIT_CHOICES = (SPLIT_NO, SPLIT_APP, SPLIT_MODEL)
     PARAMS = [
-        {'name': 'model', 'required': True,
+        {'name': 'model', 'required': False, 'default': 'all',
          'help': 'Models name(s) to generate diagrams for. Say "all" to generate diagrams for all models'},
         {'name': 'path', 'required': False,
          'help': 'Instead of stdout, write to given file'},
-        {'name': 'split_app', 'action': 'store_true',
-         'help': 'If given, diagrams for each app will be split into seperate files. Requires path.'}
+        {'name': 'split', 'default': SPLIT_NO, 'choices': SPLIT_CHOICES,
+         'help': """R|
+               %s : Generates a single diagram containing all models.
+
+               %s: Generates seperate diagrams for each app. Requires path.
+
+               %s: Generates seperate diagrams for each model. Requires path.
+               """ % SPLIT_CHOICES
+         }
     ]
 
     # Representations of the different link types
@@ -670,18 +681,38 @@ endtitle
             if len(selected_from_app) > 0:
                 selected_by_app.append((app, selected_from_app))
         to_file = self.manager.args.path
-        if to_file and self.manager.args.split_app:
-            self._print_split_files(to_file, selected_by_app)
+        split_type = self.manager.args.split
+        if to_file and split_type == self.SPLIT_APP:
+            self._print_split_app(to_file, selected_by_app)
+        if to_file and split_type == self.SPLIT_MODEL:
+            self._print_split_model(to_file, selected_by_app)
         else:
             self._print_single_file(to_file, selected_by_app)
 
-    def _print_split_files(self, path, apps_models):
+    def _print_split_model(self, path, apps_models):
+        """
+        Print each model in apps_models into its own file.
+        """
+        for app, models in apps_models:
+            for model in models:
+                model_name = model().title
+                if self._has_extension(path):
+                    model_path = re.sub(r'^(.*)[.](\w+)$', r'\1.%s.%s.\2' % (app, model_name), path)
+                else:
+                    model_path = '%s.%s.%s.puml' % (path, app, model_name)
+                self._print_single_file(model_path, [(app, [model])])
+
+    def _print_split_app(self, path, apps_models):
         """
         Print each app in apps_models associative list into its own file.
         """
         for app, models in apps_models:
             # Convert dir/file.puml to dir/file.app.puml to print to an app specific file
-            app_path = re.sub(r'^(.*)[.](\w+)$', r'\1.%s.\2' % app, path)
+            if self._has_extension(path):
+                app_path = re.sub(r'^(.*)[.](\w+)$', r'\1.%s.\2' % app, path)
+            else:
+                app_path = '%s.%s.puml' % (path, app)
+
             self._print_single_file(app_path, [(app, models)])
 
     def _print_single_file(self, path, apps_models):
@@ -801,3 +832,10 @@ endtitle
                 link_type = self._one_to_many
             linked_model = link['mdl'](super_context)
             self._print('%s %s %s' % (model.title, link_type, linked_model.title))
+
+    @staticmethod
+    def _has_extension(path):
+        """
+        Returns true if path ends with an extension.
+        """
+        return re.search(r'^.*[.]\w+$', path) is not None
