@@ -12,6 +12,7 @@ from __future__ import print_function
 from argparse import RawTextHelpFormatter, HelpFormatter
 import codecs
 from collections import defaultdict
+import re
 import json
 
 import time
@@ -609,6 +610,8 @@ class GenerateDiagrams(Command):
          'help': 'Models name(s) to generate diagrams for. Say "all" to generate diagrams for all models'},
         {'name': 'path', 'required': False,
          'help': 'Instead of stdout, write to given file'},
+        {'name': 'split_app', 'action': 'store_true',
+         'help': 'If given, diagrams for each app will be split into seperate files. Requires path.'}
     ]
 
     # Representations of the different link types
@@ -624,6 +627,9 @@ class GenerateDiagrams(Command):
     # Class start and end delimiters
     _class_start = '\n\nclass %s<<(M,orchid)>>{'
     _class_end = '}\n'
+    # Markers for the start and end of the apps
+    _app_start = '\npackage %s{'
+    _app_end = '}'
     # The beginning and the end of the diagram
     _diagram_start = """@startuml
 
@@ -652,20 +658,56 @@ endtitle
         import_module(settings.MODELS_MODULE)
         registry = import_module('pyoko.model').model_registry
         selected_models = self.manager.args.model
-        if selected_models != 'all':
-            models = [registry.get_model(name) for name in selected_models.split(',')]
-        else:
-            models = registry.get_base_models()
+        apps_models = registry.get_models_by_apps()
+        selected_by_app = list()
+        # Pick the selected models from each app
+        for app, app_models in apps_models:
+            if selected_models != 'all':
+                selected_from_app = [model for model in app_models
+                                     if model().title in selected_models.split(',')]
+            else:
+                selected_from_app = app_models
+            if len(selected_from_app) > 0:
+                selected_by_app.append((app, selected_from_app))
         to_file = self.manager.args.path
-        if to_file:
-            outfile = codecs.open(self.manager.args.path, 'w', encoding='utf-8')
+        if to_file and self.manager.args.split_app:
+            self._print_split_files(to_file, selected_by_app)
+        else:
+            self._print_single_file(to_file, selected_by_app)
+
+    def _print_split_files(self, path, apps_models):
+        """
+        Print each app in apps_models associative list into its own file.
+        """
+        for app, models in apps_models:
+            # Convert dir/file.puml to dir/file.app.puml to print to an app specific file
+            app_path = re.sub(r'^(.*)[.](\w+)$', r'\1.%s.\2' % app, path)
+            self._print_single_file(app_path, [(app, models)])
+
+    def _print_single_file(self, path, apps_models):
+        """
+        Print apps_models which contains a list of 2-tuples containing apps and their models
+        into a single file.
+        """
+        if path:
+            outfile = codecs.open(path, 'w', encoding='utf-8')
             self._print = lambda s: outfile.write(s + '\n')
-        self._print_diagram(models)
-        if to_file:
+        self._print(self._diagram_start)
+        for app, app_models in apps_models:
+            self._print_app(app, app_models)
+        self._print(self._diagram_end)
+        if path:
             outfile.close()
 
-    def _print_diagram(self, models):
-        self._print(self._diagram_start)
+    def _print_app(self, app, models):
+        """
+        Print the models of app, showing them in a package.
+        """
+        self._print(self._app_start % app)
+        self._print_models(models)
+        self._print(self._app_end)
+
+    def _print_models(self, models):
         # Generate the models & their fields
         for mdl in models:
             model = mdl(super_context)
@@ -680,7 +722,6 @@ endtitle
             self._print(self._class_end)
             # Generate the links of the current model
             self._print_links(model, links)
-        self._print(self._diagram_end)
 
     def _print_fields(self, fields):
         """Print the fields, padding the names as necessary to align them."""
@@ -714,13 +755,13 @@ endtitle
         Find all fields of given model that are not default models.
         """
         fields = list()
-        for field_name, field in model._fields.items():
+        for field_name, field in model()._ordered_fields:
             # Filter the default fields
             if field_name not in getattr(model, '_DEFAULT_BASE_FIELDS', []):
                 type_name = utils.to_camel(field.solr_type)
                 required = self._marker_true if field.required is True else self._marker_false
                 fields.append((prefix, field_name, type_name, required))
-        fields.sort(key=lambda f: f[1])
+
         return fields
 
     def _get_model_nodes(self, model):
