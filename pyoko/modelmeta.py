@@ -76,6 +76,7 @@ class ModelMeta(type):
                 attr_type = getattr(attr, '_TYPE', '')
 
                 if attr_type == 'Model':
+                    attrs['%s_id' % key] = ''
                     # lnk_mdl_ins = attrs.pop(key)
                     lnk_mdl_ins = attrs[key]
                     lnk = {
@@ -100,6 +101,7 @@ class ModelMeta(type):
                         attrs['_uniques'].append(key)
                 elif attr_type == 'Link':
                     # lzy_lnk = attrs.pop(key)
+                    attrs['%s_id' % key] = ''
                     lzy_lnk = attrs[key]
                     attrs['_lazy_linked_models'][key].append({'from': node_name,
                                                               'to': lzy_lnk.link_to,

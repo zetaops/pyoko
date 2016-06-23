@@ -210,6 +210,7 @@ class Node(object):
         for lnk in self.get_links(is_set=False):
             # if lnk['is_set']:
             #     continue
+            self.setattr(lnk['field'] + '_id', '')
             if data:
                 # data can be came from db or user
                 if lnk['field'] in data and isinstance(data[lnk['field']], Model):
@@ -436,7 +437,8 @@ class Node(object):
         # get keys of linked models
         for lnk in self.get_links(is_set=False):
             lnkd_mdl = getattr(self, lnk['field'])
-            dct[un_camel_id(lnk['field'])] = lnkd_mdl.key if lnkd_mdl is not None else ''
+            mdl_id = un_camel_id(lnk['field'])
+            dct[mdl_id] = getattr(self, mdl_id) or (lnkd_mdl.key if lnkd_mdl is not None else '')
 
     def clean_value(self):
         """
