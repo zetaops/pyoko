@@ -172,14 +172,20 @@ class ListNode(Node):
         """
         self._data.append(kwargs)
 
+    def pre_add(self):
+        """
+        A hook for doing things before adding new listnode item to the stack
+        """
+        pass
+
     def __call__(self, **kwargs):
         """
         Stores created instance in node_stack and returns it's reference to callee
         """
         kwargs['_root_node'] = self._root_node
         clone = self.__class__(**kwargs)
-        # clone._root_node = self._root_node
         clone.setattrs(_is_item = True)
+        clone.pre_add()
         self.node_stack.append(clone)
         _key = clone._get_linked_model_key()
         if _key:
