@@ -167,7 +167,7 @@ class QuerySet(object):
         Returns:
             pyoko.Model object.
         """
-        if data['deleted']:
+        if data['deleted'] and not self.adapter.want_deleted:
             raise ObjectDoesNotExist('Deleted object returned')
         model = self._model_class(self._current_context,
                                   _pass_perm_checks=self._pass_perm_checks)
@@ -352,7 +352,9 @@ class QuerySet(object):
             >>> Person.objects.filter(age__gte=16, name__startswith='jo').delete()
 
         """
-        return [item.delete() and item for item in self]
+        clone = copy.deepcopy(self)
+        clone.adapter.want_deleted = True
+        return [item.delete() and item for item in clone]
 
     def values_list(self, *args, **kwargs):
         """
@@ -423,6 +425,17 @@ class QuerySet(object):
         """
         clone = copy.deepcopy(self)
         clone.adapter.add_query([("OR_QRY", filters)])
+        return clone
+
+    def OR(self):
+        """
+        Switches default query joiner from " AND " to " OR "
+
+        Returns:
+            Self. Queryset object.
+        """
+        clone = copy.deepcopy(self)
+        clone.adapter._QUERY_GLUE = ' OR '
         return clone
 
     def search_on(self, *fields, **query):

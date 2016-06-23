@@ -103,7 +103,11 @@ class Adapter(BaseAdapter):
                          self._model_class._get_bucket_name())
         # bucket datatype, eg: Dictomaping for 'map' type
         self.compiled_query = ''
-        # self._solr_query = {}  # query parts, will be compiled before execution
+
+        # True if we ask for deleted objects
+        self.want_deleted = False
+        # default joiner for filter arguments
+        self._QUERY_GLUE = ' AND '
         self._solr_query = []  # query parts, will be compiled before execution
         self._solr_params = {
             'sort': 'timestamp desc'}  # search parameters. eg: rows, fl, start, sort etc.
@@ -590,7 +594,7 @@ class Adapter(BaseAdapter):
         # https://wiki.apache.org/solr/SolrQuerySyntax
         # http://lucene.apache.org/core/2_9_4/queryparsersyntax.html
         query = []
-        want_deleted = False
+
         # filtered_query = self._model_class.row_level_access(self._current_context, self)
         # if filtered_query is not None:
         #     self._solr_query += filtered_query._solr_query
@@ -625,7 +629,7 @@ class Adapter(BaseAdapter):
             # as long as not explicitly asked for,
             # we filter out records with deleted flag
             if key == 'deleted':
-                want_deleted = True
+                self.want_deleted = True
             # convert two underscores to dot notation
             key = key.replace('__', '.')
             # NOKEY means we already combined key partition in to "val"
@@ -635,15 +639,16 @@ class Adapter(BaseAdapter):
                 query.append("%s:%s" % (key, val))
 
         # filter out "deleted" fields if not user explicitly asked for
-        if not want_deleted:
-            query.append('-deleted:True')
-        # join everything with "AND"
-        anded = ' AND '.join(query)
-        joined_query = anded
-        # if query is empty, use '*:*' instead to get anything from db.
-        if joined_query == '':
-            joined_query = '*:*'
 
+        # join everything with "AND"
+        joined_query = self._QUERY_GLUE.join(query)
+        if not self.want_deleted:
+            if joined_query:
+                joined_query = "(%s) AND -deleted:True" % joined_query
+            else:
+                joined_query = '-deleted:True'
+        elif not joined_query:
+            joined_query = '*:*'
         self.compiled_query = joined_query
 
     def _process_params(self):
@@ -691,11 +696,8 @@ class Adapter(BaseAdapter):
                 # if DEBUG is on and DEBUG_LEVEL set to a value higher than 5
                 # print query in to console.
                 if settings.DEBUG and settings.DEBUG_LEVEL >= 5:
-                    try:
-                        print("QRY => %s\nSOLR_PARAMS => %s" % (self.compiled_query,
-                                                                solr_params))
-                    except:
-                        pass
+                    print("QRY => %s\nSOLR_PARAMS => %s" % (self.compiled_query, solr_params))
+
 
                         # if settings.DEBUG:
                 #     sys.PYOKO_STAT_COUNTER['search'] += 1
