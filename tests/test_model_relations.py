@@ -10,7 +10,7 @@ from pprint import pprint, pformat
 from time import sleep, time
 
 from pyoko.manage import FlushDB
-from tests.models import *
+from .models import *
 import pytest
 
 
@@ -164,6 +164,29 @@ class TestCase:
         role.reload()
         assert not role.usr.exist
 
+    def test_set_listnode_rel_by_id(self):
+        p = Permission(code='can_see').save()
+        ar1 = AbstractRole()
+        ar2 = AbstractRole()
+        ar1.Permissions(permission=p)
+        ar1.blocking_save()
+        ar2.Permissions(permission_id=p.key)
+        ar2.blocking_save()
+        ar1.reload()
+        ar2.reload()
+        assert ar1.Permissions[0].permission == ar2.Permissions[0].permission
+
+    def test_set_rel_by_id(self):
+        u = User().save()
+        r1 = Role()
+        r1.usr_id = u.key
+        r1.blocking_save()
+        r1.reload()
+        r2 = Role()
+        r2.usr = u
+        r2.blocking_save()
+        r2.reload()
+        assert r1.usr == r2.usr
 
 
 
