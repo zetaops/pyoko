@@ -475,6 +475,10 @@ and .js extensions will be loaded."""},
                 self.read_file(file)
         else:
             self.read_file(self.manager.args.path)
+        for mdl in self.registry.get_base_models():
+            if self.typ == self.CSV:
+                mdl(super_context).objects.adapter.bucket.set_encoder("application/json",
+                                                                      binary_json_encoder)
 
     def prepare_buckets(self):
         """
@@ -501,10 +505,7 @@ and .js extensions will be loaded."""},
         if self.already_existing:
             print("%s existing object(s) NOT updated." % self.already_existing)
 
-        for mdl in self.registry.get_base_models():
-            if self.typ == self.CSV:
-                mdl(super_context).objects.adapter.bucket.set_encoder("application/json",
-                                                                      binary_json_encoder)
+
 
     def read_whole_file(self, file):
         data = json.loads(file.read())
