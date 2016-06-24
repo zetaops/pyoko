@@ -13,7 +13,7 @@ list like data types on a Model.
 import six
 
 from .node import Node
-from .lib.utils import un_camel, un_camel_id
+from .lib.utils import un_camel, un_camel_id, lazy_property
 
 
 class ListNode(Node):
@@ -45,6 +45,7 @@ class ListNode(Node):
 
     Notes:
         - Currently we disregard the ordering of ListNode items.
+        - "reverse_name" dose not supported on linked models.
 
     """
 
@@ -65,6 +66,18 @@ class ListNode(Node):
         )
         super(ListNode, self).__init__(**kwargs)
         self.setattrs(_data=[])
+
+    @lazy_property
+    def objects(self):
+        links = self.get_links()
+        if links:
+            lnk = links[0]
+            root_lnk = self._root_node.get_link(field=self.__class__.__name__, startswith=True)
+            if root_lnk['reverse'].endswith('_set'):
+                remote_name = "%s__%s_id" % (root_lnk['reverse'], root_lnk['reverse'][:-4])
+            else:
+                remote_name = root_lnk['reverse'] + "_id"
+            return lnk['mdl'].objects.filter(**{remote_name:self._root_node.key})
 
     def _load_data(self, data, from_db=False):
         """

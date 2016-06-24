@@ -29,7 +29,7 @@ class AbstractRole(Model):
     name = field.String("Name")
 
     class Permissions(ListNode):
-        permission = Permission()
+        permission = Permission(reverse_name='perms')
 
 
 
