@@ -190,15 +190,34 @@ class Node(object):
 
     @classmethod
     def get_link(cls, **kw):
+        """
+        Get first item of get_links() method
+        """
         return cls.get_links(**kw)[0]
 
     @classmethod
     def get_links(cls, **kw):
-        constraint = set(kw.items())
+        """
+        Linked models from this model
+
+        Keyword Args:
+            filter by items of _linked_models
+
+            startswith: Bool, use startswith for filtering instead of exact matching.
+                Only works for filtering over one field.
+
+        Returns:
+            Link list
+        """
+        startswith = kw.pop('startswith', False)
+        kwitems = kw.items()
+        constraint = set(kwitems)
         models = []
         for links in cls._linked_models.values():
             for lnk in links:
                 if not constraint or constraint.issubset(set(lnk.items())):
+                    models.append(lnk)
+                elif startswith and lnk[kwitems[0][0]].startswith(kwitems[0][1]):
                     models.append(lnk)
         return models
 
