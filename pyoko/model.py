@@ -41,7 +41,7 @@ class Model(Node):
     Models may have inner classes to represent ManyToMany relations, inner data nodes or lists.
 
     Notes:
-        - "reverse_name" dose not supported on links from ListNode's.
+        - "reverse_name" does not supported on links from ListNode's.
 
     """
     objects = QuerySet
