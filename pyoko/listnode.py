@@ -74,9 +74,9 @@ class ListNode(Node):
             lnk = links[0]
             root_lnk = self._root_node.get_link(field=self.__class__.__name__, startswith=True)
             if root_lnk['reverse'].endswith('_set'):
-                remote_name = "%s__%s_id" % (root_lnk['reverse'], root_lnk['reverse'][:-4])
+                remote_name = un_camel_id("%s.%s" % (root_lnk['reverse'], root_lnk['reverse'][:-4]))
             else:
-                remote_name = root_lnk['reverse'] + "_id"
+                remote_name = un_camel_id(root_lnk['reverse'])
             return lnk['mdl'].objects.filter(**{remote_name:self._root_node.key})
 
     def _load_data(self, data, from_db=False):
