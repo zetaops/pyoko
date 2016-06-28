@@ -47,7 +47,6 @@ class QuerySet(object):
         elif 'model_class' in conf:
             self.set_model(model_class=conf['model_class'])
 
-
     # ######## Development Methods  #########
 
     def set_model(self, model=None, model_class=None):
@@ -70,8 +69,6 @@ class QuerySet(object):
         # self._cfg['_objects'] = self.__class__
         self.adapter = Adapter(**self._cfg)
 
-
-
     def distinct_values_of(self, field):
         """
         Args:
@@ -82,11 +79,11 @@ class QuerySet(object):
         """
         return self.adapter.distinct_values_of(field)
 
-
     def __iter__(self):
         clone = copy.deepcopy(self)
         for data, key in clone.adapter:
-            yield (clone._make_model(data, key) if self._cfg['rtype'] == ReturnType.Model else (data, key))
+            yield (
+            clone._make_model(data, key) if self._cfg['rtype'] == ReturnType.Model else (data, key))
 
     def __len__(self):
         return copy.deepcopy(self).adapter.count()
@@ -133,8 +130,6 @@ class QuerySet(object):
         obj.is_clone = True
         return obj
 
-
-
     def save_model(self, model, meta_data=None):
         """
         saves the model instance to riak
@@ -156,7 +151,6 @@ class QuerySet(object):
         else:
             return data
 
-
     def _make_model(self, data, key=None):
         """
         Creates a model instance with the given data.
@@ -171,7 +165,7 @@ class QuerySet(object):
             raise ObjectDoesNotExist('Deleted object returned')
         model = self._model_class(self._current_context,
                                   _pass_perm_checks=self._pass_perm_checks)
-        model.setattr('key',key if key else data.get('key'))
+        model.setattr('key', key if key else data.get('key'))
         return model.set_data(data, from_db=True)
 
     def __repr__(self):
@@ -188,8 +182,6 @@ class QuerySet(object):
             return e.msg
         except TypeError:
             raise
-
-
 
     def filter(self, **filters):
         """
@@ -277,18 +269,13 @@ class QuerySet(object):
         Updates the matching objects for specified fields.
 
         Note:
+            Post/pre save hooks and signals will NOT triggered.
+
             Unlike RDBMS systems, this method makes individual save calls
             to backend DB store. So this is exists as more of a comfortable
             utility method and not a performance enhancement.
 
-        Args:
-            simple_update (bool): True. By default performs updates on
-             Riak objects. This works faster and supports top level
-             properties of an object. Set to **False** if you need to
-             update nested (Node, ListNode) properties which works on
-             Pyoko model instances. Either way, post/pre save hooks and
-             signals will NOT triggered.
-
+        Keyword Args:
             \*\*kwargs: Fields with their corresponding values to be updated.
 
         Returns:
@@ -301,16 +288,10 @@ class QuerySet(object):
         """
         do_simple_update = kwargs.get('simple_update', True)
         no_of_updates = 0
-        clone = copy.deepcopy(self)
-        for data, key in clone:
+        for model in self:
             no_of_updates += 1
-            if do_simple_update:
-                data.update(kwargs)
-                clone.adapter.save(data, key)
-            else:
-                model = self._make_model(data, key)
-                model._load_data(kwargs)
-                model.save(internal=True)
+            model._load_data(kwargs)
+            model.save(internal=True)
         return no_of_updates
 
     def get(self, key=None, **kwargs):
@@ -374,7 +355,7 @@ class QuerySet(object):
 
         """
         results = []
-        for data,key in self.data():
+        for data, key in self.data():
             results.append([data[val] if val != 'key' else key for val in args])
         return results if len(args) > 1 or not kwargs.get('flatten', True) else [
             i[0] for i in results]
@@ -508,10 +489,9 @@ class QuerySet(object):
         clone.adapter.set_params(**params)
         return clone
 
-
     def data(self):
         """
-        set return type as riak objects instead of pyoko models
+        return (data_dict, key) tuple instead of models instances
         """
         clone = copy.deepcopy(self)
         clone._cfg['rtype'] = ReturnType.Object
