@@ -89,8 +89,9 @@ class QuerySet(object):
         return copy.deepcopy(self).adapter.count()
 
     def __getitem__(self, index):
+        clone = copy.deepcopy(self)
         if isinstance(index, int):
-            self.adapter.set_params(rows=1, start=index)
+            clone.adapter.set_params(rows=1, start=index)
             data, key = self.adapter.get_one()
             return (self._make_model(data, key)
                     if self._cfg['rtype'] == ReturnType.Model
@@ -105,7 +106,7 @@ class QuerySet(object):
             else:
                 stop = None
             if start >= 0 and stop:
-                clone = copy.deepcopy(self)
+
                 clone.adapter.set_params(rows=stop - start, start=start)
                 return clone
             else:
