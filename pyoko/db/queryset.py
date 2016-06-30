@@ -92,9 +92,9 @@ class QuerySet(object):
         clone = copy.deepcopy(self)
         if isinstance(index, int):
             clone.adapter.set_params(rows=1, start=index)
-            data, key = self.adapter.get_one()
-            return (self._make_model(data, key)
-                    if self._cfg['rtype'] == ReturnType.Model
+            data, key = clone.adapter.get_one()
+            return (clone._make_model(data, key)
+                    if clone._cfg['rtype'] == ReturnType.Model
                     else (data, key))
         elif isinstance(index, slice):
             if index.start is not None:
