@@ -341,6 +341,9 @@ class QuerySet(object):
     def values_list(self, *args, **kwargs):
         """
         Returns list of values for given fields.
+        Since this will implicitly use data() method,
+        it's more efficient than simply looping through model instances.
+
 
         Args:
             flatten (bool): True. Flatten if there is only one field name given.
