@@ -5,7 +5,7 @@ from setuptools import find_packages
 
 setup(
     name='Pyoko',
-    version='0.7',
+    version='0.8',
     description='Pyoko is a Django-esque ORM for Riak KV',
     author='Zetaops AS',
     license='GPL v3',
