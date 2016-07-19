@@ -19,7 +19,7 @@ from uuid import uuid4
 
 from collections import defaultdict
 
-from pyoko.exceptions import ObjectDoesNotExist, ValidationError
+from pyoko.exceptions import ObjectDoesNotExist, ValidationError, MultipleObjectsReturned
 from .conf import settings
 from .lib.utils import get_object_from_path, lazy_property, un_camel, un_camel_id
 from .modelmeta import ModelMeta
@@ -255,7 +255,7 @@ class Node(object):
                                     return modl(context,
                                                 null=lnk['null'],
                                                 verbose_name=lnk['verbose']).objects.get(key)
-                                except ObjectDoesNotExist:
+                                except (ObjectDoesNotExist, MultipleObjectsReturned):
                                     return modl(context,
                                                 null=lnk['null'],
                                                 verbose_name=lnk['verbose'])
