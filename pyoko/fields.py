@@ -35,17 +35,19 @@ class BaseField(object):
     def __init__(self, title='',
                  default=None,
                  required=True,
-                 index=False,
+                 index=True,
                  type=None,
                  store=False,
                  choices=None,
                  order=None,
+                 unique=False,
                  **kwargs):
         self._order = order or self.creation_counter
         BaseField.creation_counter += 1
         self.required = required
         self.choices = choices
         self.title = title
+        self.unique = unique
         if type:
             self.solr_type = type
         self.index = index or bool(type)
@@ -56,8 +58,8 @@ class BaseField(object):
 
 
     def __get__(self, instance, cls=None):
-        if cls is None:
-            return self
+        if cls is None or instance is None:
+            return six.text_type(self.__class__)
         return instance._field_values.get(self.name, None)
         # if val or not instance.parent:
         #     return val
@@ -67,6 +69,8 @@ class BaseField(object):
 
     def __set__(self, instance, value):
         instance._field_values[self.name] = value
+        instance._set_get_choice_display_method(self.name, self, value)
+
 
     def _load_data(self, instance, value):
         """
@@ -152,24 +156,34 @@ class DateTime(BaseField):
         if self.default is None:
             self.default = EMPTY_DATETIME
         elif self.default == 'now':
-            self.default = lambda: datetime.datetime.now().strftime(DATE_TIME_FORMAT)
+            self.default = lambda: datetime.datetime.now().strftime(self.format)
 
     def clean_value(self, val):
-        if val is None:
+        if not val:
             return self.default() if callable(self.default) else self.default
         else:
             return val.strftime(DATE_TIME_FORMAT)
 
     def __set__(self, instance, value):
+        if value == EMPTY_DATETIME:
+            value = None
+        # elif callable(value):
+        #     value = value()
         if isinstance(value, six.string_types) and value:
             value = datetime.datetime.strptime(value, self.format)
-        instance._field_values[self.name] = value
+        super(DateTime, self).__set__(instance, value)
+        # instance._field_values[self.name] = value
 
     def _load_data(self, instance, value):
         if value is None or value == EMPTY_DATETIME:
             value = ''
         else:
-            value = datetime.datetime.strptime(value, DATE_TIME_FORMAT)
+            try:
+                value = datetime.datetime.strptime(value, DATE_TIME_FORMAT)
+            except TypeError:
+                # this is just a workaround for timestamp fields
+                # migration from Timestamp() to DateTime() field type
+                value = datetime.datetime.fromtimestamp(int(str(1456174234716182)[:-6]))
         instance._field_values[self.name] = value
 
 
@@ -182,12 +196,17 @@ class Date(BaseField):
         if self.default is None:
             self.default = EMPTY_DATETIME
         elif self.default == 'now':
-            self.default = lambda: datetime.datetime.now().strftime(DATE_FORMAT)
+            self.default = lambda: datetime.datetime.now().strftime(self.format)
 
     def __set__(self, instance, value):
+        if value == EMPTY_DATETIME:
+            value = None
+        # elif callable(value):
+        #     value = value()
         if isinstance(value, six.string_types) and value:
             value = datetime.datetime.strptime(value, self.format).date()
-        instance._field_values[self.name] = value
+        super(Date, self).__set__(instance, value)
+        # instance._field_values[self.name] = value
 
     def clean_value(self, val):
         if not val:
@@ -223,14 +242,14 @@ class Integer(BaseField):
 
 
 class TimeStamp(BaseField):
-    solr_type = 'long'
+    solr_type = 'date'
 
     def __init__(self, *args, **kwargs):
         super(TimeStamp, self).__init__(*args, **kwargs)
         self.index = True
 
     def clean_value(self, val):
-        return int(repr(time.time()).replace('.', ''))
+        return datetime.datetime.now().strftime(DATE_TIME_FORMAT)
 
 
 class File(BaseField):

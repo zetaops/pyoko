@@ -6,11 +6,13 @@
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
+import datetime
 from time import sleep
 import pytest
 from pyoko.conf import settings
+from pyoko.db.adapter.db_riak import BlockSave, BlockDelete
 from pyoko.exceptions import MultipleObjectsReturned
-from pyoko.manage import ManagementCommands
+from pyoko.manage import ManagementCommands, FlushDB
 from tests.data.test_data import data, clean_data
 from tests.models import Student, TimeTable
 
@@ -26,12 +28,8 @@ class TestCase:
     @classmethod
     def clear_bucket(cls, reset):
         if not cls.cleaned_up or reset:
-            something_deleted = 0
-            for mdl in [Student, TimeTable]:
-                something_deleted += mdl.objects._clear_bucket()
+            FlushDB(model='Student,TimeTable', wait_sync=True).run()
             cls.cleaned_up = True
-            if something_deleted:
-                sleep(2)
 
     @classmethod
     def get_or_create_new_obj(cls, reset):
@@ -65,12 +63,13 @@ class TestCase:
         st2 = Student.objects.get(key)
         clean_value = st2.clean_value()
         clean_data['timestamp'] = clean_value['timestamp']
+        clean_data['updated_at'] = clean_value['updated_at']
         assert clean_data == clean_value
 
     def test_get_multiple_objects_exception(self):
         self.prepare_testbed()
         s2 = Student(name='Foo').save()
-        sleep(2)
+        sleep(1)
         with pytest.raises(MultipleObjectsReturned):
             Student.objects.get()
 
@@ -95,13 +94,17 @@ class TestCase:
 
         assert len(filter_result) == 0
 
-    def test_raw_query(self):
+    def test_riak_raw_query(self):
         self.prepare_testbed()
         assert 'Jack' == Student.objects.raw('name:Jack').get().name
-        no_row_result = Student.objects.raw('name:Jack', rows=0)._exec_query()._solr_cache
+        qset = Student.objects.raw('name:Jack').set_params(rows=0)
+        qset.adapter._exec_query()
+        no_row_result = qset.adapter._solr_cache
         assert no_row_result['docs'] == []
         assert no_row_result['num_found'] == 1
-        assert not bool(list(Student.objects.raw('name:Nope')))
+        st_queryset = Student.objects.raw('name:Nope')
+        st_list = list(st_queryset)
+        assert not bool(st_list)
 
     def test_exclude(self):
         # exclude by name, if name equals filtered names then append to list
@@ -114,51 +117,74 @@ class TestCase:
     def test_save_query_get_first(self):
         self.prepare_testbed()
         st2 = Student.objects.filter(
-                auth_info__email=data['auth_info']['email'])[0]
+            auth_info__email=data['auth_info']['email'])[0]
         clean_value = st2.clean_value()
         clean_data['timestamp'] = clean_value['timestamp']
+        clean_data['updated_at'] = clean_value['updated_at']
         assert clean_data == clean_value
 
     def test_save_query_list_models(self):
         self.prepare_testbed()
         students = Student.objects.filter(
-                auth_info__email=data['auth_info']['email'])
+            auth_info__email=data['auth_info']['email'])
         st2 = students[0]
         clean_value = st2.clean_value()
         clean_data['timestamp'] = clean_value['timestamp']
+        clean_data['updated_at'] = clean_value['updated_at']
         assert clean_data == clean_value
 
     def test_save_query_list_riak_objects(self):
         self.prepare_testbed()
         students = Student.objects.data().filter(
-                auth_info__email=data['auth_info']['email'])
-        st2_data = students[0].data
+            auth_info__email=data['auth_info']['email'])
+        st2_data = students[0][0]
         clean_data['timestamp'] = st2_data['timestamp']
+        clean_data['updated_at'] = st2_data['updated_at']
+        clean_data['deleted_at'] = st2_data['deleted_at']
+
         assert clean_data == st2_data
 
-    def test_save_query_list_solr_docs(self):
+    def test_riak_save_query_list_solr_docs(self):
         # FIXME: order of multivalued field values varies between solr versions
         st = self.prepare_testbed()
-        st2_doc = Student.objects.solr().filter(
-                auth_info__email=data['auth_info']['email'])[0]
-        solr_doc = {'_yz_rb': 'student',
-                    '_yz_rt': settings.DEFAULT_BUCKET_TYPE,
-                    '_yz_id': st2_doc['_yz_id'],
-                    'score': st2_doc['score'],
-                    '_yz_rk': st.key}
-        assert solr_doc == st2_doc
+        qset = Student.objects.filter(auth_info__email=data['auth_info']['email'])
+        qset.adapter._exec_query()
+        st2_doc = qset.adapter._solr_cache['docs'][0]
+        assert st2_doc['_yz_rb'] == 'student'
+        assert st2_doc['_yz_rt'] == settings.DEFAULT_BUCKET_TYPE
+        assert st2_doc['_yz_rk'] == st.key
 
     def test_lte_gte(self):
         self.prepare_testbed()
-        TimeTable(week_day=4, hours=2).save()
-        TimeTable(week_day=2, hours=4).save()
-        TimeTable(week_day=5, hours=1).save()
-        TimeTable(week_day=3, hours=6).save()
-        sleep(1)
+        with BlockSave(TimeTable):
+            TimeTable(week_day=4, hours=2).save()
+            TimeTable(week_day=2, hours=4).save()
+            TimeTable(week_day=5, hours=1).save()
+            TimeTable(week_day=3, hours=6).save()
         assert TimeTable.objects.filter(hours__gte=4).count() == 2
         assert TimeTable.objects.filter(hours__lte=4).count() == 3
 
+    def test_lt_gt(self):
+        self.prepare_testbed()
+        with BlockSave(TimeTable):
+            TimeTable.objects.get_or_create(week_day=4, hours=2)
+            TimeTable.objects.get_or_create(week_day=2, hours=4)
+            TimeTable.objects.get_or_create(week_day=5, hours=1)
+            TimeTable.objects.get_or_create(week_day=3, hours=6)
+        assert TimeTable.objects.filter(hours__gt=4).count() == 1
+        assert TimeTable.objects.filter(hours__lt=4).count() == 2
+
+    def test_slicing(self):
+        with BlockDelete(TimeTable):
+            TimeTable.objects.delete()
+        with BlockSave(TimeTable):
+            for i in range(5):
+                TimeTable(week_day=i, hours=i).save()
+        items = TimeTable.objects.filter()[1:2]
+        assert len(list(items)) == 1
+
     def test_or_queries(self):
+        Student.objects.delete()
         d = {'s1': ['ali', 'veli'],
              's2': ['joe', 'roby'],
              's3': ['rob', 'zombie'],
@@ -168,12 +194,38 @@ class TestCase:
                 Student(name=v[0], surname=v[1]).save()
             sleep(1)
         assert 3 == Student.objects.filter(
-                name__in=(d['s1'][0], d['s2'][0], d['s3'][0])).count()
+            name__in=(d['s1'][0], d['s2'][0], d['s3'][0])).count()
 
         assert 3 == Student.objects.filter(
-                name__in=(d['s1'][0], d['s2'][0], d['s3'][0])).filter(
-                surname__in=(d['s1'][1], d['s2'][1], d['s3'][1])).count()
+            name__in=(d['s1'][0], d['s2'][0], d['s3'][0])).filter(
+            surname__in=(d['s1'][1], d['s2'][1], d['s3'][1])).count()
 
         assert 2 == Student.objects.search_on('name', 'surname', contains='rob').count()
         assert 2 == Student.objects.or_filter(name__contains='rob',
                                               surname__startswith='rob').count()
+
+    def test_range_queries(self):
+        TimeTable.objects.delete()
+        with BlockSave(TimeTable):
+            TimeTable(week_day=4, hours=2, adate=datetime.date.today(),
+                      bdate=datetime.date.today() - datetime.timedelta(days=2)).save()
+            TimeTable(week_day=2, hours=4, bdate=datetime.date.today(),
+                      adate=datetime.date.today() + datetime.timedelta(2)).save()
+            TimeTable(week_day=5, hours=1, adate=datetime.date.today() - datetime.timedelta(1),
+                      bdate=datetime.date.today() + datetime.timedelta(12)).save()
+            TimeTable(week_day=3, hours=6, adate=datetime.date.today() + datetime.timedelta(10),
+                      bdate=datetime.date.today() - datetime.timedelta(2)).save()
+        assert TimeTable.objects.filter(week_day__range=[2, 4]).count() == 3
+        assert TimeTable.objects.or_filter(week_day__range=[2, 4], hours__range=[1, 4]).count() == 4
+        assert TimeTable.objects.or_filter(
+            adate__range=(datetime.date.today() - datetime.timedelta(10),
+                          datetime.date.today() + datetime.timedelta(10),
+                          ), hours__range=[1, 4]).count() == 4
+
+    def test_escaping(self):
+        Student.objects.delete()
+        with BlockSave(Student):
+            Student(name='jhon smith', surname='jr.').save()
+            Student(name='jhon smith', surname='sr.').save()
+        # assert Student.objects.filter(name__contains='on sm').count() == 2
+        assert Student.objects.filter(name='jhon smith').count() == 2

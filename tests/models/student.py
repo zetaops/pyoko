@@ -23,33 +23,33 @@ class Student(Model):
 
     number = field.String("Student No", index=True)
     pno = field.String("TC No", index=True)
-    name = field.String("First Name", type='text_tr')
-    surname = field.String("Last Name", type='text_tr')
+    name = field.String("First Name", type='text_tr', index=False)
+    surname = field.String("Last Name", type='text_tr', index=False)
     join_date = field.Date("Join Date", index=True)
     bio = field.Text("Biography", index=True)
 
     class AuthInfo(Node):
-        username = field.String("Username", index=True)
-        email = field.String("Email", index=True)
-        password = field.String("Password")
+        username = field.String("Username")
+        email = field.String("Email")
+        password = field.String("Password", index=False)
 
     class Lectures(ListNode):
         name = field.String(type='text_tr')
-        code = field.String(required=False, index=True)
-        credit = field.Integer(default=0, index=True)
+        code = field.String(required=False)
+        credit = field.Integer(default=0)
 
         class NodeInListNode(Node):
-            foo = field.String()
+            foo = field.String(index=False)
 
         class Exams(ListNode):
-            type = field.String()
-            date = field.Date()
-            point = field.Integer(store=False)
+            type = field.String(index=False)
+            date = field.Date(index=False)
+            point = field.Integer(index=False)
 
         class Attendance(ListNode):
-            date = field.Date()
-            hour = field.Integer()
-            attended = field.Boolean(default=False)
+            date = field.Date(index=False)
+            hour = field.Integer(index=False)
+            attended = field.Boolean(default=False, index=False)
 
 
 

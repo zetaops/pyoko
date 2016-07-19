@@ -6,11 +6,12 @@
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
-from pprint import pprint
+from pprint import pprint, pformat
 from time import sleep, time
-from tests.models import *
-import pytest
 
+from pyoko.manage import FlushDB
+from .models import *
+import pytest
 
 
 class TestCase:
@@ -22,23 +23,22 @@ class TestCase:
     index_checked = False
 
     @classmethod
-    def prepare_testbed(cls):
-        if not cls.cleaned_up:
-            for model in [User, Employee, Scholar, TimeTable, Permission,
-                          AbstractRole, Role]:
-                model.objects._clear_bucket()
-            sleep(2)
+    def prepare_testbed(cls, force=False):
+        if force or not cls.cleaned_up:
+            FlushDB(model=('User,Employee,Scholar,TimeTable,'
+                           'Permission,AbstractRole,Role')
+                    ).run()
             cls.cleaned_up = True
 
     # def test_one_to_one_simple_benchmarked(self, benchmark):
     #     benchmark(self.test_one_to_one_simple)
 
-    @pytest.mark.second
     def test_one_to_one_simple(self):
         self.prepare_testbed()
         user = User(name='Joe').save()
         print(user.key)
-        employee = Employee(eid='E1', usr=user).save()
+        employee = Employee(eid='E1', usr=user)
+        employee.save()
         # need to wait a sec because we will query solr in the
         # _save_back_linked_models of User object
         sleep(1)
@@ -49,8 +49,9 @@ class TestCase:
         user_from_db.save()
         employee_from_db = Employee.objects.get(employee.key)
         assert employee_from_db.usr.name == user_from_db.name
+        assert user_from_db.employee.eid == employee.eid
 
-    @pytest.mark.first
+    @pytest.mark.second
     def test_many_to_many_simple(self):
         self.prepare_testbed()
 
@@ -102,45 +103,90 @@ class TestCase:
         r = Role(usr=u, name="Foo Frighters").save()
         assert Role.objects.get(r.key).usr.name == u.name
 
-
     @pytest.mark.second
     def test_lazy_links(self):
         self.prepare_testbed()
         u = User(name="Foo").save()
         mate = User(name="Mate").save()
-        r = Role(usr=u, teammate=mate, name="Foo Frighters").save()
+        r = Role(usr=u, teammate=mate, name="Foo Fighters").save()
         db_role = Role.objects.get(r.key)
         assert db_role.teammate.name == mate.name
         assert db_role.usr.name == u.name
-
-
 
     @pytest.mark.second
     def test_self_reference(self):
         self.prepare_testbed()
         ceo = User(name="CEO").save()
-        mate1 = User(name="Mate", supervisor=ceo).save()
-        mate2 = User(name="Mate2", supervisor=ceo).save()
-        ceo_db = User.objects.get(ceo.key)
-        assert mate1 in ceo_db.workers
-        assert len(ceo_db.workers) == 2
+        mate1 = User(name="Mate", supervisor=ceo).blocking_save()
+        mate2 = User(name="Mate2", supervisor=ceo).blocking_save()
+        ceo.reload()
+        assert mate1 in ceo.workers
+        assert len(ceo.workers) == 2
+
+        # FIXME: THIS SHOULD PASS!!! #5342 #GH-63
+        # assert ceo not in mate1.workers
 
 
+    def test_delete_rel_many_to_one(self, force=True):
+        self.prepare_testbed()
+        can_sleep = Permission(name="can sleep", codename='can_sleep').save()
+        can_feat = Permission(name="can feat", codename='can_feat').save()
+        arole = AbstractRole(name="arole")
+        arole.Permissions(permission=can_sleep)
+        arole.Permissions(permission=can_feat)
+        arole.blocking_save()
+        can_feat.blocking_delete()
+        arole.reload()
+        assert can_feat not in arole.Permissions
+        assert can_sleep in arole.Permissions
 
+    @pytest.mark.first
+    def test_delete_rel_many_to_many(self, force=True):
+        self.prepare_testbed()
+        can_eat = Permission(name="can eat", codename='can_eat').blocking_save()
+        arole = AbstractRole(key="arole").save()
+        brole = AbstractRole(key="brole").save()
+        arole.Permissions(permission=can_eat)
+        brole.Permissions(permission=can_eat)
+        arole.blocking_save()
+        brole.blocking_save()
+        del arole.Permissions[can_eat]
+        arole.save()
+        can_eat.reload()
+        assert arole not in can_eat.abstract_role_set
+        assert brole in can_eat.abstract_role_set
 
+    def test_delete_rel_one_to_many(self):
+        self.prepare_testbed()
+        user = User(name='foobar').save()
+        role = Role(usr=user).blocking_save()
+        user.blocking_delete()
+        role.reload()
+        assert not role.usr.exist
 
+    def test_set_listnode_rel_by_id(self):
+        p = Permission(code='can_see').save()
+        ar1 = AbstractRole()
+        ar2 = AbstractRole()
+        ar1.Permissions(permission=p)
+        ar1.blocking_save()
+        ar2.Permissions(permission_id=p.key)
+        ar2.blocking_save()
+        ar1.reload()
+        ar2.reload()
+        assert ar1.Permissions[0].permission == ar2.Permissions[0].permission
 
-
-
-
-
-
-
-
-
-
-
-
+    def test_set_rel_by_id(self):
+        u = User().save()
+        r1 = Role()
+        r1.usr_id = u.key
+        r1.blocking_save()
+        r1.reload()
+        r2 = Role()
+        r2.usr = u
+        r2.blocking_save()
+        r2.reload()
+        assert r1.usr == r2.usr
 
 
 

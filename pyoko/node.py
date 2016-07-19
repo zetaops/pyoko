@@ -6,6 +6,8 @@
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
+import difflib
+
 import datetime
 from copy import copy
 
@@ -17,6 +19,7 @@ from uuid import uuid4
 
 from collections import defaultdict
 
+from pyoko.exceptions import ObjectDoesNotExist, ValidationError
 from .conf import settings
 from .lib.utils import get_object_from_path, lazy_property, un_camel, un_camel_id
 from .modelmeta import ModelMeta
@@ -28,13 +31,19 @@ SOLR_SUPPORTED_TYPES = ['string', 'text_general', 'float', 'int', 'boolean',
 class LazyModel(lazy_object_proxy.Proxy):
     key = None
     verbose_name = None
+    null = False
     _TYPE = 'Model'
+
+    @property
+    def exist(self):
+        return bool(self.key)
 
     def get_verbose_name(self):
         return self.verbose_name or self.Meta.verbose_name
 
-    def __init__(self, wrapped, verbose_name):
+    def __init__(self, wrapped, null, verbose_name):
         self.verbose_name = verbose_name
+        self.null = null
         super(LazyModel, self).__init__(wrapped)
 
 
@@ -67,35 +76,70 @@ class Node(object):
     _TYPE = 'Node'
     _is_auto_created = False
 
-    def __init__(self, **kwargs):
-        super(Node, self).__init__()
-        self.timer = 0.0
-        self.path = []
-        self.set_tmp_key()
-        try:
-            self.root
-        except:
-            self.root = kwargs.pop('root', None)
-        self.context = kwargs.pop('context', None)
-        self._field_values = {}
-        self._data = {}
-        self._choice_fields = []
-        self._choices_manager = get_object_from_path(settings.CATALOG_DATA_MANAGER)
+    def setattr(self, key, val):
+        object.__setattr__(self, key, val)
 
+    def setattrs(self, **kwargs):
+        self.__dict__.update(kwargs)
+
+    @lazy_property
+    def _prop_list(self):
+        return (list(self.__dict__.keys()) +
+                list(self.__class__.__dict__.keys()) +
+                list(self._fields.keys()))
+
+    def __setattr__(self, key, val):
+        if (key not in self.__dict__ and
+                    key not in self.__class__.__dict__ and
+                    key not in self._fields):
+            matches = list(set(difflib.get_close_matches(key, self._prop_list, 4, 0.5)))
+            error_msg = "Unexpected assignment, do you mistyped a field name \"%s\"." % key
+            if matches:
+                error_msg += '\n\nDid you mean one of these?  \033[32m%s\033[0m' % '\033[0m   \033[32m'.join(matches)
+            print(self._prop_list)
+            raise AttributeError(error_msg)
+        if key not in self._fields:
+            _attr = getattr(self, key)
+            if _attr is not None and _attr.__class__.__name__ != val.__class__.__name__:
+                raise ValidationError("Assigned object's (%s) type (%s) does not matches to \"%s %s\" " %
+                                  (key,
+                                   val.__class__.__name__,
+                                   _attr.__class__.__name__,
+                                   getattr(_attr,'_TYPE', None)))
+        object.__setattr__(self, key, val)
+
+    def __init__(self, **kwargs):
+        self.setattrs(
+            _node_path=[],
+            _field_values={},
+            _secured_data={},
+            _choice_fields=[],
+            _data={},
+            _choices_manager=get_object_from_path(settings.CATALOG_DATA_MANAGER),
+                      )
+        super(Node, self).__init__()
+        try:
+            self._root_node
+        except:
+            self.setattrs(
+                _root_node=kwargs.pop('_root_node', None),
+                _context=kwargs.pop('context', None),
+                _model_in_node=defaultdict(list)
+            )
+        # self._context = kwargs.pop('context', None)
+        # self._field_values = {}
+        # self._data = {}
+        # self._choice_fields = []
+        # self._choices_manager = get_object_from_path(settings.CATALOG_DATA_MANAGER)
         # if model has cell_filters that applies to current user,
         # filtered values will be kept in _secured_data dict
-        self._secured_data = {}
-
+        # self._secured_data = {}
         # linked models registry for finding the list_nodes that contains a link to us
-        self._model_in_node = defaultdict(list)
-
-        # a registry for -keys of- models which processed with clean_value method
-        # this is required to prevent endless recursive invocation of n-2-n related models
-        self.processed_nodes = kwargs.pop('processed_nodes', [])
-
+        # self._model_in_node = defaultdict(list)
         self._instantiate_linked_models(kwargs)
         self._instantiate_nodes()
         self._set_fields_values(kwargs)
+
 
     def get_verbose_name(self):
         return self.__class__.__name__
@@ -105,10 +149,12 @@ class Node(object):
         return sorted(self._fields.items(), key=lambda kv: kv[1]._order)
 
     @classmethod
-    def _add_linked_model(cls, mdl, o2o=False, field=None, reverse=None,
-                          verbose=None, is_set=False, m2m=False, **kwargs):
+    def _add_linked_model(cls, mdl, link_source=False, null=False, o2o=False, field=None,
+                          reverse=None, verbose=None, is_set=False, m2m=False, **kwargs):
         # name = kwargs.get('field', mdl.__name__)
         lnk = {
+            'null': null,
+            'link_source': link_source,
             'o2o': o2o,
             'mdl': mdl,
             'field': field,
@@ -116,6 +162,7 @@ class Node(object):
             'verbose': verbose,
             'is_set': is_set,
             'm2m': m2m,
+            # 'node': node,
         }
         lnksrc = kwargs.pop('lnksrc', '')
         lnk.update(kwargs)
@@ -125,9 +172,6 @@ class Node(object):
         if lnk not in cls._linked_models[mdl.__name__]:
             cls._linked_models[mdl.__name__].append(lnk)
 
-    def set_tmp_key(self):
-        self.key = "TMP_%s_%s" % (self.__class__.__name__, uuid4().hex[:10])
-
     @classmethod
     def _get_bucket_name(cls):
         return getattr(cls.Meta, 'bucket_name', un_camel(cls.__name__))
@@ -136,9 +180,9 @@ class Node(object):
         """
         returns the dotted path of the given model attribute
         """
-        root = self.root or self
-        return ('.'.join(list(self.path + [un_camel(self.__class__.__name__),
-                                           prop]))).replace(root._get_bucket_name() + '.', '')
+        root_name = (self._root_node or self)._get_bucket_name()
+        return ('.'.join(list(self._node_path + [un_camel(self.__class__.__name__),
+                                                 prop]))).replace('%s.' % root_name, '')
 
     @classmethod
     def get_field(cls, field_name):
@@ -146,70 +190,107 @@ class Node(object):
 
     @classmethod
     def get_link(cls, **kw):
+        """
+        Get first item of get_links() method
+        """
         return cls.get_links(**kw)[0]
 
     @classmethod
     def get_links(cls, **kw):
-        constraint = list(kw.items())
+        """
+        Linked models from this model
+
+        Keyword Args:
+            filter by items of _linked_models
+
+            startswith: Bool, use startswith for filtering instead of exact matching.
+                Only works for filtering over one field.
+
+        Returns:
+            Link list
+        """
+        startswith = kw.pop('startswith', False)
+        kwitems = kw.items()
+        constraint = set(kwitems)
         models = []
         for links in cls._linked_models.values():
             for lnk in links:
-                if not constraint or constraint[0] in list(lnk.items()):
+                if not constraint or constraint.issubset(set(lnk.items())):
+                    models.append(lnk)
+                elif startswith and lnk[kwitems[0][0]].startswith(kwitems[0][1]):
                     models.append(lnk)
         return models
 
     def _instantiate_linked_models(self, data=None):
         from .model import Model
-        def foo_model(modl, context, verbose_name):
-            return LazyModel(lambda: modl(context), verbose_name)
+        def foo_model(modl, context, null, verbose_name):
+            return LazyModel(lambda: modl(context), null, verbose_name)
 
         for lnk in self.get_links(is_set=False):
             # if lnk['is_set']:
             #     continue
+            self.setattr(lnk['field'] + '_id', '')
             if data:
                 # data can be came from db or user
                 if lnk['field'] in data and isinstance(data[lnk['field']], Model):
                     # this should be coming from user,
                     # and it should be a model instance
                     linked_mdl_ins = data[lnk['field']]
-                    setattr(self, lnk['field'], linked_mdl_ins)
-                    # if self.root.is_in_db():
-                    #     if root model already saved (has a key),
-                    #     update reverse relations of linked model
-                    # self.root.update_new_linked_model(linked_mdl_ins, lnk['field'], lnk['o2o'])
-                    # else:
-                    # otherwise we should do it after root model saved
-                    self.root._add_back_link(linked_mdl_ins, lnk['field'], lnk['o2o'])
+                    self.setattr(lnk['field'], linked_mdl_ins)
+                    try:
+                        self._root_node._add_back_link(
+                            linked_mdl_ins,
+                            self._root_node.get_link(mdl=lnk['mdl'],
+                                                     link_source=not lnk['link_source']))
+                    except:
+                        pass
                 else:
                     _name = un_camel_id(lnk['field'])
                     if _name in data and data[_name] is not None:
                         # this is coming from db,
                         # we're preparing a lazy model loader
                         def fo(modl, context, key):
-                            return lambda: modl(context,
+                            def fo2():
+                                try:  # workaround for #5094 / GH-46
+                                    return modl(context,
+                                                null=lnk['null'],
                                                 verbose_name=lnk['verbose']).objects.get(key)
+                                except ObjectDoesNotExist:
+                                    return modl(context,
+                                                null=lnk['null'],
+                                                verbose_name=lnk['verbose'])
 
-                        obj = LazyModel(fo(lnk['mdl'], self.context, data[_name]), lnk['verbose'])
+                            return fo2
+
+                        obj = LazyModel(fo(lnk['mdl'], self._context, data[_name]),
+                                        lnk['null'],
+                                        lnk['verbose'])
                         obj.key = data[_name]
-                        setattr(self, lnk['field'], obj)
+                        obj.null = lnk['null']
+                        self.setattr(lnk['field'], obj)
                     else:
                         # creating a lazy proxy for empty linked model
-                        # Note: this should be explicitly saved before root model!
-                        setattr(self, lnk['field'],
-                                foo_model(lnk['mdl'], self.context, lnk['verbose']))
-                        # setattr(self, lnk['field'], LazyModel(lambda: lnk['mdl'](self.context)))
+                        # Note: this should be explicitly saved before _root_node model!
+                        self.setattr(lnk['field'],
+                                foo_model(lnk['mdl'],
+                                          self._context,
+                                          lnk['null'],
+                                          lnk['verbose']))
             else:
                 # creating an lazy proxy for empty linked model
-                # Note: this should be explicitly saved before root model!
-                setattr(self, lnk['field'], foo_model(lnk['mdl'], self.context, lnk['verbose']))
-                # setattr(self, lnk['field'], LazyModel(lambda: lnk['mdl'](self.context)))
+                # Note: this should be explicitly saved before _root_node model!
+                self.setattr(lnk['field'], foo_model(lnk['mdl'],
+                                                      self._context,
+                                                      lnk['null'],
+                                                      lnk['verbose']))
+                # setattr(self, lnk['field'], LazyModel(lambda: lnk['mdl'](self._context)))
 
     def _instantiate_node(self, name, klass):
-        # instantiate given node, pass path and root info
-        ins = klass(**{'context': self.context,
-                       'root': self.root or self})
-        ins.path = self.path + [self.__class__.__name__.lower()]
-        setattr(self, name, ins)
+        # instantiate given node, pass path and _root_node info
+        ins = klass(**{'context': self._context,
+                       '_root_node': self._root_node or self})
+        ins.setattr('_node_path', self._node_path + [un_camel(self.__class__.__name__)])
+        self.setattr(name, ins)
         return ins
 
     def _instantiate_nodes(self):
@@ -244,6 +325,15 @@ class Node(object):
         return self
 
     def get_humane_value(self, name):
+        """
+        Returns a human readble/meaningful value for the field
+
+        Args:
+            name (str): Model field name
+
+        Returns:
+            Human readble field value
+        """
         from . import fields
         if name in self._choice_fields:
             return getattr(self, 'get_%s_display' % name)()
@@ -258,38 +348,53 @@ class Node(object):
 
     def _set_fields_values(self, kwargs):
         """
-        fill the fields of this node
-        :type kwargs: builtins.dict
+        Fill the fields of this node
+
+        Args:
+            kwargs: Field values
         """
-        if kwargs:
-            for name, _field in self._fields.items():
-                if name in kwargs:
-                    val = kwargs.get(name, self._field_values.get(name))
-                    path_name = self._path_of(name)
-                    root = self.root or self
-                    if path_name in root.get_unpermitted_fields():
-                        self._secured_data[path_name] = val
-                        continue
-                    if not kwargs.get('from_db'):
-                        setattr(self, name, val)
-                    else:
-                        _field._load_data(self, val)
-                    if _field.choices is not None:
-                        self._choice_fields.append(name)
+        # if kwargs:
+        for name, _field in self._fields.items():
+            val = None
+            if name in kwargs:
+                val = kwargs.get(name, self._field_values.get(name))
+                path_name = self._path_of(name)
+                _root_node = self._root_node or self
+                if path_name in _root_node.get_unpermitted_fields():
+                    self._secured_data[path_name] = val
+                    continue
+            elif _field.default:
+                val = _field.default() if callable(_field.default) else _field.default
+            if val:
+                if not kwargs.get('from_db'):
+                    self.setattr(name, val)
+                else:
+                    _field._load_data(self, val)
 
-                        # adding get_%s_display() methods for fields which has "choices" attribute
-                        def foo():
-                            choices, value = copy(_field.choices), copy(val)
-                            return lambda: self._choices_manager(choices, value)
+            # if not self._field_values.get(name):
+            #     self._field_values[name] = getattr(self, name)
+            if _field.choices is not None:
+                self._choice_fields.append(name)
+                self._set_get_choice_display_method(name, _field, val)
 
-                        setattr(self, 'get_%s_display' % name, foo())
+
+    def _set_get_choice_display_method(self, name, _field, val):
+        # adding get_%s_display() methods for fields which has "choices" attribute
+        def get_choice_display_closure():
+            choices, value = copy(_field.choices), copy(val)
+            return lambda: self._choices_manager(choices, value)
+
+        self.setattr('get_%s_display' % name, get_choice_display_closure())
 
     def _collect_index_fields(self, in_multi=False):
         """
-        collects fields which will be indexed
-        :param str model_name: base Model's name
-        :param bool in_multi: if we are in a ListNode or not
-        :return: [(field_name, solr_type, is_indexed, is_stored, is_multi]
+        Collects fields which will be indexed.
+
+        Args:
+            in_multi (bool): if we are in a ListNode or not
+
+        Returns:
+            [(field_name, solr_type, is_indexed, is_stored, is_multi]
         """
         result = []
         # if not model_name:
@@ -297,7 +402,7 @@ class Node(object):
         from .listnode import ListNode
         multi = in_multi or isinstance(self, ListNode)
         for lnk in self.get_links(is_set=False):
-            result.append((self._path_of(un_camel_id(lnk['field'])), 'string', True, False, multi))
+            result.append((self._path_of(un_camel_id(lnk['field'])), 'string', True, settings.DEBUG, multi))
 
         for name, field_ins in self._fields.items():
             field_name = self._path_of(name)
@@ -306,7 +411,7 @@ class Node(object):
             result.append((field_name,
                            solr_type,
                            field_ins.index,
-                           field_ins.store,
+                           field_ins.store or settings.DEBUG,
                            multi))
         for mdl_ins in self._nodes:
             result.extend(getattr(self, mdl_ins)._collect_index_fields(multi))
@@ -317,23 +422,23 @@ class Node(object):
         With the data returned from riak:
         - fills model's fields, nodes and listnodes
         - instantiates linked model instances
-        :type bool from_db: if data coming from db instead of calling
-        self._set_fields_values() we simply use field's _load_data method.
-        :param dict data:
-        :return: self
+
+        Args:
+            from_db (bool): if data coming from db instead of calling
+                self._set_fields_values() we simply use field's _load_data method.
         """
         self._data = data.copy()
         self._data['from_db'] = from_db
         self._fill_nodes(self._data)
         self._set_fields_values(self._data)
         self._instantiate_linked_models(self._data)
+        del self._data['from_db']
         return self
 
     def _clean_node_value(self, dct):
         # get values of nodes
         for name in self._nodes:
             node = getattr(self, name)
-            node.processed_nodes = self.processed_nodes
             dct[un_camel(name)] = node.clean_value()
         return dct
 
@@ -351,11 +456,8 @@ class Node(object):
         # get keys of linked models
         for lnk in self.get_links(is_set=False):
             lnkd_mdl = getattr(self, lnk['field'])
-            dct[un_camel_id(lnk['field'])] = lnkd_mdl.key
-
-    def clean_field_values(self):
-        return dict((un_camel(name), field_ins.clean_value(self._field_values.get(name)))
-                    for name, field_ins in self._fields.items())
+            mdl_id = un_camel_id(lnk['field'])
+            dct[mdl_id] = getattr(self, mdl_id) or (lnkd_mdl.key if lnkd_mdl is not None else '')
 
     def clean_value(self):
         """

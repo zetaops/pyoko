@@ -39,6 +39,7 @@ def test_model_to_json_compact():
     # print st.clean_value()
     clean_value = st.clean_value()
     clean_data['timestamp'] = clean_value['timestamp']
+    clean_data['updated_at'] = clean_value['updated_at']
     assert clean_data == clean_value
 
 
@@ -66,7 +67,6 @@ def test_model_to_json_expanded():
     for ld in data['lectures']:
         lecture = s.Lectures()
         lecture.code = ld['code']
-        lecture.idx = ld['idx']
         lecture.credit = ld['credit']
         lecture.name = ld['name']
         milm = lecture.NodeInListNode()
@@ -75,14 +75,13 @@ def test_model_to_json_expanded():
             attendance = lecture.Attendance()
             attendance.attended = atd['attended']
             attendance.date = atd['date']
-            attendance.idx = atd['idx']
             attendance.hour = atd['hour']
         for exam in ld['exams']:
             exm = lecture.Exams()
             exm.date = exam['date']
-            exm.idx = exam['idx']
             exm.point = exam['point']
             exm.type = exam['type']
     clean_value = s.clean_value()
     clean_data['timestamp'] = clean_value['timestamp']
+    clean_data['updated_at'] = clean_value['updated_at']
     assert clean_data == clean_value
