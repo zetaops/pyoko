@@ -260,6 +260,8 @@ class ListNode(Node):
             _lnk_key = obj.key
             _obj = self.node_dict[obj.key]
             del self.node_dict[obj.key]
+        else:
+            _obj = obj
         self.node_stack.remove(_obj)
         if _lnk_key and sync:
             # this is a "many_to_n" relationship,
