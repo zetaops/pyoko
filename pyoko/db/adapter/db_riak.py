@@ -50,8 +50,9 @@ sys.PYOKO_STAT_COUNTER = {
 sys.PYOKO_LOGS = defaultdict(list)
 
 class BlockSave(object):
-    def __init__(self, mdl):
+    def __init__(self, mdl, query_dict=None):
         self.mdl = mdl
+        self.query_dict = query_dict or {}
 
     def __enter__(self):
         Adapter.block_saved_keys = []
@@ -60,7 +61,8 @@ class BlockSave(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         key_list = list(set(Adapter.block_saved_keys))
-        indexed_obj_count = self.mdl.objects.filter(key__in=key_list)
+        self.query_dict['key__in'] = key_list
+        indexed_obj_count = self.mdl.objects.filter(**self.query_dict)
         while Adapter.block_saved_keys and indexed_obj_count.count() < len(key_list):
             time.sleep(.4)
         Adapter.COLLECT_SAVES = False
