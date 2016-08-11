@@ -1,5 +1,6 @@
 # -*-  coding: utf-8 -*-
 """
+This module holds the pyoko's Model object
 """
 
 # Copyright (C) 2015 ZetaOps Inc.
@@ -9,7 +10,6 @@
 import six
 import time
 
-from pyoko.db.connection import cache
 from pyoko.exceptions import IntegrityError
 from .node import Node, FakeContext
 from . import fields as field
@@ -151,14 +151,6 @@ class Model(Node):
 
         Returns:
             True if this model instance stored in DB and has a key and False otherwise.
-
-        Examples:
-            >>> class Student(Model):
-            >>>    #...
-            >>>    adviser = Person()
-            >>>
-            >>> if student.adviser.exist:
-            >>>    # do something
         """
         return bool(self.key)
 
@@ -239,7 +231,10 @@ class Model(Node):
             objects (Queryset): QuerySet object.
 
         Examples:
-            >>> return objects.filter(user=context.user)
+
+            .. code-block:: python
+                class FooBar(Model):
+                return objects.filter(user=context.user)
 
         Returns:
             Queryset object.
@@ -428,9 +423,32 @@ class Model(Node):
                 self.post_creation()
         return self
 
+    def changed_fields(self):
+        """
+        Returns:
+            list: List of fields names which their values changed.
+        """
+        current_dict = self.clean_value()
+        set_current, set_past = set(current_dict.keys()), set(self._data.keys())
+        intersect = set_current.intersection(set_past)
+        return set(o for o in intersect if self._data[o] != current_dict[o])
+
+    def is_changed(self, field):
+        """
+        Args:
+            field (string):Field name.
+
+        Returns:
+            bool: True if given fields value is changed.
+        """
+        return field in self.changed_fields()
+
     def blocking_save(self):
         """
         Saves object to DB. Waits till the backend properly indexes the new object.
+
+        Returns:
+            Model instance.
         """
         is_new = not self.exist
         self.save()
