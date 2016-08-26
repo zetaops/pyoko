@@ -335,7 +335,7 @@ class QuerySet(object):
 
         """
         clone = copy.deepcopy(self)
-        clone.adapter.want_deleted = True
+        # clone.adapter.want_deleted = True
         return [item.delete() and item for item in clone]
 
     def values_list(self, *args, **kwargs):
