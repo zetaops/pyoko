@@ -116,9 +116,9 @@ def get_object_from_path(path):
     try:
         return sys.IMPORT_CACHE[path]
     except KeyError:
-        path = path.split('.')
-        module_path = '.'.join(path[:-1])
-        class_name = path[-1]
+        _path = path.split('.')
+        module_path = '.'.join(_path[:-1])
+        class_name = _path[-1]
         module = importlib.import_module(module_path)
         sys.IMPORT_CACHE[path] = getattr(module, class_name)
         return sys.IMPORT_CACHE[path]
