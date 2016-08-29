@@ -95,7 +95,7 @@ class Node(object):
             matches = list(set(difflib.get_close_matches(key, self._prop_list, 4, 0.5)))
             error_msg = "Unexpected assignment, do you mistyped a field name \"%s\"." % key
             if matches:
-                error_msg += '\n\nDid you mean one of these?  \033[32m%s\033[0m' % '\033[0m   \033[32m'.join(matches)
+                error_msg += '\n\nDid you mean one of these?  ' % '""'.join(matches)
             print(self._prop_list)
             raise AttributeError(error_msg)
         if key not in self._fields:
@@ -229,7 +229,7 @@ class Node(object):
         for lnk in self.get_links(is_set=False):
             # if lnk['is_set']:
             #     continue
-            self.setattr(lnk['field'] + '_id', '')
+            self.setattr(lnk['field'] + '_id', six.text_type(""))
             if data:
                 # data can be came from db or user
                 if lnk['field'] in data and isinstance(data[lnk['field']], Model):
