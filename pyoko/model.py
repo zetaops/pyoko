@@ -128,6 +128,14 @@ class Model(Node):
         """
         return self._data == other._data and self.key == other.key
 
+    def __ne__(self, other):
+        """
+        İnequality of two model instance depends on uniformity of their
+        self._data and self.key.
+        """
+
+        return not self.__eq__(other)
+
     def __hash__(self):
         # hash is based on self.key if exists or serialization of object's data.
         if self.key:
@@ -443,16 +451,22 @@ class Model(Node):
         """
         return field in self.changed_fields()
 
-    def blocking_save(self):
+    def blocking_save(self, query_dict=None):
         """
         Saves object to DB. Waits till the backend properly indexes the new object.
+
+        Args:
+            query_dict(dict) : contains keys - values of  the model fields
 
         Returns:
             Model instance.
         """
-        is_new = not self.exist
+        query_dict = query_dict or {}
+        for query in query_dict:
+            self.setattr(query, query_dict[query])
+
         self.save()
-        while is_new and not self.objects.filter(key=self.key).count():
+        while not self.objects.filter(key=self.key, **query_dict).count():
             time.sleep(0.3)
         return self
 
