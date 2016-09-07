@@ -230,7 +230,7 @@ class Node(object):
         for lnk in self.get_links(is_set=False):
             # if lnk['is_set']:
             #     continue
-            self.setattr(lnk['field'] + '_id', six.text_type(""))
+            self.setattr(lnk['field'] + '_id', "")
             if data:
                 # data can be came from db or user
                 if lnk['field'] in data and isinstance(data[lnk['field']], Model):
