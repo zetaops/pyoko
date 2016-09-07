@@ -252,14 +252,9 @@ class Node(object):
                         # we're preparing a lazy model loader
                         def fo(modl, context, key):
                             def fo2():
-                                try:  # workaround for #5094 / GH-46
-                                    return modl(context,
-                                                null=lnk['null'],
-                                                verbose_name=lnk['verbose']).objects.get(key)
-                                except (ObjectDoesNotExist, MultipleObjectsReturned):
-                                    return modl(context,
-                                                null=lnk['null'],
-                                                verbose_name=lnk['verbose'])
+                                return modl(context,
+                                            null=lnk['null'],
+                                            verbose_name=lnk['verbose']).objects.get(key)
 
                             return fo2
 
