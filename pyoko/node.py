@@ -209,8 +209,9 @@ class Node(object):
         Returns:
             Link list
         """
+        # TODO: Add tests for this method
         startswith = kw.pop('startswith', False)
-        kwitems = kw.items()
+        kwitems = list(kw.items())  # Dictionary items is not indexible in Python 3
         constraint = set(kwitems)
         models = []
         for links in cls._linked_models.values():
