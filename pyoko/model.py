@@ -10,7 +10,7 @@ This module holds the pyoko's Model object
 import six
 import time
 
-from pyoko.exceptions import IntegrityError
+from pyoko.exceptions import IntegrityError, ObjectDoesNotExist
 from .node import Node, FakeContext
 from . import fields as field
 from .db.queryset import QuerySet
@@ -77,6 +77,7 @@ class Model(Node):
             _just_created=None,
             just_created=None,
             on_save=[],
+            _exists=None,
         )
         # self.verbose_name = kwargs.get('verbose_name')
         # self.null = kwargs.get('null', False)
@@ -275,9 +276,21 @@ class Model(Node):
                 remote_set = getattr(linked_mdl_ins, local_field_name)
                 if remote_set._TYPE == 'ListNode' and self not in remote_set:
                     remote_set(**{remote_field_name: self._root_node})
+                    if linked_mdl_ins._exists is False:
+                        raise ObjectDoesNotExist('Linked %s on field %s with key %s doesn\'t exist' % (
+                            linked_mdl_ins.__class__.__name__,
+                            remote_field_name,
+                            linked_mdl_ins.key,
+                        ))
                     linked_mdl_ins.save(internal=True)
             else:
                 linked_mdl_ins.setattr(remote_field_name, self._root_node)
+                if linked_mdl_ins._exists is False:
+                    raise ObjectDoesNotExist('Linked object %s on field %s with key %s doesn\'t exist' % (
+                        linked_mdl_ins.__class__.__name__,
+                        remote_field_name,
+                        linked_mdl_ins.key,
+                    ))
                 linked_mdl_ins.save(internal=True)
 
     def _add_back_link(self, linked_mdl, link):

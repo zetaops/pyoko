@@ -46,6 +46,9 @@ class QuerySet(object):
             self.set_model(model=conf['model'])
         elif 'model_class' in conf:
             self.set_model(model_class=conf['model_class'])
+        # Keeps track of previous slice to allow indexing into a slice
+        self._start = None
+        self._rows = None
 
     # ######## Development Methods  #########
 
@@ -91,7 +94,9 @@ class QuerySet(object):
     def __getitem__(self, index):
         clone = copy.deepcopy(self)
         if isinstance(index, int):
-            clone.adapter.set_params(rows=1, start=index)
+            # Adjust the index if a slice was defined previously
+            adjusted_index = index + (self._start or 0)
+            clone.adapter.set_params(rows=1, start=adjusted_index)
             data, key = clone.adapter.get_one()
             return (clone._make_model(data, key)
                     if clone._cfg['rtype'] == ReturnType.Model
@@ -106,8 +111,13 @@ class QuerySet(object):
             else:
                 stop = None
             if start >= 0 and stop:
-
-                clone.adapter.set_params(rows=stop - start, start=start)
+                # Adjust the start and rows if a slice was defined previously
+                rows = stop - start
+                start += self._start or 0
+                # Save the slice limits to the sliced queryset, so that further queries on the slice work correctly
+                clone._start = start
+                clone._rows = rows
+                clone.adapter.set_params(rows=rows, start=start)
                 return clone
             else:
                 raise TypeError("unlimited slicing not supported")
@@ -308,6 +318,11 @@ class QuerySet(object):
             MultipleObjectsReturned: If there is more than one (1) record is returned.
         """
         clone = copy.deepcopy(self)
+        # If we are in a slice, adjust the start and rows
+        if self._start:
+            clone.adapter.set_params(start=self._start)
+        if self._rows:
+            clone.adapter.set_params(rows=self._rows)
         if key:
             data, key = clone.adapter.get(key)
         elif kwargs:
