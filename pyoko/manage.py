@@ -17,6 +17,7 @@ import json
 import time
 from os import environ
 import os
+import sys
 from riak import ConflictError
 
 from pyoko.conf import settings
@@ -318,38 +319,166 @@ class ManagementCommands(object):
         self.args.command()
 
 
+class BaseDumpHandler(object):
+    """The base class for different implementations of data dump handlers."""
+    EXTENSION = 'dump'
+
+    def __init__(self, models, batch_size, per_model=False, output_path=''):
+        self._models = models
+        self._batch_size = batch_size
+        self._per_model = per_model
+        self._output_path = output_path
+
+    def _prepare_output_multi(self, model):
+        """If printing to a different file per model, change the file for the current model"""
+        model_name = model.__name__
+        current_path = os.path.join(self._output_path, '{model}.{extension}'.format(
+            model=model_name,
+            extension=self.EXTENSION,
+        ))
+        self._outfile = codecs.open(current_path, 'w', encoding='utf-8')
+        print('Dumping {model} to {file}'.format(model=model_name, file=current_path))
+
+    def dump_data(self):
+        if self.single_file:
+            self._outfile = codecs.open(self._output_path, 'w', encoding='utf-8')
+            print('Dumping to file {path}'.format(path=self._output_path))
+
+        for mdl in self._models:
+
+            if self.multi_file:
+                self._prepare_output_multi(mdl)
+            elif self.single_file:
+                print('Dumping {model}'.format(model=mdl.__name__))
+
+            model = mdl(super_context)
+            count = model.objects.count()
+            rounds = int(count / self._batch_size) + 1
+            bucket = model.objects.adapter.bucket
+
+            self.pre_dump_hook(bucket)
+            for i in range(rounds):
+                data = model.objects.data().raw('*:*').set_params(
+                    sort="timestamp asc",
+                    rows=self._batch_size,
+                    start=i * self._batch_size,
+                )
+                try:
+                    for value, key in data:
+                        if value is not None:
+                            self.handle_data(bucket, key, value)
+                except ValueError:
+                    raise
+            self.post_dump_hook(bucket)
+
+    def write(self, data):
+        if self._output_path:
+            self._outfile.write(data + '\n')
+        else:
+            print(data)
+
+    def handle_data(self, bucket, key, value):
+        raise RuntimeError('Subclasses must override handle_data method!')
+
+    def pre_dump_hook(self, bucket):
+        pass
+
+    def post_dump_hook(self, bucket):
+        pass
+
+    @property
+    def single_file(self):
+        return self._output_path and not self._per_model
+
+    @property
+    def multi_file(self):
+        return self._output_path and self._per_model
+
+
+class JSONDumpHandler(BaseDumpHandler):
+    """Writes each line as a separate JSON document.
+    Unlike "json_tree", memory usage does not increase with the number of records."""
+    EXTENSION = 'json'
+
+    def handle_data(self, bucket, key, value):
+        self.write(json.dumps((bucket.name, key, value)))
+
+
+class TreeDumpHandler(BaseDumpHandler):
+    """DO NOT use on big DBs. Writes whole dump as a big JSON object."""
+    EXTENSION = 'json'
+
+    def __init__(self, *args, **kwargs):
+        super(TreeDumpHandler, self).__init__(*args, **kwargs)
+        self._collected_data = defaultdict(list)
+
+    def handle_data(self, bucket, key, value):
+        self._collected_data[bucket.name].append((key, value))
+
+    def post_dump_hook(self, bucket):
+        self.write(json.dumps(self._collected_data))
+
+
+class PrettyDumpHandler(TreeDumpHandler):
+    """DO NOT use on big DBs. Formatted version of json_tree."""
+    def post_dump_hook(self, bucket):
+        self.write(json.dumps(self._collected_data, sort_keys=True, indent=4))
+
+
+class CSVDumpHandler(BaseDumpHandler):
+    """This is the default format. Writes one record per line.
+    Since it bypasses the JSON encoding/decoding,
+    it's much faster and memory efficient than others."""
+    EXTENSION = 'csv'
+
+    def handle_data(self, bucket, key, value):
+        self.write('{bucket}/|{key}/|{value}'.format(
+            bucket=bucket.name,
+            key=key,
+            value=value if PY2 else value.decode('utf-8'),
+        ))
+
+    def pre_dump_hook(self, bucket):
+        bucket.set_decoder('application/json', lambda a: a)
+
+    def post_dump_hook(self, bucket):
+        bucket.set_decoder('application/json', binary_json_decoder)
+
+
 class DumpData(Command):
     # FIXME: Should be refactored to a backend agnostic form
     CMD_NAME = 'dump_data'
     HELP = 'Dumps all data to stdout or to given file'
-    CSV = 'csv'
-    JSON = 'json'
-    TREE = 'json_tree'
-    PRETTY = 'pretty'
-    CHOICES = (CSV, JSON, TREE, PRETTY)
+    DUMP_HANDLERS = {
+        'csv': CSVDumpHandler,
+        'json': JSONDumpHandler,
+        'json_tree': TreeDumpHandler,
+        'pretty': PrettyDumpHandler,
+    }
     PARAMS = [
         {'name': 'model', 'required': True,
          'help': 'Models name(s) to be dumped. Say "all" to dump all models'},
         {'name': 'path', 'required': False,
          'help': 'Instead of stdout, write to given file'},
 
-        {'name': 'type', 'default': CSV, 'choices': CHOICES,
+        {'name': 'type', 'default': 'csv', 'choices': DUMP_HANDLERS.keys(),
          'help': """R|
-                %s : This is the default format. Writes one record per line.
-                     Since it bypasses the JSON encoding/decoding,
-                     it's much faster and memory efficient than others.
+                csv: {csv}
 
-                %s: Writes each line as a separate JSON document. Unlike "json_tree", memory usage
-                    does not increase with the number of records.
+                json: {json}
 
-                %s: DO NOT use on big DBs. Writes whole dump as a big JSON object.
+                json_tree: {json_tree}
 
-                %s: DO NOT use on big DBs. Formatted version of json_tree.
+                pretty: {pretty}
 
-                """ % CHOICES
+                """.format(**{name: handler.__doc__ for name, handler in DUMP_HANDLERS.items()})
          },
         {'name': 'batch_size', 'type': int, 'default': 1000,
          'help': 'Retrieve this amount of records from Solr in one time, defaults to 1000'},
+        {'name': 'per_model', 'action': 'store_true', 'default': False,
+         'help': 'Split the dumps per model, placing the data of each model into a seperate file. '
+                 'When this setting is used, path is required and should refer to a directory, '
+                 'in which the dumps will be placed.'},
     ]
 
     def run(self):
@@ -362,70 +491,33 @@ class DumpData(Command):
             # weird but this is enough to prevent a strange riak error
             # http://pastebin.com/HiPRmAhM
             raise
+
         registry = import_module('pyoko.model').model_registry
         model_name = self.manager.args.model
         if model_name != 'all':
-            models = [registry.get_model(name) for name in model_name.split(',')]
+            try:
+                models = [registry.get_model(name) for name in model_name.split(',')]
+            except KeyError as err:
+                print('Model {model} does not exist!'.format(model=err.args[0]))
+                sys.exit(1)
         else:
             models = registry.get_base_models()
+
         batch_size = self.manager.args.batch_size
-        typ = self.manager.args.type
-        to_file = self.manager.args.path
-        if to_file:
-            outfile = codecs.open(self.manager.args.path, 'w', encoding='utf-8')
-        data = defaultdict(list)
-        for mdl in models:
-            if to_file:
-                print("Dumping %s" % mdl.__name__)
-            model = mdl(super_context)
-            count = model.objects.count()
-            rounds = int(count / batch_size) + 1
-            bucket = model.objects.adapter.bucket
-            if typ == self.CSV:
-                bucket.set_decoder('application/json', lambda a: a)
-            for i in range(rounds):
-                q = model.objects.data().raw('*:*').set_params(sort="timestamp asc",
-                                                               rows=batch_size,
-                                                               start=i * batch_size)
-                try:
-                    for data_key in q:
-                        data, key = data_key
-                        if data is not None:
-                            if typ == self.JSON:
-                                out = json.dumps((bucket.name, key, data))
-                                if to_file:
-                                    outfile.write(out + "\n")
-                                else:
-                                    print(out)
-                            elif typ == self.TREE:
-                                data[bucket.name].append((key, data))
-                            elif typ == self.CSV:
-                                if PY2:
-                                    out = bucket.name + "/|" + key + "/|" + data
-                                    if to_file:
-                                        outfile.write(out + "\n")
-                                    else:
-                                        print(out)
-                                else:
-                                    out = bucket.name + "/|" + key + "/|" + data.decode('utf-8')
-                                    if to_file:
-                                        outfile.write(out + "\n")
-                                    else:
-                                        print(out)
-                except ValueError:
-                    raise
-            bucket.set_decoder('application/json', binary_json_decoder)
-        if typ in [self.TREE, self.PRETTY]:
-            if typ == self.PRETTY:
-                out = json.dumps(data, sort_keys=True, indent=4)
-            else:
-                out = json.dumps(data)
-            if to_file:
-                outfile.write(out)
-            else:
-                print(out)
-        if to_file:
-            outfile.close()
+        type_ = self.manager.args.type
+        output_path = self.manager.args.path
+        per_model = self.manager.args.per_model
+
+        # If per model dumps are requested, the path must be specified and must be a directory
+        if per_model and not output_path:
+            print('If per model dumps are requested, the path must be given!')
+            sys.exit(1)
+        if per_model and not os.path.isdir(output_path):
+            print('If per model dumps are requested, the path must be a directory!')
+            sys.exit(1)
+
+        dump_handler = self.DUMP_HANDLERS[type_](models, batch_size, per_model, output_path)
+        dump_handler.dump_data()
 
 
 class LoadData(Command):
