@@ -9,8 +9,11 @@
 from time import sleep
 
 from pyoko.manage import FlushDB
+from pyoko.exceptions import ObjectDoesNotExist
+from pyoko.db.adapter.db_riak import BlockSave
 from tests.data.test_data import data
-from .models import Student
+from .models import Student, User
+import pytest
 
 
 class TestCase:
@@ -58,3 +61,29 @@ class TestCase:
         updated_db_student = Student.objects.filter().get(db_student.key)
         assert updated_db_student.surname == db_student.surname
         assert updated_db_student.name == student.name
+
+    def test_missing_relation_not_created(self):
+        """
+        When an object is created, if it has a relation to another object that
+        is referenced with an id, but the other object doesn't actually exist,
+        the object referenced in relation automatically gets created. See issue
+        #5450.
+
+        The correct behaviour here should be throwing an exception, as inserting
+        an incorrect id is a likely mistake that the programmer might make.
+        """
+        # Create a user, giving it a relation that doesn't exist
+        supervisor_key = 'this_user_doesnt_exist'
+        user = User(name='TEST_USER', supervisor_id=supervisor_key)
+
+        initial_user_count = User.objects.count()
+        with BlockSave(User):
+            with pytest.raises(ObjectDoesNotExist):
+                user.save()
+        final_user_count = User.objects.count()
+
+        # The missing relation should not have been created
+        assert final_user_count - initial_user_count == 1
+
+        # Cleanup
+        user.delete()
