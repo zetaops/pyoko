@@ -10,7 +10,7 @@
 import codecs
 from time import sleep
 from pyoko.manage import ManagementCommands
-from models import Person, User
+from .models import Person, User
 import tempfile
 import os
 
