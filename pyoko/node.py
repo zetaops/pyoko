@@ -230,7 +230,7 @@ class Node(object):
         for lnk in self.get_links(is_set=False):
             # if lnk['is_set']:
             #     continue
-            self.setattr(lnk['field'] + '_id', "")
+            self.setattr(lnk['field'] + '_id', six.text_type(""))
             if data:
                 # data can be came from db or user
                 if lnk['field'] in data and isinstance(data[lnk['field']], Model):
@@ -252,9 +252,14 @@ class Node(object):
                         # we're preparing a lazy model loader
                         def fo(modl, context, key):
                             def fo2():
-                                return modl(context,
-                                            null=lnk['null'],
-                                            verbose_name=lnk['verbose']).objects.get(key)
+                                try:  # workaround for #5094 / GH-46
+                                    return modl(context,
+                                                null=lnk['null'],
+                                                verbose_name=lnk['verbose']).objects.get(key)
+                                except (ObjectDoesNotExist, MultipleObjectsReturned):
+                                    return modl(context,
+                                                null=lnk['null'],
+                                                verbose_name=lnk['verbose'])
 
                             return fo2
 
