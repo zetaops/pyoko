@@ -222,6 +222,42 @@ class TestCase:
                           datetime.date.today() + datetime.timedelta(10),
                           ), hours__range=[1, 4]).count() == 4
 
+    def test_slicing_indexing(self):
+        Student.objects.delete()
+        with BlockSave(Student):
+            Student(name='Olavi', surname='Mikkonen').save()
+            Student(name='Johan', surname='Hegg').save()
+            Student(name='Johan', surname='Soderberg').save()
+            Student(name='Ted', surname='Lundstrom').save()
+            Student(name='Michael', surname='Amott').save()
+            Student(name='Daniel', surname='Erlandsson').save()
+            Student(name='Sharlee', surname='D\'Angelo').save()
+            Student(name='Alissa', surname='White-Gluz').save()
+            Student(name='Jeff', surname='Loomis').save()
+        # Check regular slices
+        assert Student.objects.count() == 9
+        assert Student.objects[2:5].count() == 3
+        assert Student.objects[1:5].count() == 4
+        assert Student.objects[1:6].count() == 5
+        assert Student.objects[0:10].count() == 9
+        assert Student.objects[0:11].count() == 9
+        assert Student.objects[1:11].count() == 8
+        assert Student.objects[1:12].count() == 8
+        # Check multi-slicing
+        assert Student.objects[1:6][2:4].count() == 2
+        assert Student.objects[0:7][2:4].count() == 2
+        assert Student.objects[0:7][2:5].count() == 3
+        # Check get & indexing
+        s1 = Student.objects[3:4].get()
+        s2 = Student.objects[3:4][0]
+        assert s1 == s2
+        s1 = Student.objects[3:9][4:5].get()
+        s2 = Student.objects[3:9][4:5][0]
+        assert s1 == s2
+        # Check slicing with filters
+        assert Student.objects.filter(name__startswith='J')[1:3].count() == 2
+        assert Student.objects.filter(name__startswith='J')[2:3].get() is not None
+
     def test_escaping(self):
         Student.objects.delete()
         with BlockSave(Student):
