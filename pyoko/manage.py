@@ -12,6 +12,7 @@ from __future__ import print_function
 from argparse import RawTextHelpFormatter, HelpFormatter
 import codecs
 from collections import defaultdict
+import re
 import json
 
 import time
@@ -25,6 +26,7 @@ from riak.client import binary_json_decoder, binary_json_encoder
 from sys import argv, stdout
 from six import add_metaclass, PY2
 from pyoko.model import super_context
+from pyoko.lib import utils
 
 
 class CommandRegistry(type):
@@ -691,3 +693,242 @@ class FindDuplicateKeys(Command):
                 keys[r['_yz_rk']].append(mdl.__name__)
             if is_mdl_ok:
                 print("~~~~~~~~ %s is OK!" % mdl.Meta.verbose_name)
+
+
+class GenerateDiagrams(Command):
+    CMD_NAME = 'generate_diagrams'
+    HELP = 'Generate PlantUML diagrams from the models.'
+    SPLIT_APP = 'app'
+    SPLIT_MODEL = 'model'
+    SPLIT_NO = 'no'
+    SPLIT_CHOICES = (SPLIT_NO, SPLIT_APP, SPLIT_MODEL)
+    PARAMS = [
+        {'name': 'model', 'required': False, 'default': 'all',
+         'help': 'Models name(s) to generate diagrams for. Say "all" to generate diagrams for all models'},
+        {'name': 'path', 'required': False,
+         'help': 'Instead of stdout, write to given file'},
+        {'name': 'split', 'default': SPLIT_NO, 'choices': SPLIT_CHOICES,
+         'help': """R|
+               %s : Generates a single diagram containing all models.
+
+               %s: Generates seperate diagrams for each app. Requires path.
+
+               %s: Generates seperate diagrams for each model. Requires path.
+               """ % SPLIT_CHOICES
+         }
+    ]
+
+    # Representations of the different link types
+    _one_to_one = '"1" -- "1"'
+    _one_to_many = '"1" -- "0..*"'
+    _many_to_many = '"0..*" -- "0..*"'
+    # Markers used to denote required and null
+    _marker_true = '*'
+    _marker_false = ' '
+    # Extra padding, placed after field names and types
+    _padding_after_name = 3
+    _padding_after_type = 2
+    # Class start and end delimiters
+    _class_start = '\n\nclass %s<<(M,orchid)>>{'
+    _class_end = '}\n'
+    # Markers for the start and end of the apps
+    _app_start = '\npackage %s{'
+    _app_end = '}'
+    # The beginning and the end of the diagram
+    _diagram_start = """@startuml
+
+skinparam classAttributeFontName Monospaced
+skinparam classBackgroundColor #FFFFFF
+skinparam classBorderColor #D8D8D8
+skinparam packageBorderColor #BDBDBD
+skinparam classArrowColor #0B615E
+skinparam shadowing false
+
+title
+<size:24>Entity Based Model Diagram</size>
+( All Models extends <b>pyoko.Model</b> class )
+endtitle
+"""
+    _diagram_end = "@enduml"
+    # Prefixes for the items
+    _field_prefix = '  '
+    _nodelist_field_prefix = '|_'
+    # The function used to print output. Replaced with one that prints to file when path is given
+    _print = print
+
+    def run(self):
+        from pyoko.conf import settings
+        from importlib import import_module
+        import_module(settings.MODELS_MODULE)
+        registry = import_module('pyoko.model').model_registry
+        selected_models = self.manager.args.model
+        apps_models = registry.get_models_by_apps()
+        selected_by_app = list()
+        # Pick the selected models from each app
+        for app, app_models in apps_models:
+            if selected_models != 'all':
+                selected_from_app = [model for model in app_models
+                                     if model().title in selected_models.split(',')]
+            else:
+                selected_from_app = app_models
+            if len(selected_from_app) > 0:
+                selected_by_app.append((app, selected_from_app))
+        to_file = self.manager.args.path
+        split_type = self.manager.args.split
+        if to_file and split_type == self.SPLIT_APP:
+            self._print_split_app(to_file, selected_by_app)
+        if to_file and split_type == self.SPLIT_MODEL:
+            self._print_split_model(to_file, selected_by_app)
+        else:
+            self._print_single_file(to_file, selected_by_app)
+
+    def _print_split_model(self, path, apps_models):
+        """
+        Print each model in apps_models into its own file.
+        """
+        for app, models in apps_models:
+            for model in models:
+                model_name = model().title
+                if self._has_extension(path):
+                    model_path = re.sub(r'^(.*)[.](\w+)$', r'\1.%s.%s.\2' % (app, model_name), path)
+                else:
+                    model_path = '%s.%s.%s.puml' % (path, app, model_name)
+                self._print_single_file(model_path, [(app, [model])])
+
+    def _print_split_app(self, path, apps_models):
+        """
+        Print each app in apps_models associative list into its own file.
+        """
+        for app, models in apps_models:
+            # Convert dir/file.puml to dir/file.app.puml to print to an app specific file
+            if self._has_extension(path):
+                app_path = re.sub(r'^(.*)[.](\w+)$', r'\1.%s.\2' % app, path)
+            else:
+                app_path = '%s.%s.puml' % (path, app)
+
+            self._print_single_file(app_path, [(app, models)])
+
+    def _print_single_file(self, path, apps_models):
+        """
+        Print apps_models which contains a list of 2-tuples containing apps and their models
+        into a single file.
+        """
+        if path:
+            outfile = codecs.open(path, 'w', encoding='utf-8')
+            self._print = lambda s: outfile.write(s + '\n')
+        self._print(self._diagram_start)
+        for app, app_models in apps_models:
+            self._print_app(app, app_models)
+        self._print(self._diagram_end)
+        if path:
+            outfile.close()
+
+    def _print_app(self, app, models):
+        """
+        Print the models of app, showing them in a package.
+        """
+        self._print(self._app_start % app)
+        self._print_models(models)
+        self._print(self._app_end)
+
+    def _print_models(self, models):
+        # Generate the models & their fields
+        for mdl in models:
+            model = mdl(super_context)
+            self._print(self._class_start % model.title)
+            fields = []
+            fields.extend(self._get_model_fields(model))
+            links = model.get_links(link_source=True)
+            fields.extend(self._format_links_fields(links))
+            fields.append(('', '', '', ''))  # Empty line
+            fields.extend(self._format_listnodes(self._get_model_nodes(model)))
+            self._print_fields(fields)
+            self._print(self._class_end)
+            # Generate the links of the current model
+            self._print_links(model, links)
+
+    def _print_fields(self, fields):
+        """Print the fields, padding the names as necessary to align them."""
+        # Prepare a formatting string that aligns the names and types based on the longest ones
+        longest_name = max(fields, key=lambda f: len(f[1]))[1]
+        longest_type = max(fields, key=lambda f: len(f[2]))[2]
+        field_format = '%s%-{}s %-{}s %s'.format(
+            len(longest_name) + self._padding_after_name,
+            len(longest_type) + self._padding_after_type)
+        for field in fields:
+            self._print(field_format % field)
+
+    def _format_listnodes(self, listnodes):
+        """
+        Format ListNodes and their fields into tuples that can be printed with _print_fields().
+        """
+        fields = list()
+        for name, node in listnodes:
+            fields.append(('--', '', '', '--'))
+            fields.append(('', '**%s(ListNode)**' % name, '', ''))
+            for link in node.get_links():
+                linked_model = link['mdl'](super_context)
+                null = self._marker_true if link['null'] is True else self._marker_false
+                fields.append((self._nodelist_field_prefix, link['field'],
+                               '%s()' % linked_model.title, null))
+            fields.extend(self._get_model_fields(node, self._nodelist_field_prefix))
+        return fields
+
+    def _get_model_fields(self, model, prefix=_field_prefix):
+        """
+        Find all fields of given model that are not default models.
+        """
+        fields = list()
+        for field_name, field in model()._ordered_fields:
+            # Filter the default fields
+            if field_name not in getattr(model, '_DEFAULT_BASE_FIELDS', []):
+                type_name = utils.to_camel(field.solr_type)
+                required = self._marker_true if field.required is True else self._marker_false
+                fields.append((prefix, field_name, type_name, required))
+
+        return fields
+
+    def _get_model_nodes(self, model):
+        """
+        Find all the non-auto created nodes of the model.
+        """
+        nodes = [(name, node) for name, node in model._nodes.items()
+                if node._is_auto_created is False]
+        nodes.sort(key=lambda n: n[0])
+        return nodes
+
+    def _format_links_fields(self, links):
+        """
+        Format the fields containing links into 4-tuples printable by _print_fields().
+        """
+        fields = list()
+        for link in links:
+            linked_model = link['mdl'](super_context)
+            null = self._marker_true if link['null'] is True else self._marker_false
+            # In LinkProxy, if reverse_name is empty then only reverse has the name
+            # of the field on the link_source side
+            field_name = link['field'] or link['reverse']
+            fields.append((self._field_prefix, field_name, '%s()' % linked_model.title, null))
+        fields.sort(key=lambda f: f[1])
+        return fields
+
+    def _print_links(self, model, links):
+        """
+        Print links that start from model.
+        """
+        for link in links:
+            if link['o2o'] is True:
+                link_type = self._one_to_one
+            elif link['m2m'] is True:
+                link_type = self._many_to_many
+            else:
+                link_type = self._one_to_many
+            linked_model = link['mdl'](super_context)
+            self._print('%s %s %s' % (model.title, link_type, linked_model.title))
+
+    @staticmethod
+    def _has_extension(path):
+        """
+        Returns true if path ends with an extension.
+        """
+        return re.search(r'^.*[.]\w+$', path) is not None
