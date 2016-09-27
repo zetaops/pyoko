@@ -593,9 +593,11 @@ and .js extensions will be loaded."""},
 
         if self.record_counter:
             print("%s object(s) inserted." % self.record_counter)
+            self.record_counter = 0
 
         if self.already_existing:
             print("%s existing object(s) NOT updated." % self.already_existing)
+            self.already_existing = 0
 
 
 
