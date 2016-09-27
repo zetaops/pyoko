@@ -368,7 +368,7 @@ class Node(object):
                     continue
             elif _field.default:
                 val = _field.default() if callable(_field.default) else _field.default
-            if val:
+            if val is not None:
                 if not kwargs.get('from_db'):
                     self.setattr(name, val)
                 else:
