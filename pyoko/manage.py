@@ -565,6 +565,8 @@ and .js extensions will be loaded."""},
             ext = 'csv' if self.typ is self.CSV else 'js'
             for file in glob(os.path.join(self.manager.args.path, "*.%s" % ext)):
                 self.read_file(file)
+                self.record_counter = 0
+                self.already_existing = 0
         else:
             self.read_file(self.manager.args.path)
         for mdl in self.registry.get_base_models():
@@ -593,11 +595,10 @@ and .js extensions will be loaded."""},
 
         if self.record_counter:
             print("%s object(s) inserted." % self.record_counter)
-            self.record_counter = 0
 
         if self.already_existing:
             print("%s existing object(s) NOT updated." % self.already_existing)
-            self.already_existing = 0
+
 
 
 
