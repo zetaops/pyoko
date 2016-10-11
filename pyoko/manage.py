@@ -325,11 +325,12 @@ class BaseDumpHandler(object):
     """The base class for different implementations of data dump handlers."""
     EXTENSION = 'dump'
 
-    def __init__(self, models, batch_size, per_model=False, output_path=''):
+    def __init__(self, models, batch_size, per_model=False, output_path='', remove_dumped=False):
         self._models = models
         self._batch_size = batch_size
         self._per_model = per_model
         self._output_path = output_path
+        self._remove_dumped = remove_dumped
 
     def _prepare_output_multi(self, model):
         """If printing to a different file per model, change the file for the current model"""
@@ -360,15 +361,24 @@ class BaseDumpHandler(object):
 
             self.pre_dump_hook(bucket)
             for i in range(rounds):
+
+                start = 0 if self._remove_dumped else i
+
                 data = model.objects.data().raw('*:*').set_params(
                     sort="timestamp asc",
                     rows=self._batch_size,
-                    start=i * self._batch_size,
+                    start=start * self._batch_size,
                 )
+
                 try:
                     for value, key in data:
                         if value is not None:
                             self.handle_data(bucket, key, value)
+                            self.post_handle_data_hook(bucket, key, value)
+                    if self._remove_dumped:
+                        # wait 1 second to pass for next round
+                        print("removed dumped objects from riak, waiting for solr sync")
+                        time.sleep(5)
                 except ValueError:
                     raise
             self.post_dump_hook(bucket)
@@ -381,6 +391,13 @@ class BaseDumpHandler(object):
 
     def handle_data(self, bucket, key, value):
         raise RuntimeError('Subclasses must override handle_data method!')
+
+    def pre_handle_data_hook(self, bucket, key, value):
+        pass
+
+    def post_handle_data_hook(self, bucket, key, value):
+        if self._remove_dumped:
+            bucket.delete(key)
 
     def pre_dump_hook(self, bucket):
         pass
@@ -482,7 +499,9 @@ class DumpData(Command):
                  'When this setting is used, path is required and should refer to a directory, '
                  'in which the dumps will be placed.'},
         {'name': 'exclude',
-         'help': 'Models name(s) to be excluded, comma separated'}
+         'help': 'Models name(s) to be excluded, comma separated'},
+        {'name': 'remove_dumped', 'action': 'store_true', 'default': False,
+         'help': 'Remove dumped data from database'}
     ]
 
     def run(self):
@@ -515,6 +534,7 @@ class DumpData(Command):
         type_ = self.manager.args.type
         output_path = self.manager.args.path
         per_model = self.manager.args.per_model
+        remove_dumped = self.manager.args.remove_dumped
 
         # If per model dumps are requested, the path must be specified and must be a directory
         if per_model and not output_path:
@@ -524,7 +544,8 @@ class DumpData(Command):
             print('If per model dumps are requested, the path must be a directory!')
             sys.exit(1)
 
-        dump_handler = self.DUMP_HANDLERS[type_](models, batch_size, per_model, output_path)
+        dump_handler = self.DUMP_HANDLERS[type_](models, batch_size, per_model,
+                                                 output_path, remove_dumped)
         dump_handler.dump_data()
 
 
