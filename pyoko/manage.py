@@ -481,6 +481,8 @@ class DumpData(Command):
          'help': 'Split the dumps per model, placing the data of each model into a seperate file. '
                  'When this setting is used, path is required and should refer to a directory, '
                  'in which the dumps will be placed.'},
+        {'name': 'exclude',
+         'help': 'Models name(s) to be excluded, comma separated'}
     ]
 
     def run(self):
@@ -504,6 +506,10 @@ class DumpData(Command):
                 sys.exit(1)
         else:
             models = registry.get_base_models()
+            if self.manager.args.exclude:
+                excluded_models = [registry.get_model(name) for name in
+                                   self.manager.args.exclude.split(',')]
+                models = [model for model in models if model not in excluded_models]
 
         batch_size = self.manager.args.batch_size
         type_ = self.manager.args.type
