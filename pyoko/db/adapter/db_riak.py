@@ -124,11 +124,13 @@ class Adapter(BaseAdapter):
 
     # ######## Development Methods  #########
 
-
     def distinct_values_of(self, field):
         # FIXME: Add support for query filters
-        url = 'http://%s:8093/internal_solr/%s/select?q=-deleted%%3ATrue&wt=json&facet=true&facet.field=%s' % (
-            settings.RIAK_SERVER, self.index_name, field)
+        query = ""
+        for q in self._solr_query:
+            query += "+AND+%s%%3A%s" % (q[0], q[1])
+        url = 'http://%s:8093/internal_solr/%s/select?q=-deleted%%3ATrue%s&wt=json&facet=true&facet.field=%s' % (
+            settings.RIAK_SERVER, self.index_name, query, field)
         result = json.loads(bytes_to_str(urlopen(url).read()))
         dct = {}
         fresult = result['facet_counts']['facet_fields'][field]
