@@ -116,6 +116,7 @@ class Node(object):
             _choice_fields=[],
             _data={},
             _choices_manager=get_object_from_path(settings.CATALOG_DATA_MANAGER),
+
                       )
         super(Node, self).__init__()
         try:
@@ -140,9 +141,15 @@ class Node(object):
         self._instantiate_nodes()
         self._set_fields_values(kwargs)
 
-
     def get_verbose_name(self):
-        return self.__class__.__name__
+        """
+        Returns:
+             value of title attribute or verbose name of class
+        """
+        try:
+            return self.__class__.Meta.title or self.__class__.__name__
+        except AttributeError:
+            return self.__class__.__name__
 
     @lazy_property
     def _ordered_fields(self):
