@@ -7,7 +7,7 @@
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 
-test_data_solr_fields = [
+test_data_solr_fields_debug_zero = [
     ('bio', 'text_general', True, False, False),
     ('surname', 'text_tr', True, False, False),
     ('name', 'text_tr', True, False, False),
@@ -33,7 +33,9 @@ test_data_solr_fields = [
     ('auth_info.email', 'string', True, False, False)
 ]
 
-test_data_solr_schema = [
+test_data_solr_fields_debug_not_zero = [(x, y, z, True, w) for x, y, z, q, w in test_data_solr_fields_debug_zero]
+
+test_data_solr_schema_debug_zero = [
     '<field    type="text_general" name="bio"  indexed="true" stored="false" multiValued="false" />',
     '<field    type="text_tr" name="surname"  indexed="true" stored="false" multiValued="false" />',
     '<field    type="text_tr" name="name"  indexed="true" stored="false" multiValued="false" />',
@@ -57,3 +59,28 @@ test_data_solr_schema = [
     '<field    type="string" name="auth_info.username"  indexed="true" stored="false" multiValued="false" />',
     '<field    type="string" name="auth_info.password"  indexed="false" stored="false" multiValued="false" />',
     '<field    type="string" name="auth_info.email"  indexed="true" stored="false" multiValued="false" />']
+
+test_data_solr_schema_debug_not_zero = [
+    '<field    type="text_general" name="bio"  indexed="true" stored="true" multiValued="false" />',
+    '<field    type="text_tr" name="surname"  indexed="true" stored="true" multiValued="false" />',
+    '<field    type="text_tr" name="name"  indexed="true" stored="true" multiValued="false" />',
+    '<field    type="date" name="timestamp"  indexed="true" stored="true" multiValued="false" />',
+    '<field    type="date" name="updated_at"  indexed="true" stored="true" multiValued="false" />',
+    '<field    type="string" name="number"  indexed="true" stored="true" multiValued="false" />',
+    '<field    type="boolean" name="deleted"  indexed="true" stored="true" multiValued="false" />',
+    '<field    type="date" name="join_date"  indexed="true" stored="true" multiValued="false" />',
+    '<field    type="string" name="pno"  indexed="true" stored="true" multiValued="false" />',
+    '<field    type="int" name="lectures.credit"  indexed="true" stored="true" multiValued="true" />',
+    '<field    type="int" name="lectures.exams.point"  indexed="false" stored="true" multiValued="true" />',
+    '<field    type="string" name="lectures.code"  indexed="true" stored="true" multiValued="true" />',
+    '<field    type="text_tr" name="lectures.name"  indexed="true" stored="true" multiValued="true" />',
+    '<field    type="date" name="lectures.attendance.date"  indexed="false" stored="true" multiValued="true" />',
+    '<field    type="boolean" name="lectures.attendance.attended"  indexed="false" stored="true" multiValued="true" />',
+    '<field    type="date" name="deleted_at"  indexed="true" stored="true" multiValued="false" />',
+    '<field    type="int" name="lectures.attendance.hour"  indexed="false" stored="true" multiValued="true" />',
+    '<field    type="date" name="lectures.exams.date"  indexed="false" stored="true" multiValued="true" />',
+    '<field    type="string" name="lectures.exams.type"  indexed="false" stored="true" multiValued="true" />',
+    '<field    type="string" name="lectures.node_in_list_node.foo"  indexed="false" stored="true" multiValued="true" />',
+    '<field    type="string" name="auth_info.username"  indexed="true" stored="true" multiValued="false" />',
+    '<field    type="string" name="auth_info.password"  indexed="false" stored="true" multiValued="false" />',
+    '<field    type="string" name="auth_info.email"  indexed="true" stored="true" multiValued="false" />']
