@@ -26,6 +26,7 @@ def test_load_dump_data():
     with codecs.open(path, encoding='utf-8') as file:
         assert out == file.read()
 
+
 def test_dump_per_model():
     # Test if the per model dumps work
     path = tempfile.mkdtemp(prefix='pyoko_test_')
