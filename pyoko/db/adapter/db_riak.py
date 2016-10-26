@@ -205,8 +205,6 @@ class Adapter(BaseAdapter):
             self._cfg['bucket_name'] = name
         self.bucket = self._client.bucket_type(self._cfg['bucket_type']
                                                ).bucket(self._cfg['bucket_name'])
-        self.version_bucket = self._client.bucket_type(self._cfg['bucket_type'] + '_version'
-                                                       ).bucket(self._cfg['bucket_name'] + '_log')
         self.index_name = "%s_%s" % (self._cfg['bucket_type'], self._cfg['bucket_name'])
         return self
 
@@ -223,16 +221,16 @@ class Adapter(BaseAdapter):
         """
         vdata = {'data': data,
                  'key': model.key,
-                 'model': model.__class__._get_bucket_name(),
+                 'model': model.Meta.bucket_name,
                  'timestamp': time.time()}
         obj = version_bucket.new(data=vdata)
         obj.add_index('key_bin', model.key)
+        obj.add_index('model_bin', vdata['model'])
         obj.add_index('timestamp_int', int(vdata['timestamp']))
         obj.store()
-        print obj.key
         return obj.key
 
-    def _write_log(self, version_key, meta_data):
+    def _write_log(self, version_key, meta_data, index_fields):
         """
         Creates a log entry for current object,
         Args:
@@ -250,6 +248,8 @@ class Adapter(BaseAdapter):
         obj = log_bucket.new(data=meta_data)
         obj.add_index('version_key_bin', version_key)
         obj.add_index('timestamp_int', int(meta_data['timestamp']))
+        for field, index_type in index_fields:
+            obj.add_index('%s_%s' % (field, index_type), meta_data.get(field, ""))
         obj.store()
         print obj.key
 
@@ -272,7 +272,7 @@ class Adapter(BaseAdapter):
 
     def save_model(self, model, meta_data=None):
         """
-        # if meta_data ıs different from None
+        # if meta_data is different from None
         # activity_log executes otherwise doesn't.
         saves the model instance to riak
         :return:
@@ -283,8 +283,10 @@ class Adapter(BaseAdapter):
             t1 = time.time()
         clean_value = model.clean_value()
         model._data = clean_value
+
         if settings.DEBUG:
             t2 = time.time()
+
         if not model.exist:
             obj = self.bucket.new(data=clean_value).store()
             model.key = obj.key
@@ -294,11 +296,13 @@ class Adapter(BaseAdapter):
             obj = self.bucket.get(model.key)
             obj.data = clean_value
             obj.store()
-        meta_data = meta_data or model.save_meta_data
+
         if settings.ENABLE_VERSIONS:
             version_key = self._write_version(clean_value, model)
         else:
             version_key = ''
+
+        meta_data = meta_data or model.save_meta_data
         if settings.ENABLE_ACTIVITY_LOGGING and meta_data:
             self._write_log(version_key, meta_data)
         #
