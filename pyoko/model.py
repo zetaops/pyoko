@@ -508,17 +508,19 @@ class Model(Node):
                 # binding actual relation's save to our save
                 self.on_save.append(lambda self: rel.save(internal=True))
 
-
         return [], []
 
-    def delete(self, dry=False):
+    def delete(self, dry=False, meta=None):
         """
         Sets the objects "deleted" field to True and,
         current time to "deleted_at" fields then saves it to DB.
 
+
         Args:
             dry (bool): False. Do not execute the actual deletion.
             Just list what will be deleted as a result of relations.
+            meta (dict): None. If meta is different from None, activity
+            log executes.
 
         Returns:
             Tuple. (results [], errors [])
@@ -531,7 +533,7 @@ class Model(Node):
         if not (dry or errors):
             self.deleted = True
             self.deleted_at = datetime.now()
-            self.save(internal=True)
+            self.save(internal=True, meta=meta)
             self.post_delete()
         return results, errors
 

@@ -20,5 +20,6 @@ client = riak.RiakClient(protocol=settings.RIAK_PROTOCOL,
                          host=settings.RIAK_SERVER,
                          http_port=settings.RIAK_PORT)
 
-log_bucket = client.bucket_type(settings.ACTIVITY_LOGGING_BUCKET).bucket(
-    settings.ACTIVITY_LOGGING_BUCKET)
+log_bucket = client.bucket_type(settings.VERSION_LOG_BUCKET_TYPE).bucket(settings.ACTIVITY_LOGGING_BUCKET)
+
+version_bucket = client.bucket_type(settings.VERSION_LOG_BUCKET_TYPE).bucket(settings.VERSION_BUCKET)

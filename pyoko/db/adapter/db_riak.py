@@ -30,7 +30,7 @@ except ImportError:
 from enum import Enum
 import six
 from pyoko.conf import settings
-from pyoko.db.connection import client, cache, log_bucket
+from pyoko.db.connection import client, cache, log_bucket, version_bucket
 import riak
 from pyoko.exceptions import MultipleObjectsReturned, ObjectDoesNotExist, PyokoError
 import traceback
@@ -214,7 +214,7 @@ class Adapter(BaseAdapter):
         return self._client.bucket_type(self._cfg['bucket_type']
                                         ).bucket(self._cfg['bucket_name'])
 
-    def _write_version(self, data, key, meta):
+    def _write_version(self, data, model):
         """
             Writes a copy of the objects current state to write-once mirror bucket.
 
@@ -222,13 +222,14 @@ class Adapter(BaseAdapter):
             Key of version record.
         """
         vdata = {'data': data,
-                 'key': key,
-                 'meta': meta,
+                 'key': model.key,
+                 'model': model.__class__._get_bucket_name(),
                  'timestamp': time.time()}
-        obj = self.version_bucket.new(data=vdata)
-        obj.add_index('key_bin', key)
+        obj = version_bucket.new(data=vdata)
+        obj.add_index('key_bin', model.key)
         obj.add_index('timestamp_int', int(vdata['timestamp']))
         obj.store()
+        print obj.key
         return obj.key
 
     def _write_log(self, version_key, meta_data):
@@ -243,16 +244,14 @@ class Adapter(BaseAdapter):
         """
         meta_data = meta_data or {}
         meta_data.update({
-            'key': version_key,
+            'version_key': version_key,
             'timestamp': time.time(),
         })
-        if self._current_context:
-            meta_data['user_id'] = self._current_context.user_id
-            meta_data['role_id'] = self._current_context.role_id
         obj = log_bucket.new(data=meta_data)
-        obj.add_index('key_bin', version_key)
+        obj.add_index('version_key_bin', version_key)
         obj.add_index('timestamp_int', int(meta_data['timestamp']))
         obj.store()
+        print obj.key
 
     # def save(self, data, key=None, meta_data=None):
     #     if key is not None:
@@ -273,6 +272,8 @@ class Adapter(BaseAdapter):
 
     def save_model(self, model, meta_data=None):
         """
+        # if meta_data ıs different from None
+        # activity_log executes otherwise doesn't.
         saves the model instance to riak
         :return:
         """
@@ -293,13 +294,12 @@ class Adapter(BaseAdapter):
             obj = self.bucket.get(model.key)
             obj.data = clean_value
             obj.store()
-
         meta_data = meta_data or model.save_meta_data
         if settings.ENABLE_VERSIONS:
-            version_key = self._write_version(clean_value, model.key, meta_data)
+            version_key = self._write_version(clean_value, model)
         else:
             version_key = ''
-        if settings.ENABLE_ACTIVITY_LOGGING:
+        if settings.ENABLE_ACTIVITY_LOGGING and meta_data:
             self._write_log(version_key, meta_data)
         #
         if self.COLLECT_SAVES and self.COLLECT_SAVES_FOR_MODEL == model.__class__.__name__:
