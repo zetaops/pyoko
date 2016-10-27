@@ -20,7 +20,8 @@ class TestCase():
 
     """
     # Random sample meta_data is created.
-    meta_data = {'lorem': 'ipsum', 'dolar': 'sit'}
+    meta_data = {'lorem': 'ipsum', 'dolar': 5}
+    index_fields = [('lorem','bin'),('dolar','int')]
     # Instances are created from Abstract model.
     abs_role = AbstractRole()
     another_abs_role = AbstractRole()
@@ -53,7 +54,7 @@ class TestCase():
         # Log, version keys and counts are updated.
         update_log_version_keys(self)
         # Object is saved with meta data.
-        self.another_abs_role.save(meta=self.meta_data)
+        self.another_abs_role.save(meta=self.meta_data, index_fields=self.index_fields)
         # Log bucket count should increase one.
         # Version bucket count should increase one.
         deleted_and_name_control = common_controls_with_meta_data(self)
@@ -66,7 +67,7 @@ class TestCase():
         # Log, version keys and counts are updated.
         update_log_version_keys(self)
         # Object is deleted with meta_data.
-        self.another_abs_role.delete(meta = self.meta_data)
+        self.another_abs_role.delete(meta = self.meta_data,index_fields=self.index_fields)
         # Log bucket count should increase one.
         # Version bucket count should increase one.
         deleted_and_name_control = common_controls_with_meta_data(self)
@@ -97,11 +98,16 @@ def common_controls_with_meta_data(self):
     assert len(new_version_key) == 1
     # New log data is taken.
     log_data = log_bucket.get(new_log_key[0]).data
+    # New log indexes are taken.
+    indexes = log_bucket.get(new_log_key[0]).indexes
+    # Indexes are controlled.
+    assert ('lorem_bin','ipsum') in indexes
+    assert ('dolar_int', 5) in indexes
     # New version key and log_bucket's record's version key should be same.
     assert log_data['version_key'] == new_version_key[0]
     # Changes are controlled.
     assert log_data['lorem'] == 'ipsum'
-    assert log_data['dolar'] == 'sit'
+    assert log_data['dolar'] == 5
     # New version data is taken.
     version_data = version_bucket.get(new_version_key[0]).data
     # Model value should be 'abstract_role'.

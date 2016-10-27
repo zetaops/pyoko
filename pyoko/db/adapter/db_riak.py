@@ -49,6 +49,7 @@ sys.PYOKO_STAT_COUNTER = {
 }
 sys.PYOKO_LOGS = defaultdict(list)
 
+
 class BlockSave(object):
     def __init__(self, mdl, query_dict=None):
         self.mdl = mdl
@@ -67,6 +68,7 @@ class BlockSave(object):
             time.sleep(.4)
         Adapter.COLLECT_SAVES = False
 
+
 class BlockDelete(object):
     def __init__(self, mdl):
         self.mdl = mdl
@@ -79,9 +81,9 @@ class BlockDelete(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         indexed_obj_count = self.mdl.objects.filter(key__in=Adapter.block_saved_keys)
         while Adapter.block_saved_keys and indexed_obj_count.count():
-
             time.sleep(.4)
         Adapter.COLLECT_SAVES = False
+
 
 # noinspection PyTypeChecker
 class Adapter(BaseAdapter):
@@ -89,6 +91,7 @@ class Adapter(BaseAdapter):
     QuerySet is a lazy data access layer for Riak.
     """
     COLLECT_SAVES = False
+
     def __init__(self, **conf):
         super(Adapter, self).__init__(**conf)
         self.bucket = riak.RiakBucket
@@ -216,8 +219,13 @@ class Adapter(BaseAdapter):
         """
             Writes a copy of the objects current state to write-once mirror bucket.
 
+        Args:
+            data (dict): Model instance's all data for versioning.
+            model (instance): Model instance.
+
         Returns:
             Key of version record.
+            key (str): Version_bucket key.
         """
         vdata = {'data': data,
                  'key': model.key,
@@ -234,8 +242,11 @@ class Adapter(BaseAdapter):
         """
         Creates a log entry for current object,
         Args:
-            version_key:
-            meta_data:
+            version_key(str): Version_bucket key from _write_version().
+            meta_data (dict): JSON serializable meta data for logging of save operation.
+                {'lorem': 'ipsum', 'dolar': 5}
+            index_fields (list): Tuple list for indexing keys in riak (with 'bin' or 'int').
+                [('lorem','bin'),('dolar','int')]
 
         Returns:
 
@@ -251,7 +262,6 @@ class Adapter(BaseAdapter):
         for field, index_type in index_fields:
             obj.add_index('%s_%s' % (field, index_type), meta_data.get(field, ""))
         obj.store()
-        print obj.key
 
     # def save(self, data, key=None, meta_data=None):
     #     if key is not None:
@@ -270,11 +280,13 @@ class Adapter(BaseAdapter):
     #         self._write_log(version_key, meta_data)
     #     return obj.key
 
-    def save_model(self, model, meta_data=None):
+    def save_model(self, model, meta_data=None, index_fields=None):
         """
-        # if meta_data is different from None
-        # activity_log executes otherwise doesn't.
-        saves the model instance to riak
+            model (instance): Model instance.
+            meta (dict): JSON serializable meta data for logging of save operation.
+                {'lorem': 'ipsum', 'dolar': 5}
+            index_fields (list): Tuple list for indexing keys in riak (with 'bin' or 'int').
+                [('lorem','bin'),('dolar','int')]
         :return:
         """
         # if model:
@@ -304,8 +316,8 @@ class Adapter(BaseAdapter):
 
         meta_data = meta_data or model.save_meta_data
         if settings.ENABLE_ACTIVITY_LOGGING and meta_data:
-            self._write_log(version_key, meta_data)
-        #
+            self._write_log(version_key, meta_data, index_fields)
+
         if self.COLLECT_SAVES and self.COLLECT_SAVES_FOR_MODEL == model.__class__.__name__:
             self.block_saved_keys.append(obj.key)
         if settings.DEBUG:
@@ -315,7 +327,7 @@ class Adapter(BaseAdapter):
             else:
                 sys.PYOKO_LOGS[self._model_class.__name__].append(obj.key)
                 sys.PYOKO_STAT_COUNTER['update'] += 1
-        #     sys._debug_db_queries.append({
+        # sys._debug_db_queries.append({
         #         'TIMESTAMP': t1,
         #         'KEY': obj.key,
         #         'BUCKET': self.index_name,
@@ -717,14 +729,14 @@ class Adapter(BaseAdapter):
                     print("QRY => %s\nSOLR_PARAMS => %s" % (self.compiled_query, solr_params))
 
 
-                        # if settings.DEBUG:
-                #     sys.PYOKO_STAT_COUNTER['search'] += 1
-                #     sys._debug_db_queries.append({
-                #         'TIMESTAMP': t1,
-                #         'QUERY': self.compiled_query,
-                #         'BUCKET': self.index_name,
-                #         'QUERY_PARAMS': solr_params,
-                #         'TIME': round(time.time() - t1, 4)})
+                    # if settings.DEBUG:
+                    #     sys.PYOKO_STAT_COUNTER['search'] += 1
+                    #     sys._debug_db_queries.append({
+                    #         'TIMESTAMP': t1,
+                    #         'QUERY': self.compiled_query,
+                    #         'BUCKET': self.index_name,
+                    #         'QUERY_PARAMS': solr_params,
+                    #         'TIME': round(time.time() - t1, 4)})
             except riak.RiakError as err:
                 err.value += self._get_debug_data()
                 raise
