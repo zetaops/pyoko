@@ -86,7 +86,7 @@ class QuerySet(object):
         clone = copy.deepcopy(self)
         for data, key in clone.adapter:
             yield (
-            clone._make_model(data, key) if self._cfg['rtype'] == ReturnType.Model else (data, key))
+                clone._make_model(data, key) if self._cfg['rtype'] == ReturnType.Model else (data, key))
 
     def __len__(self):
         return copy.deepcopy(self).adapter.count()
@@ -141,14 +141,19 @@ class QuerySet(object):
         obj.is_clone = True
         return obj
 
-    def save_model(self, model, meta_data=None):
+    def save_model(self, model, meta_data=None, index_fields=None):
         """
         saves the model instance to riak
+        Args:
+            meta (dict): JSON serializable meta data for logging of save operation.
+                {'lorem': 'ipsum', 'dolar': 5}
+            index_fields (list): Tuple list for indexing keys in riak (with 'bin' or 'int').
+                [('lorem','bin'),('dolar','int')]
         :return:
         """
         # if model:
         #     self._model = model
-        return self.adapter.save_model(model, meta_data)
+        return self.adapter.save_model(model, meta_data, index_fields)
 
     def _get(self):
         """
