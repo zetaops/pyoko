@@ -11,7 +11,6 @@ from pyoko.db.connection import log_bucket, version_bucket
 from .models import AbstractRole
 
 
-
 class TestCase():
     """
     when save() and delete() operations are executed without meta parameter
@@ -21,7 +20,7 @@ class TestCase():
     """
     # Random sample meta_data is created.
     meta_data = {'lorem': 'ipsum', 'dolar': 5}
-    index_fields = [('lorem','bin'),('dolar','int')]
+    index_fields = [('lorem', 'bin'), ('dolar', 'int')]
     # Instances are created from Abstract model.
     abs_role = AbstractRole()
     another_abs_role = AbstractRole()
@@ -60,26 +59,27 @@ class TestCase():
         deleted_and_name_control = common_controls_with_meta_data(self)
         # In version bucket, name key should be defined name.
         # Deleted key should be False.
-        assert deleted_and_name_control == ('sample_name',False)
-
+        assert deleted_and_name_control == ('sample_name', False)
 
     def test_delete_with_meta_data(self):
         # Log, version keys and counts are updated.
         update_log_version_keys(self)
         # Object is deleted with meta_data.
-        self.another_abs_role.delete(meta = self.meta_data,index_fields=self.index_fields)
+        self.another_abs_role.delete(meta=self.meta_data, index_fields=self.index_fields)
         # Log bucket count should increase one.
         # Version bucket count should increase one.
         deleted_and_name_control = common_controls_with_meta_data(self)
         # In version bucket, deleted key should be True.
         # Name key should be defined name.
-        assert deleted_and_name_control == ('sample_name',True)
+        assert deleted_and_name_control == ('sample_name', True)
+
 
 def common_controls_without_meta_data(self):
     # Controlling log_bucket remain same.
     assert len(log_bucket.get_keys()) == self.log_bucket_count
     # Version bucket record count should be one more than old count.
     assert len(version_bucket.get_keys()) == self.version_bucket_count + 1
+
 
 def common_controls_with_meta_data(self):
     # New log bucket record count should be one more than old count.
@@ -101,13 +101,17 @@ def common_controls_with_meta_data(self):
     # New log indexes are taken.
     indexes = log_bucket.get(new_log_key[0]).indexes
     # Indexes are controlled.
-    assert ('lorem_bin','ipsum') in indexes
+    assert ('lorem_bin', 'ipsum') in indexes
     assert ('dolar_int', 5) in indexes
     # New version key and log_bucket's record's version key should be same.
     assert log_data['version_key'] == new_version_key[0]
     # Changes are controlled.
     assert log_data['lorem'] == 'ipsum'
     assert log_data['dolar'] == 5
+    # Indexed data and search operation are controlled.
+    assert new_log_key[0] in log_bucket.get_index('lorem_bin', 'ipsum').results
+    assert new_log_key[0] in log_bucket.get_index('dolar_int', 5).results
+    assert new_version_key[0] in version_bucket.get_index('model_bin', 'abstract_role').results
     # New version data is taken.
     version_data = version_bucket.get(new_version_key[0]).data
     # Model value should be 'abstract_role'.
@@ -115,7 +119,8 @@ def common_controls_with_meta_data(self):
     # Riak key is controlled.
     assert version_data['key'] == self.another_abs_role.key
 
-    return version_data['data']['name'],version_data['data']['deleted']
+    return version_data['data']['name'], version_data['data']['deleted']
+
 
 def update_log_version_keys(self):
     # Record count before save and delete operation in log bucket.
@@ -126,6 +131,3 @@ def update_log_version_keys(self):
     self.last_version_keys = version_bucket.get_keys()
     # Keys list in log bucket.
     self.last_log_keys = log_bucket.get_keys()
-
-
-

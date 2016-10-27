@@ -524,9 +524,8 @@ class Model(Node):
             Just list what will be deleted as a result of relations.
             meta (dict): JSON serializable meta data for logging of save operation.
                 {'lorem': 'ipsum', 'dolar': 5}
-            index_fields (list): Tuple list for indexing keys in riak (with 'bin' or 'int').
+            index_fields (list): Tuple list for secondary indexing keys in riak (with 'bin' or 'int').
                 [('lorem','bin'),('dolar','int')]
-            
         Returns:
             Tuple. (results [], errors [])
         """

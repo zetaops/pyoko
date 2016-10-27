@@ -9,7 +9,9 @@ Default Settings
 import os
 
 DEFAULT_BUCKET_TYPE = os.environ.get('DEFAULT_BUCKET_TYPE', 'pyoko_models')
-VERSION_LOG_BUCKET_TYPE = os.environ.get('VERSION_LOG_BUCKET_TYPE', 'version_log')
+# write_once bucket doesn't support secondary indexes. Thus, backend is defined
+# as "leveldb_mult" in log_version bucket properties.
+VERSION_LOG_BUCKET_TYPE = os.environ.get('VERSION_LOG_BUCKET_TYPE', 'log_version')
 
 RIAK_SERVER = os.environ.get('RIAK_SERVER', 'localhost')
 RIAK_PROTOCOL = os.environ.get('RIAK_PROTOCOL', 'http')
