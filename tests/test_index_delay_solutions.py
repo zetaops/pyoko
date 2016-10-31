@@ -31,6 +31,14 @@ class TestCase:
         assert student.name == "foo_10"
         assert student.surname == "bar_10"
 
+        with BlockSave(Student, query_dict={'surname': 'zubizu'}):
+            for i in range(9):
+                student = Student.objects.get(surname='bar', name='foo_%s' % i)
+                student.surname = 'zubizu'
+                student.save()
+
+        assert len(Student.objects.filter(surname='zubizu')) == 9
+
     def test_block_delete(self):
         Student.objects.filter().delete()
         time.sleep(1)

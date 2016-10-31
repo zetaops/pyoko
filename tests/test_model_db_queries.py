@@ -280,7 +280,7 @@ class TestCase:
 
         user_dict_2 = Role.objects.filter(usr_id=user.key).distinct_values_of("usr_id")
         assert sum(user_dict_2.values()) == 5
-
+        Role.objects.filter(active=True).delete()
         with BlockSave(Role, query_dict={'active': True}):
             for i, r in enumerate(role_lst):
                 if i == 3:
@@ -301,5 +301,5 @@ class TestCase:
         
         with BlockDelete(Role):
             for r in role_lst:
-                r.delete()
+                r.blocking_delete()
 
