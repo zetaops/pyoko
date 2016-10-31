@@ -180,8 +180,8 @@ class SchemaUpdater(object):
 
     @staticmethod
     def _handle_version_bucket(client, model):
-        bucket_name = model._get_bucket_name() + settings.VERSION_SUFFIX
-        bucket_type = client.bucket_type(settings.DEFAULT_BUCKET_TYPE + '_version')
+        bucket_name = settings.VERSION_BUCKET
+        bucket_type = client.bucket_type(settings.VERSION_LOG_BUCKET_TYPE)
         bucket = bucket_type.bucket(bucket_name)
         bucket.set_property('search_index', '_dont_index_')
 
