@@ -226,7 +226,7 @@ class Integer(BaseField):
     # TODO: add checks for solr's int field's limits
     # TODO: add support for solr's long int field
     solr_type = 'int'
-    default_value = 0
+    # default_value = 0
 
     def clean_value(self, val):
         if val is not None:

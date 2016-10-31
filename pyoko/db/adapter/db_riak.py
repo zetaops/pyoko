@@ -50,8 +50,9 @@ sys.PYOKO_STAT_COUNTER = {
 sys.PYOKO_LOGS = defaultdict(list)
 
 class BlockSave(object):
-    def __init__(self, mdl):
+    def __init__(self, mdl, query_dict=None):
         self.mdl = mdl
+        self.query_dict = query_dict or {}
 
     def __enter__(self):
         Adapter.block_saved_keys = []
@@ -60,7 +61,8 @@ class BlockSave(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         key_list = list(set(Adapter.block_saved_keys))
-        indexed_obj_count = self.mdl.objects.filter(key__in=key_list)
+        self.query_dict['key__in'] = key_list
+        indexed_obj_count = self.mdl.objects.filter(**self.query_dict)
         while Adapter.block_saved_keys and indexed_obj_count.count() < len(key_list):
             time.sleep(.4)
         Adapter.COLLECT_SAVES = False
@@ -134,7 +136,7 @@ class Adapter(BaseAdapter):
                 dct[fresult[i]] = fresult[i + 1]
         return dct
 
-    def _clear(self, wait=False):
+    def _clear(self, wait=True):
         """
         clear outs the all content of current bucket
         only for development purposes
@@ -359,15 +361,27 @@ class Adapter(BaseAdapter):
         return self._riak_cache[0].data, self._riak_cache[0].key
 
     def count(self):
-        """
-        counts by executing solr query with rows=0 parameter
+        """Counts the number of results that could be accessed with the current parameters.
+
         :return:  number of objects matches to the query
         :rtype: int
         """
+        # Save the existing rows and start parameters to see how many results were actually expected
+        _rows = self._solr_params.get('rows', None)
+        _start = self._solr_params.get('start', 0)
         if not self._solr_cache:
+            # Get the count for everything
             self.set_params(rows=0)
             self._exec_query()
-        return self._solr_cache.get('num_found', -1)
+        number = self._solr_cache.get('num_found', -1)
+        # If 'start' is specified, then this many results from the start will not be accessible.
+        number -= _start
+        # If 'rows' is NOT specified, then all results are accessible (minus the ones skipped with 'start')
+        if _rows is None: return number
+        # If 'rows' is specified, then this many results at most will be accessible. If we have
+        # more than this many results found, then we can say that this many results are accessible. If
+        # there are less results found than rows, then we can't give more than found results.
+        return number if number < _rows else _rows
 
     def search_on(self, *fields, **query):
         """

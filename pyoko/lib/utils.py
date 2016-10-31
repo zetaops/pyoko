@@ -108,16 +108,20 @@ def getScriptPath():
 def add_to_path():
     sys.path.append(os.path.dirname(getScriptPath()))
 
-
+sys.IMPORT_CACHE = {}
 def get_object_from_path(path):
     """
     Import's object from given Python path.
     """
-    path = path.split('.')
-    module_path = '.'.join(path[:-1])
-    class_name = path[-1]
-    module = importlib.import_module(module_path)
-    return getattr(module, class_name)
+    try:
+        return sys.IMPORT_CACHE[path]
+    except KeyError:
+        _path = path.split('.')
+        module_path = '.'.join(_path[:-1])
+        class_name = _path[-1]
+        module = importlib.import_module(module_path)
+        sys.IMPORT_CACHE[path] = getattr(module, class_name)
+        return sys.IMPORT_CACHE[path]
 
 
 def pprnt(input, return_data=False):

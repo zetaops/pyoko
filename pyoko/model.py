@@ -1,5 +1,6 @@
 # -*-  coding: utf-8 -*-
 """
+This module holds the pyoko's Model object
 """
 
 # Copyright (C) 2015 ZetaOps Inc.
@@ -9,8 +10,7 @@
 import six
 import time
 
-from pyoko.db.connection import cache
-from pyoko.exceptions import IntegrityError
+from pyoko.exceptions import IntegrityError, ObjectDoesNotExist
 from .node import Node, FakeContext
 from . import fields as field
 from .db.queryset import QuerySet
@@ -77,6 +77,7 @@ class Model(Node):
             _just_created=None,
             just_created=None,
             on_save=[],
+            _exists=None,
         )
         # self.verbose_name = kwargs.get('verbose_name')
         # self.null = kwargs.get('null', False)
@@ -128,6 +129,14 @@ class Model(Node):
         """
         return self._data == other._data and self.key == other.key
 
+    def __ne__(self, other):
+        """
+        İnequality of two model instance depends on uniformity of their
+        self._data and self.key.
+        """
+
+        return not self.__eq__(other)
+
     def __hash__(self):
         # hash is based on self.key if exists or serialization of object's data.
         if self.key:
@@ -151,14 +160,6 @@ class Model(Node):
 
         Returns:
             True if this model instance stored in DB and has a key and False otherwise.
-
-        Examples:
-            >>> class Student(Model):
-            >>>    #...
-            >>>    adviser = Person()
-            >>>
-            >>> if student.adviser.exist:
-            >>>    # do something
         """
         return bool(self.key)
 
@@ -239,7 +240,10 @@ class Model(Node):
             objects (Queryset): QuerySet object.
 
         Examples:
-            >>> return objects.filter(user=context.user)
+
+            .. code-block:: python
+                class FooBar(Model):
+                return objects.filter(user=context.user)
 
         Returns:
             Queryset object.
@@ -272,9 +276,21 @@ class Model(Node):
                 remote_set = getattr(linked_mdl_ins, local_field_name)
                 if remote_set._TYPE == 'ListNode' and self not in remote_set:
                     remote_set(**{remote_field_name: self._root_node})
+                    if linked_mdl_ins._exists is False:
+                        raise ObjectDoesNotExist('Linked %s on field %s with key %s doesn\'t exist' % (
+                            linked_mdl_ins.__class__.__name__,
+                            remote_field_name,
+                            linked_mdl_ins.key,
+                        ))
                     linked_mdl_ins.save(internal=True)
             else:
                 linked_mdl_ins.setattr(remote_field_name, self._root_node)
+                if linked_mdl_ins._exists is False:
+                    raise ObjectDoesNotExist('Linked object %s on field %s with key %s doesn\'t exist' % (
+                        linked_mdl_ins.__class__.__name__,
+                        remote_field_name,
+                        linked_mdl_ins.key,
+                    ))
                 linked_mdl_ins.save(internal=True)
 
     def _add_back_link(self, linked_mdl, link):
@@ -428,13 +444,42 @@ class Model(Node):
                 self.post_creation()
         return self
 
-    def blocking_save(self):
+    def changed_fields(self):
+        """
+        Returns:
+            list: List of fields names which their values changed.
+        """
+        current_dict = self.clean_value()
+        set_current, set_past = set(current_dict.keys()), set(self._data.keys())
+        intersect = set_current.intersection(set_past)
+        return set(o for o in intersect if self._data[o] != current_dict[o])
+
+    def is_changed(self, field):
+        """
+        Args:
+            field (string):Field name.
+
+        Returns:
+            bool: True if given fields value is changed.
+        """
+        return field in self.changed_fields()
+
+    def blocking_save(self, query_dict=None):
         """
         Saves object to DB. Waits till the backend properly indexes the new object.
+
+        Args:
+            query_dict(dict) : contains keys - values of  the model fields
+
+        Returns:
+            Model instance.
         """
-        is_new = not self.exist
+        query_dict = query_dict or {}
+        for query in query_dict:
+            self.setattr(query, query_dict[query])
+
         self.save()
-        while is_new and not self.objects.filter(key=self.key).count():
+        while not self.objects.filter(key=self.key, **query_dict).count():
             time.sleep(0.3)
         return self
 

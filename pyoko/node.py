@@ -19,7 +19,7 @@ from uuid import uuid4
 
 from collections import defaultdict
 
-from pyoko.exceptions import ObjectDoesNotExist, ValidationError
+from pyoko.exceptions import ObjectDoesNotExist, ValidationError, MultipleObjectsReturned
 from .conf import settings
 from .lib.utils import get_object_from_path, lazy_property, un_camel, un_camel_id
 from .modelmeta import ModelMeta
@@ -95,7 +95,7 @@ class Node(object):
             matches = list(set(difflib.get_close_matches(key, self._prop_list, 4, 0.5)))
             error_msg = "Unexpected assignment, do you mistyped a field name \"%s\"." % key
             if matches:
-                error_msg += '\n\nDid you mean one of these?  \033[32m%s\033[0m' % '\033[0m   \033[32m'.join(matches)
+                error_msg += '\n\nDid you mean one of these?  ' % '""'.join(matches)
             print(self._prop_list)
             raise AttributeError(error_msg)
         if key not in self._fields:
@@ -116,6 +116,7 @@ class Node(object):
             _choice_fields=[],
             _data={},
             _choices_manager=get_object_from_path(settings.CATALOG_DATA_MANAGER),
+
                       )
         super(Node, self).__init__()
         try:
@@ -140,9 +141,15 @@ class Node(object):
         self._instantiate_nodes()
         self._set_fields_values(kwargs)
 
-
     def get_verbose_name(self):
-        return self.__class__.__name__
+        """
+        Returns:
+             value of title attribute or verbose name of class
+        """
+        try:
+            return self.__class__.Meta.title or self.__class__.__name__
+        except AttributeError:
+            return self.__class__.__name__
 
     @lazy_property
     def _ordered_fields(self):
@@ -209,8 +216,9 @@ class Node(object):
         Returns:
             Link list
         """
+        # TODO: Add tests for this method
         startswith = kw.pop('startswith', False)
-        kwitems = kw.items()
+        kwitems = list(kw.items())  # Dictionary items is not indexible in Python 3
         constraint = set(kwitems)
         models = []
         for links in cls._linked_models.values():
@@ -229,7 +237,7 @@ class Node(object):
         for lnk in self.get_links(is_set=False):
             # if lnk['is_set']:
             #     continue
-            self.setattr(lnk['field'] + '_id', '')
+            self.setattr(lnk['field'] + '_id', "")
             if data:
                 # data can be came from db or user
                 if lnk['field'] in data and isinstance(data[lnk['field']], Model):
@@ -255,10 +263,12 @@ class Node(object):
                                     return modl(context,
                                                 null=lnk['null'],
                                                 verbose_name=lnk['verbose']).objects.get(key)
-                                except ObjectDoesNotExist:
-                                    return modl(context,
+                                except (ObjectDoesNotExist, MultipleObjectsReturned):
+                                    missing_object = modl(context,
                                                 null=lnk['null'],
                                                 verbose_name=lnk['verbose'])
+                                    missing_object._exists = False
+                                    return missing_object
 
                             return fo2
 
@@ -365,7 +375,7 @@ class Node(object):
                     continue
             elif _field.default:
                 val = _field.default() if callable(_field.default) else _field.default
-            if val:
+            if val is not None:
                 if not kwargs.get('from_db'):
                     self.setattr(name, val)
                 else:
