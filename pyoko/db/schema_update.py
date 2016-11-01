@@ -108,8 +108,6 @@ class SchemaUpdater(object):
         pack_size = int(num_models / self.threads) or 1
         n_val = self.client.bucket_type(settings.DEFAULT_BUCKET_TYPE).get_property('n_val')
         self.client.create_search_index('foo_index', '_yz_default', n_val=n_val)
-        if settings.ENABLE_ACTIVITY_LOGGING:
-            self._handle_log_bucket()
         for i in range(0, num_models, pack_size):
             job_pack = []
             for model in models[i:i + pack_size]:
@@ -160,7 +158,8 @@ class SchemaUpdater(object):
                                           multi=str(multi).lower())
                 for name, field_type, index, store, multi in fields]
 
-    def compile_schema(self, fields):
+    @staticmethod
+    def compile_schema(fields):
         """
         joins schema fields with base solr schema
 
@@ -174,16 +173,6 @@ class SchemaUpdater(object):
         with codecs.open("%s/solr_schema_template.xml" % path, 'r', 'utf-8') as fh:
             schema_template = fh.read()
         return schema_template.format('\n'.join(fields)).encode('utf-8')
-
-    def _handle_log_bucket(self):
-        log_bucket.set_property('search_index', '_dont_index_')
-
-    @staticmethod
-    def _handle_version_bucket(client, model):
-        bucket_name = settings.VERSION_BUCKET
-        bucket_type = client.bucket_type(settings.VERSION_LOG_BUCKET_TYPE)
-        bucket = bucket_type.bucket(bucket_name)
-        bucket.set_property('search_index', '_dont_index_')
 
     @staticmethod
     def apply_schema(client, force, job_pack):
@@ -202,8 +191,6 @@ class SchemaUpdater(object):
         """
         for new_schema, model in job_pack:
             try:
-                if settings.ENABLE_VERSIONS:
-                    SchemaUpdater._handle_version_bucket(client, model)
                 bucket_name = model._get_bucket_name()
                 bucket_type = client.bucket_type(settings.DEFAULT_BUCKET_TYPE)
                 bucket = bucket_type.bucket(bucket_name)
