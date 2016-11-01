@@ -258,7 +258,7 @@ class Model(Node):
     def _name_id(self):
         return "%s_id" % self._name
 
-    def _update_new_linked_model(self, linked_mdl_ins, link):
+    def _update_new_linked_model(self, internal, linked_mdl_ins, link):
         """
         Iterates through linked_models of given model instance to match it's
         "reverse" with given link's "field" values.
@@ -274,15 +274,16 @@ class Model(Node):
                 if '.' in local_field_name:
                     local_field_name, remote_field_name = local_field_name.split('.')
                 remote_set = getattr(linked_mdl_ins, local_field_name)
-                if remote_set._TYPE == 'ListNode' and self not in remote_set:
-                    remote_set(**{remote_field_name: self._root_node})
-                    if linked_mdl_ins._exists is False:
-                        raise ObjectDoesNotExist('Linked %s on field %s with key %s doesn\'t exist' % (
-                            linked_mdl_ins.__class__.__name__,
-                            remote_field_name,
-                            linked_mdl_ins.key,
-                        ))
-                    linked_mdl_ins.save(internal=True)
+                if not internal:
+                    if remote_set._TYPE == 'ListNode' and self not in remote_set:
+                        remote_set(**{remote_field_name: self._root_node})
+                        if linked_mdl_ins._exists is False:
+                            raise ObjectDoesNotExist('Linked %s on field %s with key %s doesn\'t exist' % (
+                                linked_mdl_ins.__class__.__name__,
+                                remote_field_name,
+                                linked_mdl_ins.key,
+                            ))
+                        linked_mdl_ins.save(internal=True)
             else:
                 linked_mdl_ins.setattr(remote_field_name, self._root_node)
                 if linked_mdl_ins._exists is False:
@@ -315,13 +316,13 @@ class Model(Node):
                     linked_mdl = getattr(self, link['field'])
                     self._add_back_link(linked_mdl, link)
 
-    def _process_relations(self):
+    def _process_relations(self,internal):
         buffer = []
         for k, v in self.new_back_links.copy().items():
             del self.new_back_links[k]
             buffer.append(v)
         for v in buffer:
-            self._update_new_linked_model(*v)
+            self._update_new_linked_model(internal,*v)
 
     def reload(self):
         """
@@ -437,7 +438,7 @@ class Model(Node):
             self.setattrs(_just_created=self.just_created)
         self.objects.save_model(self, meta_data=meta, index_fields=index_fields)
         self._handle_changed_fields(old_data)
-        self._process_relations()
+        self._process_relations(internal)
         if not (internal or self._post_save_hook_called):
             self._post_save_hook_called = True
             self.post_save()

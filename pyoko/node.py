@@ -102,10 +102,10 @@ class Node(object):
             _attr = getattr(self, key)
             if _attr is not None and _attr.__class__.__name__ != val.__class__.__name__:
                 raise ValidationError("Assigned object's (%s) type (%s) does not matches to \"%s %s\" " %
-                                  (key,
-                                   val.__class__.__name__,
-                                   _attr.__class__.__name__,
-                                   getattr(_attr,'_TYPE', None)))
+                                      (key,
+                                       val.__class__.__name__,
+                                       _attr.__class__.__name__,
+                                       getattr(_attr, '_TYPE', None)))
         object.__setattr__(self, key, val)
 
     def __init__(self, **kwargs):
@@ -117,7 +117,7 @@ class Node(object):
             _data={},
             _choices_manager=get_object_from_path(settings.CATALOG_DATA_MANAGER),
 
-                      )
+        )
         super(Node, self).__init__()
         try:
             self._root_node
@@ -200,7 +200,13 @@ class Node(object):
         """
         Get first item of get_links() method
         """
-        return cls.get_links(**kw)[0]
+        class_name = kw.pop('class_name', '')
+        class_bool = kw.pop('class_bool', False)
+        models = cls.get_links(**kw)
+        if class_bool:
+            return [(lambda x: x)(x) for x in models if class_name in x['field']][0]
+        else:
+            return models[0]
 
     @classmethod
     def get_links(cls, **kw):
@@ -230,6 +236,7 @@ class Node(object):
         return models
 
     def _instantiate_linked_models(self, data=None):
+
         from .model import Model
         def foo_model(modl, context, null, verbose_name):
             return LazyModel(lambda: modl(context), null, verbose_name)
@@ -247,9 +254,11 @@ class Node(object):
                     self.setattr(lnk['field'], linked_mdl_ins)
                     try:
                         self._root_node._add_back_link(
-                            linked_mdl_ins,
-                            self._root_node.get_link(mdl=lnk['mdl'],
-                                                     link_source=not lnk['link_source']))
+                        linked_mdl_ins,
+                        self._root_node.get_link(class_name=self.__class__.__name__,
+                                                 class_bool= True,
+                                                 mdl=lnk['mdl'],
+                                                 link_source=not lnk['link_source']))
                     except:
                         pass
                 else:
@@ -265,8 +274,8 @@ class Node(object):
                                                 verbose_name=lnk['verbose']).objects.get(key)
                                 except (ObjectDoesNotExist, MultipleObjectsReturned):
                                     missing_object = modl(context,
-                                                null=lnk['null'],
-                                                verbose_name=lnk['verbose'])
+                                                          null=lnk['null'],
+                                                          verbose_name=lnk['verbose'])
                                     missing_object._exists = False
                                     return missing_object
 
@@ -282,17 +291,17 @@ class Node(object):
                         # creating a lazy proxy for empty linked model
                         # Note: this should be explicitly saved before _root_node model!
                         self.setattr(lnk['field'],
-                                foo_model(lnk['mdl'],
-                                          self._context,
-                                          lnk['null'],
-                                          lnk['verbose']))
+                                     foo_model(lnk['mdl'],
+                                               self._context,
+                                               lnk['null'],
+                                               lnk['verbose']))
             else:
                 # creating an lazy proxy for empty linked model
                 # Note: this should be explicitly saved before _root_node model!
                 self.setattr(lnk['field'], foo_model(lnk['mdl'],
-                                                      self._context,
-                                                      lnk['null'],
-                                                      lnk['verbose']))
+                                                     self._context,
+                                                     lnk['null'],
+                                                     lnk['verbose']))
                 # setattr(self, lnk['field'], LazyModel(lambda: lnk['mdl'](self._context)))
 
     def _instantiate_node(self, name, klass):
@@ -386,7 +395,6 @@ class Node(object):
             if _field.choices is not None:
                 self._choice_fields.append(name)
                 self._set_get_choice_display_method(name, _field, val)
-
 
     def _set_get_choice_display_method(self, name, _field, val):
         # adding get_%s_display() methods for fields which has "choices" attribute
