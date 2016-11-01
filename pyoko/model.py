@@ -404,7 +404,7 @@ class Model(Node):
                         "Unique together mismatch: %s combination already exists for %s"
                         % (vals, self.__class__.__name__))
 
-    def save(self, internal=False, meta=None):
+    def save(self, internal=False, meta=None, index_fields=None):
         """
         Save's object to DB.
 
@@ -415,6 +415,9 @@ class Model(Node):
                 Used to prevent unneccessary calls to pre_save and
                 post_save methods.
             meta (dict): JSON serializable meta data for logging of save operation.
+                {'lorem': 'ipsum', 'dolar': 5}
+            index_fields (list): Tuple list for indexing keys in riak (with 'bin' or 'int').
+                [('lorem','bin'),('dolar','int')]
 
         Returns:
              Saved model instance.
@@ -432,7 +435,7 @@ class Model(Node):
             self.setattrs(just_created=not self.exist)
         if self._just_created is None:
             self.setattrs(_just_created=self.just_created)
-        self.objects.save_model(self, meta_data=meta)
+        self.objects.save_model(self, meta_data=meta, index_fields=index_fields)
         self._handle_changed_fields(old_data)
         self._process_relations()
         if not (internal or self._post_save_hook_called):
@@ -508,18 +511,21 @@ class Model(Node):
                 # binding actual relation's save to our save
                 self.on_save.append(lambda self: rel.save(internal=True))
 
-
         return [], []
 
-    def delete(self, dry=False):
+    def delete(self, dry=False, meta=None, index_fields=None):
         """
         Sets the objects "deleted" field to True and,
         current time to "deleted_at" fields then saves it to DB.
 
+
         Args:
             dry (bool): False. Do not execute the actual deletion.
             Just list what will be deleted as a result of relations.
-
+            meta (dict): JSON serializable meta data for logging of save operation.
+                {'lorem': 'ipsum', 'dolar': 5}
+            index_fields (list): Tuple list for secondary indexing keys in riak (with 'bin' or 'int').
+                [('lorem','bin'),('dolar','int')]
         Returns:
             Tuple. (results [], errors [])
         """
@@ -531,7 +537,7 @@ class Model(Node):
         if not (dry or errors):
             self.deleted = True
             self.deleted_at = datetime.now()
-            self.save(internal=True)
+            self.save(internal=True, meta=meta, index_fields=index_fields)
             self.post_delete()
         return results, errors
 

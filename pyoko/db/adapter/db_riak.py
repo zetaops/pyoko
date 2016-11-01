@@ -30,7 +30,7 @@ except ImportError:
 from enum import Enum
 import six
 from pyoko.conf import settings
-from pyoko.db.connection import client, cache, log_bucket
+from pyoko.db.connection import client, cache, log_bucket, version_bucket
 import riak
 from pyoko.exceptions import MultipleObjectsReturned, ObjectDoesNotExist, PyokoError
 import traceback
@@ -48,6 +48,7 @@ sys.PYOKO_STAT_COUNTER = {
     "search": 0,
 }
 sys.PYOKO_LOGS = defaultdict(list)
+
 
 class BlockSave(object):
     def __init__(self, mdl, query_dict=None):
@@ -67,6 +68,7 @@ class BlockSave(object):
             time.sleep(.4)
         Adapter.COLLECT_SAVES = False
 
+
 class BlockDelete(object):
     def __init__(self, mdl):
         self.mdl = mdl
@@ -79,9 +81,9 @@ class BlockDelete(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         indexed_obj_count = self.mdl.objects.filter(key__in=Adapter.block_saved_keys)
         while Adapter.block_saved_keys and indexed_obj_count.count():
-
             time.sleep(.4)
         Adapter.COLLECT_SAVES = False
+
 
 # noinspection PyTypeChecker
 class Adapter(BaseAdapter):
@@ -89,6 +91,7 @@ class Adapter(BaseAdapter):
     QuerySet is a lazy data access layer for Riak.
     """
     COLLECT_SAVES = False
+
     def __init__(self, **conf):
         super(Adapter, self).__init__(**conf)
         self.bucket = riak.RiakBucket
@@ -205,8 +208,6 @@ class Adapter(BaseAdapter):
             self._cfg['bucket_name'] = name
         self.bucket = self._client.bucket_type(self._cfg['bucket_type']
                                                ).bucket(self._cfg['bucket_name'])
-        self.version_bucket = self._client.bucket_type(self._cfg['bucket_type'] + '_version'
-                                                       ).bucket(self._cfg['bucket_name'] + '_log')
         self.index_name = "%s_%s" % (self._cfg['bucket_type'], self._cfg['bucket_name'])
         return self
 
@@ -214,44 +215,52 @@ class Adapter(BaseAdapter):
         return self._client.bucket_type(self._cfg['bucket_type']
                                         ).bucket(self._cfg['bucket_name'])
 
-    def _write_version(self, data, key, meta):
+    def _write_version(self, data, model):
         """
             Writes a copy of the objects current state to write-once mirror bucket.
 
+        Args:
+            data (dict): Model instance's all data for versioning.
+            model (instance): Model instance.
+
         Returns:
             Key of version record.
+            key (str): Version_bucket key.
         """
         vdata = {'data': data,
-                 'key': key,
-                 'meta': meta,
+                 'key': model.key,
+                 'model': model.Meta.bucket_name,
                  'timestamp': time.time()}
-        obj = self.version_bucket.new(data=vdata)
-        obj.add_index('key_bin', key)
+        obj = version_bucket.new(data=vdata)
+        obj.add_index('key_bin', model.key)
+        obj.add_index('model_bin', vdata['model'])
         obj.add_index('timestamp_int', int(vdata['timestamp']))
         obj.store()
         return obj.key
 
-    def _write_log(self, version_key, meta_data):
+    def _write_log(self, version_key, meta_data, index_fields):
         """
         Creates a log entry for current object,
         Args:
-            version_key:
-            meta_data:
+            version_key(str): Version_bucket key from _write_version().
+            meta_data (dict): JSON serializable meta data for logging of save operation.
+                {'lorem': 'ipsum', 'dolar': 5}
+            index_fields (list): Tuple list for secondary indexing keys in riak (with 'bin' or 'int').
+                [('lorem','bin'),('dolar','int')]
 
         Returns:
 
         """
         meta_data = meta_data or {}
         meta_data.update({
-            'key': version_key,
+            'version_key': version_key,
             'timestamp': time.time(),
         })
-        if self._current_context:
-            meta_data['user_id'] = self._current_context.user_id
-            meta_data['role_id'] = self._current_context.role_id
         obj = log_bucket.new(data=meta_data)
-        obj.add_index('key_bin', version_key)
+        obj.add_index('version_key_bin', version_key)
         obj.add_index('timestamp_int', int(meta_data['timestamp']))
+        for field, index_type in index_fields:
+            obj.add_index('%s_%s' % (field, index_type), meta_data.get(field, ""))
         obj.store()
 
     # def save(self, data, key=None, meta_data=None):
@@ -271,9 +280,13 @@ class Adapter(BaseAdapter):
     #         self._write_log(version_key, meta_data)
     #     return obj.key
 
-    def save_model(self, model, meta_data=None):
+    def save_model(self, model, meta_data=None, index_fields=None):
         """
-        saves the model instance to riak
+            model (instance): Model instance.
+            meta (dict): JSON serializable meta data for logging of save operation.
+                {'lorem': 'ipsum', 'dolar': 5}
+            index_fields (list): Tuple list for indexing keys in riak (with 'bin' or 'int').
+                [('lorem','bin'),('dolar','int')]
         :return:
         """
         # if model:
@@ -282,8 +295,10 @@ class Adapter(BaseAdapter):
             t1 = time.time()
         clean_value = model.clean_value()
         model._data = clean_value
+
         if settings.DEBUG:
             t2 = time.time()
+
         if not model.exist:
             obj = self.bucket.new(data=clean_value).store()
             model.key = obj.key
@@ -294,14 +309,15 @@ class Adapter(BaseAdapter):
             obj.data = clean_value
             obj.store()
 
-        meta_data = meta_data or model.save_meta_data
         if settings.ENABLE_VERSIONS:
-            version_key = self._write_version(clean_value, model.key, meta_data)
+            version_key = self._write_version(clean_value, model)
         else:
             version_key = ''
-        if settings.ENABLE_ACTIVITY_LOGGING:
-            self._write_log(version_key, meta_data)
-        #
+
+        meta_data = meta_data or model.save_meta_data
+        if settings.ENABLE_ACTIVITY_LOGGING and meta_data:
+            self._write_log(version_key, meta_data, index_fields)
+
         if self.COLLECT_SAVES and self.COLLECT_SAVES_FOR_MODEL == model.__class__.__name__:
             self.block_saved_keys.append(obj.key)
         if settings.DEBUG:
@@ -311,7 +327,7 @@ class Adapter(BaseAdapter):
             else:
                 sys.PYOKO_LOGS[self._model_class.__name__].append(obj.key)
                 sys.PYOKO_STAT_COUNTER['update'] += 1
-        #     sys._debug_db_queries.append({
+        # sys._debug_db_queries.append({
         #         'TIMESTAMP': t1,
         #         'KEY': obj.key,
         #         'BUCKET': self.index_name,
@@ -713,14 +729,14 @@ class Adapter(BaseAdapter):
                     print("QRY => %s\nSOLR_PARAMS => %s" % (self.compiled_query, solr_params))
 
 
-                        # if settings.DEBUG:
-                #     sys.PYOKO_STAT_COUNTER['search'] += 1
-                #     sys._debug_db_queries.append({
-                #         'TIMESTAMP': t1,
-                #         'QUERY': self.compiled_query,
-                #         'BUCKET': self.index_name,
-                #         'QUERY_PARAMS': solr_params,
-                #         'TIME': round(time.time() - t1, 4)})
+                    # if settings.DEBUG:
+                    #     sys.PYOKO_STAT_COUNTER['search'] += 1
+                    #     sys._debug_db_queries.append({
+                    #         'TIMESTAMP': t1,
+                    #         'QUERY': self.compiled_query,
+                    #         'BUCKET': self.index_name,
+                    #         'QUERY_PARAMS': solr_params,
+                    #         'TIME': round(time.time() - t1, 4)})
             except riak.RiakError as err:
                 err.value += self._get_debug_data()
                 raise
