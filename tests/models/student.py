@@ -8,6 +8,7 @@ data models for tests
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
 from pyoko import Model, ListNode, field, Node
+from users import Role
 
 class Student(Model):
     # def __init__(self, **kwargs):
@@ -37,6 +38,7 @@ class Student(Model):
         name = field.String(type='text_tr')
         code = field.String(required=False)
         credit = field.Integer(default=0)
+        role = Role('Role_1', index=True)
 
         class NodeInListNode(Node):
             foo = field.String(index=False)
@@ -50,6 +52,9 @@ class Student(Model):
             date = field.Date(index=False)
             hour = field.Integer(index=False)
             attended = field.Boolean(default=False, index=False)
+
+    class Lecturer(ListNode):
+        role = Role('Role_2', index=True)
 
 
 
