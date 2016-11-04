@@ -44,6 +44,7 @@ data = {'auth_info': {'email': 'suuper@suup.com',
         'deleted': False,
         'number': '20300344',
         'timestamp': None,
+        'deleted_at': None,
         'pno': '2343243433',
         'surname': 'Black'}
 
@@ -85,6 +86,7 @@ clean_data = {'deleted': False,
               'number': '20300344',
               'pno': '2343243433',
               'surname': 'Black',
-              'timestamp': None}
+              'timestamp': None,
+              'deleted_at': '0000-00-00T00:00:00Z'}
 
 
