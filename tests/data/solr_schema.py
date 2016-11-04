@@ -85,6 +85,8 @@ test_data_solr_schema_debug_not_zero = [
     '<field    type="date" name="lectures.exams.date"  indexed="false" stored="true" multiValued="true" />',
     '<field    type="string" name="lectures.exams.type"  indexed="false" stored="true" multiValued="true" />',
     '<field    type="string" name="lectures.node_in_list_node.foo"  indexed="false" stored="true" multiValued="true" />',
+    '<field    type="string" name="lectures.role_id"  indexed="true" stored="true" multiValued="true" />',
+    '<field    type="string" name="lecturer.role_id"  indexed="true" stored="true" multiValued="true" />',
     '<field    type="string" name="auth_info.username"  indexed="true" stored="true" multiValued="false" />',
     '<field    type="string" name="auth_info.password"  indexed="false" stored="true" multiValued="false" />',
     '<field    type="string" name="auth_info.email"  indexed="true" stored="true" multiValued="false" />']
