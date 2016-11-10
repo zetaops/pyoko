@@ -9,6 +9,7 @@
 from pprint import pprint, pformat
 from time import sleep, time
 
+from pyoko.exceptions import ObjectDoesNotExist
 from pyoko.manage import FlushDB
 from .models import *
 import pytest
@@ -102,6 +103,17 @@ class TestCase:
         u = User(name="Foo").save()
         r = Role(usr=u, name="Foo Frighters").save()
         assert Role.objects.get(r.key).usr.name == u.name
+
+    @pytest.mark.second
+    def test_missing_link(self):
+        """
+        Tries to create a Role object with nonexistent user
+        and expects ObjectDoesNotExist error
+        :return:
+        """
+        self.prepare_testbed()
+        with pytest.raises(ObjectDoesNotExist):
+            Role(usr_id='nonexistent_user_key', name="Foo Frighters").save()
 
     @pytest.mark.second
     def test_lazy_links(self):
