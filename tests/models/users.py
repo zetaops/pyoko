@@ -32,7 +32,6 @@ class AbstractRole(Model):
         permission = Permission(reverse_name='perms')
 
 
-
 class User(Model):
     name = field.String('Full Name')
     supervisor = LinkProxy('User', verbose_name='Supervisor', reverse_name='workers')
@@ -46,7 +45,7 @@ class Role(Model):
     teammate = LinkProxy('User', verbose_name="Teammate", reverse_name="team")
     abstract_role = AbstractRole()
     name = field.String("Name")
-    active = field.Boolean("Is Active", index=False)
+    active = field.Boolean("Is Active", index=True)
     start = field.Date("Start Date", index=False)
     end = field.Date("End Date", index=False)
 

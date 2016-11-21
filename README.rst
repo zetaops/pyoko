@@ -3,10 +3,10 @@
     :alt: Documentation Status
 
 Pyoko: A Django-esque NoSQL ORM for Riak KV 2.1.4
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Features
-^^^^^^^^^
+^^^^^^^^
 
 -  Nested class based data models (schemas).
 -  One-To-One, ManyToMany and ManyToOne relations.
@@ -31,14 +31,14 @@ Planned
 
 
 API Documentation
-^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^
 Read the API documentation at pyoko.readthedocs.org_.
 
 .. _pyoko.readthedocs.org: http://pyoko.readthedocs.org/en/latest/api-documentation.html
 
 
 Quick Start
-^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^
 
 Your project should within Python path, so you could be able to import
 it.
@@ -148,7 +148,7 @@ Creating objects, Making Queries
 
 
 Notes
-------
+-----
 - Do not use Protocol Buffers in development, it doesn't give proper descriptions for server side errors.
 
 - Use CamelCase for model, node and listnodes
@@ -185,6 +185,13 @@ Notes
     In [1]: Personel.objects.filter(ad__startswith='Al')
     Out[1]: QRY => ad:Al* AND -deleted:True
     [<Personel: ali g.>]
+
+- If you want to enable logging and versioning, create and activate a bucket type with leveldb backend
+
+.. code:: bash
+
+    riak-admin bucket-type create log_version '{"props": {"backend": "leveldb_mult"}}'
+    riak-admin bucket-type activate log_version
 
 Tests
 ^^^^^

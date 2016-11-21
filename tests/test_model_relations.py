@@ -9,6 +9,7 @@
 from pprint import pprint, pformat
 from time import sleep, time
 
+from pyoko.exceptions import ObjectDoesNotExist
 from pyoko.manage import FlushDB
 from .models import *
 import pytest
@@ -104,6 +105,17 @@ class TestCase:
         assert Role.objects.get(r.key).usr.name == u.name
 
     @pytest.mark.second
+    def test_missing_link(self):
+        """
+        Tries to create a Role object with nonexistent user
+        and expects ObjectDoesNotExist error
+        :return:
+        """
+        self.prepare_testbed()
+        with pytest.raises(ObjectDoesNotExist):
+            Role(usr_id='nonexistent_user_key', name="Foo Frighters").save()
+
+    @pytest.mark.second
     def test_lazy_links(self):
         self.prepare_testbed()
         u = User(name="Foo").save()
@@ -189,4 +201,82 @@ class TestCase:
         assert r1.usr == r2.usr
 
 
+    def test_same_links_different_listnode(self):
+        """
+        Same links at different listnodes under same class shouldn't affect each other.
+        They should be independent.
 
+        Test example architecture:
+
+        class Student(Model):
+
+            class Lecturer(ListNode):
+                role = Role()
+
+            class Lectures(ListNode):
+                role = Role()
+
+        """
+        # First role is taken.
+        first_role = Role()
+        # Second role is taken.
+        second_role = Role()
+        # First and second roles are saved.
+        first_role.save()
+        second_role.save()
+        # Student instance is creaeted.
+        student = Student()
+        # First and second roles' student sets are controlled.
+        assert len(first_role.student_set) == 0
+        assert len(second_role.student_set) == 0
+        # Student's Lecturer list node's role field is assigned to first_role.
+        student.Lecturer(role=first_role)
+        # Student instance is saved.
+        student.save()
+        # Student's Lecturer list increases one, it is controlled.
+        assert len(student.Lecturer) == 1
+        # Student's Lectures list remains same, it is controlled.
+        assert len(student.Lectures) == 0
+        # Student's Lecturer data's role info is controlled.
+        assert student.Lecturer[0].role == first_role
+        # First role's student set number should increase one.
+        assert len(first_role.student_set) == 1
+        # First role's student set's student object's data is controlled.
+        # Role info is controlled whether it is true or not.
+        assert first_role.student_set[0].student.clean_value()['lecturer'][0]['role_id'] == first_role.key
+        assert first_role.student_set[0].student.clean_value()['lectures'] == []
+
+        # Student's Lectures list node's role field is assigned to first_role.
+        student.Lectures(role=first_role)
+        # Student instance is saved.
+        student.save()
+
+        # Lecturer and Lectures listnodes' number should be 1.
+        assert len(student.Lectures) == 1
+        assert len(student.Lecturer) == 1
+        # Both's role data should be first_role
+        assert student.Lecturer[0].role == first_role
+        assert student.Lectures[0].role == first_role
+        # First role student set's number should remain same.
+        assert len(first_role.student_set) == 1
+        # First role's student set's student object's data is controlled.
+        # Role info is controlled whether it is true or not.
+        assert first_role.student_set[0].student.clean_value()['lecturer'][0]['role_id'] == first_role.key
+        assert first_role.student_set[0].student.clean_value()['lectures'][0]['role_id'] == first_role.key
+
+        # Student's Lecturer list node's role field is changed from first_role to second_role.
+        student.Lecturer[0].role = second_role
+        # Student instance is saved.
+        student.save()
+
+        # Student's Lecturer list number should be 1.
+        assert len(student.Lecturer) == 1
+        # Student's Lectures list number should be 1.
+        assert len(student.Lectures) == 1
+        # Changes are controlled.
+        assert student.Lecturer[0].role == second_role
+        assert student.Lectures[0].role == first_role
+        # # Second role's student set number should increase one.
+        # assert len(second_role.student_set) == 1
+        # # Second role's student set's student object's data is controlled.
+        # assert second_role.student_set[0].student.clean_value()['lecturer'][0]['role_id'] == second_role.key

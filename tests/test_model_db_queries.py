@@ -12,9 +12,9 @@ import pytest
 from pyoko.conf import settings
 from pyoko.db.adapter.db_riak import BlockSave, BlockDelete
 from pyoko.exceptions import MultipleObjectsReturned
-from pyoko.manage import ManagementCommands, FlushDB
+from pyoko.manage import FlushDB
 from tests.data.test_data import data, clean_data
-from tests.models import Student, TimeTable
+from tests.models import Student, TimeTable, User, Role
 
 
 class TestCase:
@@ -68,7 +68,7 @@ class TestCase:
 
     def test_get_multiple_objects_exception(self):
         self.prepare_testbed()
-        s2 = Student(name='Foo').save()
+        Student(name='Foo').save()
         sleep(1)
         with pytest.raises(MultipleObjectsReturned):
             Student.objects.get()
@@ -265,3 +265,42 @@ class TestCase:
             Student(name='jhon smith', surname='sr.').save()
         # assert Student.objects.filter(name__contains='on sm').count() == 2
         assert Student.objects.filter(name='jhon smith').count() == 2
+
+    def test_distinct_values_of(self):
+        user, new = User.objects.get_or_create(name="Sergio Mena")
+        role_lst = []
+        with BlockSave(Role):
+            for i in range(1, 6, 1):
+                role = Role(name="Musician%s" % i, usr=user)
+                role.save()
+                role_lst.append(role)
+
+        user_dict_1 = Role.objects.filter(name="Musician1").distinct_values_of("usr_id")
+        assert sum(user_dict_1.values()) == 1
+
+        user_dict_2 = Role.objects.filter(usr_id=user.key).distinct_values_of("usr_id")
+        assert sum(user_dict_2.values()) == 5
+
+        Role.objects.filter(active=True).delete()
+
+        with BlockSave(Role, query_dict={'active': True}):
+            for i, r in enumerate(role_lst):
+                if i == 3:
+                    pass
+                else:
+                    r.active = True
+                    r.save()
+
+        user_dict_3 = Role.objects.filter(active=True).distinct_values_of("usr_id")
+        assert sum(user_dict_3.values()) == 4
+
+        new_user = User(name="Valnetin Hegg")
+        new_user.blocking_save()
+        role_lst[0].usr = new_user
+        role_lst[0].blocking_save(query_dict={'usr': new_user})
+        user_dict_4 = Role.objects.filter(active=True, usr_id=user.key).distinct_values_of("usr_id")
+        assert sum(user_dict_4.values()) == 3
+        
+        with BlockDelete(Role):
+            for r in role_lst:
+                r.delete()

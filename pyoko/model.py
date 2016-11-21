@@ -258,40 +258,47 @@ class Model(Node):
     def _name_id(self):
         return "%s_id" % self._name
 
-    def _update_new_linked_model(self, linked_mdl_ins, link):
+    def _update_new_linked_model(self, internal, linked_mdl_ins, link):
         """
         Iterates through linked_models of given model instance to match it's
         "reverse" with given link's "field" values.
         """
-        for lnk in linked_mdl_ins.get_links():
-            mdl = lnk['mdl']
-            if not isinstance(self, mdl) or lnk['reverse'] != link['field']:
-                continue
-            local_field_name = lnk['field']
-            # remote_name = lnk['reverse']
-            remote_field_name = un_camel(mdl.__name__)
-            if not link['o2o']:
-                if '.' in local_field_name:
-                    local_field_name, remote_field_name = local_field_name.split('.')
-                remote_set = getattr(linked_mdl_ins, local_field_name)
-                if remote_set._TYPE == 'ListNode' and self not in remote_set:
-                    remote_set(**{remote_field_name: self._root_node})
+
+        # If there is a link between two sides (A and B), if a link from A to B,
+        # link should be saved at B but it is not necessary to control again data in A.
+        # If internal field is True, data control is not done and passes.
+        if not internal:
+
+            for lnk in linked_mdl_ins.get_links():
+                mdl = lnk['mdl']
+                if not isinstance(self, mdl) or lnk['reverse'] != link['field']:
+                    continue
+                local_field_name = lnk['field']
+                # remote_name = lnk['reverse']
+                remote_field_name = un_camel(mdl.__name__)
+                if not link['o2o']:
+                    if '.' in local_field_name:
+                        local_field_name, remote_field_name = local_field_name.split('.')
+                    remote_set = getattr(linked_mdl_ins, local_field_name)
+
+                    if remote_set._TYPE == 'ListNode' and self not in remote_set:
+                        remote_set(**{remote_field_name: self._root_node})
+                        if linked_mdl_ins._exists is False:
+                            raise ObjectDoesNotExist('Linked %s on field %s with key %s doesn\'t exist' % (
+                                linked_mdl_ins.__class__.__name__,
+                                remote_field_name,
+                                linked_mdl_ins.key,
+                            ))
+                        linked_mdl_ins.save(internal=True)
+                else:
+                    linked_mdl_ins.setattr(remote_field_name, self._root_node)
                     if linked_mdl_ins._exists is False:
-                        raise ObjectDoesNotExist('Linked %s on field %s with key %s doesn\'t exist' % (
+                        raise ObjectDoesNotExist('Linked object %s on field %s with key %s doesn\'t exist' % (
                             linked_mdl_ins.__class__.__name__,
                             remote_field_name,
                             linked_mdl_ins.key,
                         ))
                     linked_mdl_ins.save(internal=True)
-            else:
-                linked_mdl_ins.setattr(remote_field_name, self._root_node)
-                if linked_mdl_ins._exists is False:
-                    raise ObjectDoesNotExist('Linked object %s on field %s with key %s doesn\'t exist' % (
-                        linked_mdl_ins.__class__.__name__,
-                        remote_field_name,
-                        linked_mdl_ins.key,
-                    ))
-                linked_mdl_ins.save(internal=True)
 
     def _add_back_link(self, linked_mdl, link):
         # creates a new back_link reference
@@ -315,13 +322,13 @@ class Model(Node):
                     linked_mdl = getattr(self, link['field'])
                     self._add_back_link(linked_mdl, link)
 
-    def _process_relations(self):
+    def _process_relations(self,internal):
         buffer = []
         for k, v in self.new_back_links.copy().items():
             del self.new_back_links[k]
             buffer.append(v)
         for v in buffer:
-            self._update_new_linked_model(*v)
+            self._update_new_linked_model(internal,*v)
 
     def reload(self):
         """
@@ -404,7 +411,7 @@ class Model(Node):
                         "Unique together mismatch: %s combination already exists for %s"
                         % (vals, self.__class__.__name__))
 
-    def save(self, internal=False, meta=None):
+    def save(self, internal=False, meta=None, index_fields=None):
         """
         Save's object to DB.
 
@@ -415,6 +422,9 @@ class Model(Node):
                 Used to prevent unneccessary calls to pre_save and
                 post_save methods.
             meta (dict): JSON serializable meta data for logging of save operation.
+                {'lorem': 'ipsum', 'dolar': 5}
+            index_fields (list): Tuple list for indexing keys in riak (with 'bin' or 'int').
+                [('lorem','bin'),('dolar','int')]
 
         Returns:
              Saved model instance.
@@ -432,9 +442,9 @@ class Model(Node):
             self.setattrs(just_created=not self.exist)
         if self._just_created is None:
             self.setattrs(_just_created=self.just_created)
-        self.objects.save_model(self, meta_data=meta)
+        self.objects.save_model(self, meta_data=meta, index_fields=index_fields)
         self._handle_changed_fields(old_data)
-        self._process_relations()
+        self._process_relations(internal)
         if not (internal or self._post_save_hook_called):
             self._post_save_hook_called = True
             self.post_save()
@@ -508,18 +518,21 @@ class Model(Node):
                 # binding actual relation's save to our save
                 self.on_save.append(lambda self: rel.save(internal=True))
 
-
         return [], []
 
-    def delete(self, dry=False):
+    def delete(self, dry=False, meta=None, index_fields=None):
         """
         Sets the objects "deleted" field to True and,
         current time to "deleted_at" fields then saves it to DB.
 
+
         Args:
             dry (bool): False. Do not execute the actual deletion.
             Just list what will be deleted as a result of relations.
-
+            meta (dict): JSON serializable meta data for logging of save operation.
+                {'lorem': 'ipsum', 'dolar': 5}
+            index_fields (list): Tuple list for secondary indexing keys in riak (with 'bin' or 'int').
+                [('lorem','bin'),('dolar','int')]
         Returns:
             Tuple. (results [], errors [])
         """
@@ -531,7 +544,7 @@ class Model(Node):
         if not (dry or errors):
             self.deleted = True
             self.deleted_at = datetime.now()
-            self.save(internal=True)
+            self.save(internal=True, meta=meta, index_fields=index_fields)
             self.post_delete()
         return results, errors
 

@@ -9,6 +9,10 @@ Default Settings
 import os
 
 DEFAULT_BUCKET_TYPE = os.environ.get('DEFAULT_BUCKET_TYPE', 'pyoko_models')
+# write_once bucket doesn't support secondary indexes. Thus, backend is defined
+# as "leveldb_mult" in log_version bucket properties.
+VERSION_LOG_BUCKET_TYPE = os.environ.get('VERSION_LOG_BUCKET_TYPE', 'log_version')
+
 RIAK_SERVER = os.environ.get('RIAK_SERVER', 'localhost')
 RIAK_PROTOCOL = os.environ.get('RIAK_PROTOCOL', 'http')
 RIAK_PORT = os.environ.get('RIAK_PORT', 8098)
@@ -27,7 +31,8 @@ VERSION_SUFFIX = os.environ.get('VERSION_SUFFIX', '_version')
 
 #: Set True to enable auto-logging of all DB operations to a
 #: write-once log bucket
-ENABLE_ACTIVITY_LOGGING = os.environ.get('VERSION_SUFFIX', 'False') == 'True'
+ENABLE_ACTIVITY_LOGGING = os.environ.get('ENABLE_ACTIVITY_LOGGING', 'False') == 'True'
 
 #: Set the name of logging bucket type and bucket name.
-ACTIVITY_LOGGING_BUCKET = os.environ.get('ACTIVITY_LOGGING_BUCKET', DEFAULT_BUCKET_TYPE + '_log')
+ACTIVITY_LOGGING_BUCKET = os.environ.get('ACTIVITY_LOGGING_BUCKET', 'log')
+VERSION_BUCKET = os.environ.get('VERSION_BUCKET', 'version')

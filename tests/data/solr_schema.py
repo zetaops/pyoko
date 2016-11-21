@@ -28,6 +28,8 @@ test_data_solr_fields_debug_zero = [
     ('lectures.exams.point', 'int', False, False, True),
     ('lectures.exams.type', 'string', False, False, True),
     ('lectures.node_in_list_node.foo', 'string', False, False, True),
+    ('lectures.role_id', 'string', True, False, True),
+    ('lecturer.role_id', 'string', True, False, True),
     ('auth_info.username', 'string', True, False, False),
     ('auth_info.password', 'string', False, False, False),
     ('auth_info.email', 'string', True, False, False)
@@ -56,6 +58,8 @@ test_data_solr_schema_debug_zero = [
     '<field    type="date" name="lectures.exams.date"  indexed="false" stored="false" multiValued="true" />',
     '<field    type="string" name="lectures.exams.type"  indexed="false" stored="false" multiValued="true" />',
     '<field    type="string" name="lectures.node_in_list_node.foo"  indexed="false" stored="false" multiValued="true" />',
+    '<field    type="string" name="lectures.role_id"  indexed="true" stored="false" multiValued="true" />',
+    '<field    type="string" name="lecturer.role_id"  indexed="true" stored="false" multiValued="true" />',
     '<field    type="string" name="auth_info.username"  indexed="true" stored="false" multiValued="false" />',
     '<field    type="string" name="auth_info.password"  indexed="false" stored="false" multiValued="false" />',
     '<field    type="string" name="auth_info.email"  indexed="true" stored="false" multiValued="false" />']
@@ -81,6 +85,8 @@ test_data_solr_schema_debug_not_zero = [
     '<field    type="date" name="lectures.exams.date"  indexed="false" stored="true" multiValued="true" />',
     '<field    type="string" name="lectures.exams.type"  indexed="false" stored="true" multiValued="true" />',
     '<field    type="string" name="lectures.node_in_list_node.foo"  indexed="false" stored="true" multiValued="true" />',
+    '<field    type="string" name="lectures.role_id"  indexed="true" stored="true" multiValued="true" />',
+    '<field    type="string" name="lecturer.role_id"  indexed="true" stored="true" multiValued="true" />',
     '<field    type="string" name="auth_info.username"  indexed="true" stored="true" multiValued="false" />',
     '<field    type="string" name="auth_info.password"  indexed="false" stored="true" multiValued="false" />',
     '<field    type="string" name="auth_info.email"  indexed="true" stored="true" multiValued="false" />']

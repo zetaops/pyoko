@@ -98,7 +98,15 @@ class SchemaUpdater(object):
         self.bucket_names = [b.lower() for b in bucket_names.split(',')]
         self.t1 = 0.0  # start time
 
-    def run(self):
+    def run(self, check_only=False):
+        """
+
+        Args:
+            check_only:  do not migrate, only report migration is needed or not if True
+
+        Returns:
+
+        """
         self.t1 = time.time()
         apply_threads = []
         models = [model for model in self.registry.get_base_models()
@@ -108,8 +116,6 @@ class SchemaUpdater(object):
         pack_size = int(num_models / self.threads) or 1
         n_val = self.client.bucket_type(settings.DEFAULT_BUCKET_TYPE).get_property('n_val')
         self.client.create_search_index('foo_index', '_yz_default', n_val=n_val)
-        if settings.ENABLE_ACTIVITY_LOGGING:
-            self._handle_log_bucket()
         for i in range(0, num_models, pack_size):
             job_pack = []
             for model in models[i:i + pack_size]:
@@ -120,7 +126,8 @@ class SchemaUpdater(object):
             apply_threads.append(
                 threading.Thread(target=self.apply_schema, args=(self.client,
                                                                  self.force,
-                                                                 job_pack)))
+                                                                 job_pack,
+                                                                 check_only)))
 
         print("Schema creation started for %s model(s) with max %s threads\n" % (
             num_models, self.threads))
@@ -160,7 +167,8 @@ class SchemaUpdater(object):
                                           multi=str(multi).lower())
                 for name, field_type, index, store, multi in fields]
 
-    def compile_schema(self, fields):
+    @staticmethod
+    def compile_schema(fields):
         """
         joins schema fields with base solr schema
 
@@ -175,18 +183,8 @@ class SchemaUpdater(object):
             schema_template = fh.read()
         return schema_template.format('\n'.join(fields)).encode('utf-8')
 
-    def _handle_log_bucket(self):
-        log_bucket.set_property('search_index', '_dont_index_')
-
     @staticmethod
-    def _handle_version_bucket(client, model):
-        bucket_name = model._get_bucket_name() + settings.VERSION_SUFFIX
-        bucket_type = client.bucket_type(settings.DEFAULT_BUCKET_TYPE + '_version')
-        bucket = bucket_type.bucket(bucket_name)
-        bucket.set_property('search_index', '_dont_index_')
-
-    @staticmethod
-    def apply_schema(client, force, job_pack):
+    def apply_schema(client, force, job_pack, check_only):
         """
         riak doesn't support schema/index updates ( http://git.io/vLOTS )
 
@@ -202,8 +200,6 @@ class SchemaUpdater(object):
         """
         for new_schema, model in job_pack:
             try:
-                if settings.ENABLE_VERSIONS:
-                    SchemaUpdater._handle_version_bucket(client, model)
                 bucket_name = model._get_bucket_name()
                 bucket_type = client.bucket_type(settings.DEFAULT_BUCKET_TYPE)
                 bucket = bucket_type.bucket(bucket_name)
@@ -211,8 +207,12 @@ class SchemaUpdater(object):
                 index_name = "%s_%s" % (settings.DEFAULT_BUCKET_TYPE, bucket_name)
                 if not force:
                     try:
-                        if get_schema_from_solr(index_name) == new_schema:
-                            print("Schema %s already up to date, nothing to do!" % index_name)
+                        schema = get_schema_from_solr(index_name)
+                        if schema == new_schema:
+                            print("Schema %s is already up to date, nothing to do!" % index_name)
+                            continue
+                        elif check_only and schema != new_schema:
+                            print("Schema %s is not up to date, migrate this model!" % index_name)
                             continue
                     except:
                         import traceback

@@ -29,6 +29,7 @@ def test_model_to_json_compact():
     st = Student(**data)
     st.join_date = data['join_date']
     st.AuthInfo(**data['auth_info'])
+    st.Lecturer(**data['lecturer'][0])
     for lct_data in data['lectures']:
         lecture = st.Lectures(**lct_data)
         lecture.NodeInListNode(**lct_data['node_in_list_node'])
@@ -64,6 +65,7 @@ def test_model_to_json_expanded():
     ai.email = d['email']
     ai.password = d['password']
     ai.username = d['username']
+    s.Lecturer(**data['lecturer'][0])
     for ld in data['lectures']:
         lecture = s.Lectures()
         lecture.code = ld['code']
