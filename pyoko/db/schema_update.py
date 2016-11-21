@@ -100,7 +100,12 @@ class SchemaUpdater(object):
 
     def run(self, check_only=False):
         """
-        :param check_only: this function just check models from solr, if needed migrate or not
+
+        Args:
+            check_only:  do not migrate, only report migration is needed or not if True
+
+        Returns:
+
         """
         self.t1 = time.time()
         apply_threads = []
@@ -204,10 +209,10 @@ class SchemaUpdater(object):
                     try:
                         schema = get_schema_from_solr(index_name)
                         if schema == new_schema:
-                            print("Schema %s already up to date, nothing to do!" % index_name)
+                            print("Schema %s is already up to date, nothing to do!" % index_name)
                             continue
                         elif check_only and schema != new_schema:
-                            print("Schema %s not up to date, Migrate this model!" % index_name)
+                            print("Schema %s is not up to date, migrate this model!" % index_name)
                             continue
                     except:
                         import traceback
@@ -252,6 +257,3 @@ class SchemaUpdater(object):
                 print("bucket_name: %s" % bucket_name)
                 print("bucket_type: %s" % bucket_type)
                 raise
-
-        if check_only:
-            print ("Migrate and solr checked - Done")
