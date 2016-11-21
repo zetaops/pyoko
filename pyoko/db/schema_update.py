@@ -98,7 +98,15 @@ class SchemaUpdater(object):
         self.bucket_names = [b.lower() for b in bucket_names.split(',')]
         self.t1 = 0.0  # start time
 
-    def run(self):
+    def run(self, check_only=False):
+        """
+
+        Args:
+            check_only:  do not migrate, only report migration is needed or not if True
+
+        Returns:
+
+        """
         self.t1 = time.time()
         apply_threads = []
         models = [model for model in self.registry.get_base_models()
@@ -118,7 +126,8 @@ class SchemaUpdater(object):
             apply_threads.append(
                 threading.Thread(target=self.apply_schema, args=(self.client,
                                                                  self.force,
-                                                                 job_pack)))
+                                                                 job_pack,
+                                                                 check_only)))
 
         print("Schema creation started for %s model(s) with max %s threads\n" % (
             num_models, self.threads))
@@ -175,7 +184,7 @@ class SchemaUpdater(object):
         return schema_template.format('\n'.join(fields)).encode('utf-8')
 
     @staticmethod
-    def apply_schema(client, force, job_pack):
+    def apply_schema(client, force, job_pack, check_only):
         """
         riak doesn't support schema/index updates ( http://git.io/vLOTS )
 
@@ -198,8 +207,12 @@ class SchemaUpdater(object):
                 index_name = "%s_%s" % (settings.DEFAULT_BUCKET_TYPE, bucket_name)
                 if not force:
                     try:
-                        if get_schema_from_solr(index_name) == new_schema:
-                            print("Schema %s already up to date, nothing to do!" % index_name)
+                        schema = get_schema_from_solr(index_name)
+                        if schema == new_schema:
+                            print("Schema %s is already up to date, nothing to do!" % index_name)
+                            continue
+                        elif check_only and schema != new_schema:
+                            print("Schema %s is not up to date, migrate this model!" % index_name)
                             continue
                     except:
                         import traceback
