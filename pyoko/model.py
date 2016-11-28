@@ -460,10 +460,13 @@ class Model(Node):
             list: List of fields names which their values changed.
         """
         current_dict = self.clean_value()
-        # At ListNode init, 'from_db' is initialized as default False, when object's clean value is
-        # called, 'from_db' field is added to object's ListNode fields. It causes inconsistency.
+        # `from_db` attr is set False as default, when a `ListNode` is
+        # initialized just after above `clean_value` is called. `from_db` flags
+        # in 'list node sets' makes differences between clean_data and object._data.
+
         # Thus, after clean_value, object's data is taken from db again.
         db_data = self.objects.data().filter(key=self.key)[0][0]
+
         set_current, set_past = set(current_dict.keys()), set(db_data.keys())
         intersect = set_current.intersection(set_past)
         return set(o for o in intersect if db_data[o] != current_dict[o])
