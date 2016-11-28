@@ -460,9 +460,13 @@ class Model(Node):
             list: List of fields names which their values changed.
         """
         current_dict = self.clean_value()
-        set_current, set_past = set(current_dict.keys()), set(self._data.keys())
+        # At ListNode init, 'from_db' is initialized as default False, when object's clean value is
+        # called, 'from_db' field is added to object's ListNode fields. It causes inconsistency.
+        # Thus, after clean_value, object's data is taken from db again.
+        db_data = self.objects.data().filter(key=self.key)[0][0]
+        set_current, set_past = set(current_dict.keys()), set(db_data.keys())
         intersect = set_current.intersection(set_past)
-        return set(o for o in intersect if self._data[o] != current_dict[o])
+        return set(o for o in intersect if db_data[o] != current_dict[o])
 
     def is_changed(self, field):
         """
