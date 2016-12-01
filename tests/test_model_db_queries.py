@@ -116,11 +116,11 @@ class TestCase:
 
         assert User.objects.filter().exclude(
             name='ThereIsNoSuchAName').count() == User.objects.count()
-        assert User.objects.filter().exclude(name='Sergio Mena').count() == User.objects.count() - 1
-        assert User.objects.filter(name='Sergio Mena').exclude(supervisor_id='999').count() == 1
+        assert User.objects.filter().exclude(name='Mate2').count() == User.objects.count() - 1
+        assert User.objects.filter(name='Mate2').exclude(supervisor_id='999').count() == 1
         assert Student.objects.filter(name='Jack').exclude(surname='Black').count() == 0
-        assert User.objects.filter(name='Sergio Mena').exclude(name='Sergio Mena').count() == 0
-        role_names = ['Musician1', 'Musician2', 'Musician3']
+        assert User.objects.filter(name='Mate2').exclude(name='Mate2').count() == 0
+        role_names = ['Foo Fighters', 'Foo Frighters']
         assert Role.objects.filter().exclude(
             name__in=role_names).count() == Role.objects.count() - 3
 
