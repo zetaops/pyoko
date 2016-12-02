@@ -114,6 +114,19 @@ class TestCase:
 
         assert len(exclude_result) == 0
 
+        assert User.objects.filter().exclude(
+            name='ThereIsNoSuchAName').count() == User.objects.count()
+        assert User.objects.filter().exclude(name='Mate2').count() == User.objects.count() - 1
+        assert User.objects.filter(name='Mate2').exclude(
+            supervisor_id='ThereIsNoSuchAnId').count() == 1
+        assert Student.objects.filter(name='Jack').exclude(surname='Black').count() == 0
+        assert User.objects.filter(name='Mate2').exclude(name='Mate2').count() == 0
+
+        # There are two role with 'Foo Frighters' name and one role with 'Foo Fighters'
+        role_names = ['Foo Fighters', 'Foo Frighters']
+        assert Role.objects.filter().exclude(
+            name__in=role_names).count() == Role.objects.count() - 3
+
     def test_save_query_get_first(self):
         self.prepare_testbed()
         st2 = Student.objects.filter(
@@ -300,7 +313,7 @@ class TestCase:
         role_lst[0].blocking_save(query_dict={'usr': new_user})
         user_dict_4 = Role.objects.filter(active=True, usr_id=user.key).distinct_values_of("usr_id")
         assert sum(user_dict_4.values()) == 3
-        
+
         with BlockDelete(Role):
             for r in role_lst:
                 r.delete()
