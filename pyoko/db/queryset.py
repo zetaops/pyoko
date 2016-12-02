@@ -233,7 +233,7 @@ class QuerySet(object):
             >>> Person.objects.exclude(age=None)
             >>> Person.objects.filter(name__startswith='jo').exclude(age__lte=16)
         """
-        exclude = {'*:* AND -%s' % key: value for key, value in filters.items()}
+        exclude = {'-%s' % key: value for key, value in filters.items()}
         return self.filter(**exclude)
 
     def get_or_create(self, defaults=None, **kwargs):

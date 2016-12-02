@@ -122,10 +122,20 @@ class TestCase:
         assert Student.objects.filter(name='Jack').exclude(surname='Black').count() == 0
         assert User.objects.filter(name='Mate2').exclude(name='Mate2').count() == 0
 
+        role_names = ['Foo Fighters']
+        assert Role.objects.filter().exclude(
+            name__in=role_names).count() == Role.objects.count() - 1
+
         # There are two role with 'Foo Frighters' name and one role with 'Foo Fighters'
         role_names = ['Foo Fighters', 'Foo Frighters']
         assert Role.objects.filter().exclude(
             name__in=role_names).count() == Role.objects.count() - 3
+
+        role_keys = Role.objects.filter(name__in=role_names).values_list('key')
+
+        assert Role.objects.filter().exclude(
+            key__in=role_keys).count() == Role.objects.count() - 3
+
 
     def test_save_query_get_first(self):
         self.prepare_testbed()

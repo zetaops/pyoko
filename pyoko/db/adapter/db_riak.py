@@ -636,8 +636,12 @@ class Adapter(BaseAdapter):
             # it should be a Model, not a Node!
             if key == 'key':
                 key = '_yz_rk'
+            elif key == '-key':
+                    key = '-_yz_rk'
             elif key[:5] == 'key__':  # to handle key__in etc.
                 key = '_yz_rk__' + key[5:]
+            elif key[:6] == '-key__':  # to handle key__in etc.
+                key = '-_yz_rk__' + key[6:]
 
             key, val, is_escaped = self._process_query_val(key, val, is_escaped)
             # if it's not one of the expected objects, it should be a string
@@ -669,6 +673,18 @@ class Adapter(BaseAdapter):
                 query.append("(%s)" % val)
             else:
                 query.append("%s:%s" % (key, val))
+
+        # need to add *:* for negative queries, if
+        # query has only one criteria, such as:
+        # (-name:Jack) AND -deleted:True
+        # this wont work properly, it must be altered as
+        # (*:* -name:Jack) AND -deleted:True
+        if len(query) == 1:
+            q = query[0]
+            if q.startswith('-'):
+                query[0] = '*:* %s' % q
+            if q[:2] == '(-':
+                query[0] = '( *:* %s' % q[1:]
 
         # filter out "deleted" fields if not user explicitly asked for
 
