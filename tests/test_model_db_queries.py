@@ -133,8 +133,14 @@ class TestCase:
 
         role_keys = Role.objects.filter(name__in=role_names).values_list('key')
 
-        assert Role.objects.filter().exclude(
-            key__in=role_keys).count() == Role.objects.count() - 3
+        assert Role.objects.filter(active=False).exclude(
+            key__in=role_keys).count() == Role.objects.filter(active=False).count() - 3
+
+        assert Role.objects.filter(active__in=[False, True]).exclude(
+            key__in=role_keys).count() == Role.objects.filter(active__in=[False, True]).count() - 3
+
+        assert Role.objects.filter(active__in=[False, True], name='Foo Fighters').exclude(
+            name__in=['Foo Frighters', 'Nonexistent Fighters']).count() == 1
 
 
     def test_save_query_get_first(self):

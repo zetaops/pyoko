@@ -657,6 +657,8 @@ class Adapter(BaseAdapter):
                 key = key[:-4]
                 val = ' OR '.join(
                     ['%s:%s' % (key, self._escape_query(v, is_escaped)) for v in val])
+                if key.startswith('-'):
+                    val = '*:* %s' % val
                 key = 'NOKEY'
                 is_escaped = True
             # parse the query
