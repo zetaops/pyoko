@@ -62,6 +62,7 @@ class Model(Node):
         # self._is_unpermitted_fields_set = False
         # self._context = context
         self.setattrs(
+            reverse_link = kwargs.get('reverse_link',False),
             key=kwargs.pop('key', None),
             _unpermitted_fields=[],
             _context=context,
@@ -326,7 +327,8 @@ class Model(Node):
         buffer = []
         for k, v in self.new_back_links.copy().items():
             del self.new_back_links[k]
-            buffer.append(v)
+            if v[1]['reverse_link']:
+                buffer.append(v)
         for v in buffer:
             self._update_new_linked_model(internal,*v)
 
