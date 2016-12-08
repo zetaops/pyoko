@@ -85,10 +85,11 @@ class ModelMeta(type):
                         'mdl': lnk_mdl_ins.__class__,
                         'o2o': lnk_mdl_ins._is_one_to_one,
                         'm2m': class_type == 'ListNode',
-                        'reverse': lnk_mdl_ins.reverse_name,
+                        'reverse': '',
                         'verbose': lnk_mdl_ins.verbose_name,
                         'field': key,
                         'is_set': False,
+                        'reverse_link': lnk_mdl_ins.reverse_link
                     }
                     attrs['_linked_models'][attr.__class__.__name__].append(lnk)
                     debug_lnk = lnk.copy()
