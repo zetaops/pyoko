@@ -328,7 +328,7 @@ class Model(Node):
         buffer = []
         for k, v in self.new_back_links.copy().items():
             del self.new_back_links[k]
-            if v[1]['reverse_link']:
+            if v[1]['o2o'] or v[1]['reverse_link']:
                 buffer.append(v)
         for v in buffer:
             self._update_new_linked_model(internal, *v)
@@ -621,6 +621,7 @@ class LinkProxy(object):
                  one_to_one=False,
                  verbose_name=None,
                  reverse_name=None,
+                 reverse_link = False,
                  null=False,
                  unique=False):
         self.link_to = link_to
@@ -629,3 +630,4 @@ class LinkProxy(object):
         self.one_to_one = one_to_one
         self.verbose_name = verbose_name
         self.reverse_name = reverse_name
+        self.reverse_link = reverse_link
