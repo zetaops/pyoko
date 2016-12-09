@@ -38,7 +38,7 @@ class Student(Model):
         name = field.String(type='text_tr')
         code = field.String(required=False)
         credit = field.Integer(default=0)
-        role = Role('Role_1', index=True)
+        role = Role('Role_1', index=True,reverse_link=True)
 
         class NodeInListNode(Node):
             foo = field.String(index=False)
@@ -54,7 +54,7 @@ class Student(Model):
             attended = field.Boolean(default=False, index=False)
 
     class Lecturer(ListNode):
-        role = Role('Role_2', index=True)
+        role = Role('Role_2', index=True,reverse_link=True)
 
 
 

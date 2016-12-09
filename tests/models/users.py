@@ -29,19 +29,19 @@ class AbstractRole(Model):
     name = field.String("Name")
 
     class Permissions(ListNode):
-        permission = Permission(reverse_name='perms')
+        permission = Permission(reverse_name='perms',reverse_link=True)
 
 
 class User(Model):
     name = field.String('Full Name')
-    supervisor = LinkProxy('User', verbose_name='Supervisor', reverse_name='workers')
+    supervisor = LinkProxy('User', verbose_name='Supervisor',reverse_link=True)
 
     def __unicode__(self):
         return "User %s" % self.name
 
 
 class Role(Model):
-    usr = User(verbose_name='Kul', reverse_name='roller')
+    usr = User(verbose_name='Kul', reverse_link=True)
     teammate = LinkProxy('User', verbose_name="Teammate", reverse_name="team")
     abstract_role = AbstractRole()
     name = field.String("Name")
@@ -100,5 +100,5 @@ class Scholar(Model):
         return 'Scholar named %s' % self.name
 
     class TimeTables(ListNode):
-        timetable = TimeTable()
+        timetable = TimeTable(reverse_link=True)
         confirmed = field.Boolean("Is confirmed")
