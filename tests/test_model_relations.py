@@ -66,7 +66,7 @@ class TestCase:
         db_tt1 = TimeTable.objects.get(tt1.key)
         db_sc_tt2 = db_scholar.TimeTables[1].timetable
         db_sc_tt1 = db_scholar.TimeTables[0].timetable
-        assert db_tt1.scholar_set[0].scholar.name == db_scholar.name
+        assert db_tt1.scholar_time_tables_timetable_set[0].scholar.name == db_scholar.name
         assert db_sc_tt2.lecture != db_sc_tt1.lecture
         assert tt1.lecture == db_tt1.lecture
 
@@ -79,7 +79,7 @@ class TestCase:
         abs_role.Permissions(permission=perm)
         abs_role.save()
         db_perm = Permission.objects.get(perm.key)
-        assert len(db_perm.abstract_role_set) == 1
+        assert len(db_perm.abstract_role_permissions_permission_set) == 1
         user = User(name='Adams')
         user.save()
         role = Role(abstract_role=abs_role, active=True)
@@ -87,8 +87,8 @@ class TestCase:
         role.usr = user
         role.save()
         user_db = User.objects.get(user.key)
-        assert role.key == user_db.roller[0].role.key
-        role_node = user_db.roller[0]
+        assert role.key == user_db.role_usr_set[0].role.key
+        role_node = user_db.role_usr_set[0]
         db_user_role_abs_role = role_node.role.abstract_role
         assert abs_role.name == db_user_role_abs_role.name
         db_abs_role = AbstractRole.objects.get(abs_role.key)
@@ -132,14 +132,14 @@ class TestCase:
         mate1 = User(name="Mate", supervisor=ceo).blocking_save()
         mate2 = User(name="Mate2", supervisor=ceo).blocking_save()
         ceo.reload()
-        assert mate1 in ceo.workers
-        assert mate2 in ceo.workers
-        assert len(ceo.workers) == 2
+        assert mate1 in ceo.user_supervisor_set
+        assert mate2 in ceo.user_supervisor_set
+        assert len(ceo.user_supervisor_set) == 2
 
-        assert ceo not in mate1.workers
-        assert ceo not in mate2.workers
-        assert len(mate1.workers) == 0
-        assert len(mate2.workers) == 0
+        assert ceo not in mate1.user_supervisor_set
+        assert ceo not in mate2.user_supervisor_set
+        assert len(mate1.user_supervisor_set) == 0
+        assert len(mate2.user_supervisor_set) == 0
 
 
     def test_delete_rel_many_to_one(self, force=True):
@@ -168,8 +168,8 @@ class TestCase:
         del arole.Permissions[can_eat]
         arole.save()
         can_eat.reload()
-        assert arole not in can_eat.abstract_role_set
-        assert brole in can_eat.abstract_role_set
+        assert arole not in can_eat.abstract_role_permissions_permission_set
+        assert brole in can_eat.abstract_role_permissions_permission_set
 
     def test_delete_rel_one_to_many(self):
         self.prepare_testbed()
@@ -203,7 +203,6 @@ class TestCase:
         r2.reload()
         assert r1.usr == r2.usr
 
-
     def test_same_links_different_listnode(self):
         """
         Same links at different listnodes under same class shouldn't affect each other.
@@ -230,8 +229,10 @@ class TestCase:
         # Student instance is creaeted.
         student = Student()
         # First and second roles' student sets are controlled.
-        assert len(first_role.student_set) == 0
-        assert len(second_role.student_set) == 0
+        assert len(first_role.student_lecturer_role_set) == 0
+        assert len(first_role.student_lectures_role_set) == 0
+        assert len(second_role.student_lecturer_role_set) == 0
+        assert len(second_role.student_lectures_role_set) == 0
         # Student's Lecturer list node's role field is assigned to first_role.
         student.Lecturer(role=first_role)
         # Student instance is saved.
@@ -243,11 +244,11 @@ class TestCase:
         # Student's Lecturer data's role info is controlled.
         assert student.Lecturer[0].role == first_role
         # First role's student set number should increase one.
-        assert len(first_role.student_set) == 1
+        assert len(first_role.student_lecturer_role_set) == 1
         # First role's student set's student object's data is controlled.
         # Role info is controlled whether it is true or not.
-        assert first_role.student_set[0].student.clean_value()['lecturer'][0]['role_id'] == first_role.key
-        assert first_role.student_set[0].student.clean_value()['lectures'] == []
+        assert first_role.student_lecturer_role_set[0].student.clean_value()['lecturer'][0]['role_id'] == first_role.key
+        assert len(first_role.student_lectures_role_set) == 0
 
         # Student's Lectures list node's role field is assigned to first_role.
         student.Lectures(role=first_role)
@@ -261,11 +262,11 @@ class TestCase:
         assert student.Lecturer[0].role == first_role
         assert student.Lectures[0].role == first_role
         # First role student set's number should remain same.
-        assert len(first_role.student_set) == 1
+        assert len(first_role.student_lecturer_role_set) == 1
         # First role's student set's student object's data is controlled.
         # Role info is controlled whether it is true or not.
-        assert first_role.student_set[0].student.clean_value()['lecturer'][0]['role_id'] == first_role.key
-        assert first_role.student_set[0].student.clean_value()['lectures'][0]['role_id'] == first_role.key
+        assert first_role.student_lecturer_role_set[0].student.clean_value()['lecturer'][0]['role_id'] == first_role.key
+        assert first_role.student_lectures_role_set[0].student.clean_value()['lecturer'][0]['role_id'] == first_role.key
 
         # Student's Lecturer list node's role field is changed from first_role to second_role.
         student.Lecturer[0].role = second_role
