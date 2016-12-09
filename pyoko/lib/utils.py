@@ -89,6 +89,10 @@ def grayed(*args):
     return '\033[1;37m%s\033[1;m' % ' '.join(map(str, args))
 
 
+def dash_camel(input):
+    return UN_CAMEL_RE.sub(r'-\1', input).lower()
+
+
 class MyEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, datetime.datetime):
