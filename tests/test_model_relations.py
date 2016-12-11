@@ -333,7 +333,6 @@ class TestCase:
         assert u.user_test_supervisor_set[0].user.name == uu.name
 
 
-
     def test_same_links_different_listnode(self):
         """
         Same links at different listnodes under same class shouldn't affect each other.
