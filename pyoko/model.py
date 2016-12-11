@@ -584,5 +584,5 @@ class LinkProxy(object):
         self.null = null
         self.one_to_one = one_to_one
         self.verbose_name = verbose_name
-        self.reverse_name = reverse_name
+        self.reverse_name = None
         self.reverse_link = reverse_link

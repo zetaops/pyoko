@@ -109,7 +109,8 @@ class ModelMeta(type):
                                                               'o2o': lzy_lnk.one_to_one,
                                                               'verbose': lzy_lnk.verbose_name,
                                                               'reverse': lzy_lnk.reverse_name,
-                                                              'field': key})
+                                                              'field': key,
+                                                              'reverse_link':lzy_lnk.reverse_link})
 
     @staticmethod
     def process_models(attrs, base_model_class):

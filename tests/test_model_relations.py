@@ -203,6 +203,137 @@ class TestCase:
         r2.reload()
         assert r1.usr == r2.usr
 
+
+    def test_reverse_link(self):
+        self.prepare_testbed()
+
+        # REVERSE LINK DEFAULT FALSE
+
+        # Link from Role model to AbstractRole
+        assert 'role_abstract_role' not in AbstractRole().clean_value()
+        # One to one relationship should be created
+        assert 'employee_id' in User().clean_value()
+        assert 'usr_id' in Employee().clean_value()
+        # Link set shouldn't be created in one to one relationships.
+        assert 'employee_usr_set' not in User().clean_value()
+        # Link from TimeTable model Employee listnode employee field to Employee model
+        assert 'time_table_employee_employee_set' not in Employee().clean_value()
+        # Link from TimeTable to itself
+        # Field name should be created
+        assert 'self_table_id' in TimeTable().clean_value()
+        # Link set should not be created
+        assert 'time_table_self_table_set' not in TimeTable().clean_value()
+
+        # REVERSE LINK TRUE
+
+        # Link from model, two links from model to same model
+
+        # Link from TimeTable model first_role field to Role model
+        assert 'time_table_first_role_set' in Role().clean_value()
+        # Link from TimeTable model second_role field to Role model
+        assert 'time_table_second_role_set' in Role().clean_value()
+
+        arole = Role()
+        brole = Role()
+        arole.save()
+        brole.save()
+
+        atime = TimeTable(first_role = arole)
+        atime.save()
+        btime = TimeTable(second_role = brole)
+        btime.save()
+
+        assert len(arole.time_table_first_role_set) == 1
+        assert len(arole.time_table_second_role_set) == 0
+        assert arole.time_table_first_role_set[0].time_table.key == atime.key
+
+        assert len(brole.time_table_second_role_set) == 1
+        assert len(brole.time_table_first_role_set) == 0
+        assert brole.time_table_second_role_set[0].time_table.key == btime.key
+
+        # Link from Listnode to model
+
+        # Link from AbstractRole model Permissions listnode permission field
+        assert 'abstract_role_permissions_permission_set' in Permission().clean_value()
+
+        p = Permission()
+        p.save()
+        a = AbstractRole()
+        a.Permissions(permission = p)
+        a.save()
+        assert len(a.Permissions) == 1
+        assert a.Permissions[0].permission.key == p.key
+        assert p.abstract_role_permissions_permission_set[0].abstract_role.key == a.key
+
+        # Two links from Listnode to same model
+
+        # Link from Student model Lectures listnode role field
+        assert 'scholar_time_tables_timetable_set' in TimeTable().clean_value()
+        # Link from Student model Lectures listnode test_role field
+        assert 'scholar_time_tables_test_timetable_set' in TimeTable().clean_value()
+
+        s= Scholar(name = 'test_scholar')
+        t1 = TimeTable()
+        t2 = TimeTable()
+        t1.save()
+        t2.save()
+        s.TimeTables(timetable = t1)
+        s.TimeTables(test_timetable=t2)
+        s.save()
+        assert len(s.TimeTables) == 2
+        assert len(t1.scholar_time_tables_timetable_set) == 1
+        assert len(t1.scholar_time_tables_test_timetable_set) == 0
+        assert len(t1.scholar_time_tables_time_test_set) == 0
+
+        assert len(t2.scholar_time_tables_timetable_set) == 0
+        assert len(t2.scholar_time_tables_test_timetable_set) == 1
+        assert len(t2.scholar_time_tables_time_test_set) == 0
+
+        assert t2.scholar_time_tables_test_timetable_set[0].scholar.name ==s.name
+        assert t1.scholar_time_tables_timetable_set[0].scholar.name ==s.name
+
+        s = Scholar(name='second_test')
+        s.save()
+        s.TimeTables(timetable=t1)
+        s.TimeTables(time_test=t1)
+        s.save()
+        assert len(s.TimeTables) == 2
+        assert len(t1.scholar_time_tables_timetable_set) == 2
+        assert len(t1.scholar_time_tables_test_timetable_set) == 0
+        assert len(t1.scholar_time_tables_time_test_set) == 1
+
+        assert t1.scholar_time_tables_time_test_set[0].scholar.name == s.name
+
+        # Two self reference
+
+        assert 'supervisor_id' in User().clean_value()
+        assert 'test_supervisor_id' in User().clean_value()
+        assert 'user_supervisor_set' in User().clean_value()
+        assert 'user_test_supervisor_set' in User().clean_value()
+
+        u = User(name = 'test_name')
+        uu = User(name = 'test_second_name')
+        uu.save()
+        u.supervisor = uu
+        u.save()
+
+        assert u.supervisor == uu
+        assert u.test_supervisor.key == None
+        assert len(uu.user_supervisor_set) == 1
+        assert len(uu.user_test_supervisor_set) == 0
+        assert uu.user_supervisor_set[0].user.name == u.name
+
+        uu.test_supervisor = u
+        uu.save()
+
+        assert uu.test_supervisor == u
+        assert uu.supervisor.key == None
+        assert len(u.user_test_supervisor_set) == 1
+        assert len(u.user_supervisor_set) == 0
+        assert u.user_test_supervisor_set[0].user.name == uu.name
+
+
+
     def test_same_links_different_listnode(self):
         """
         Same links at different listnodes under same class shouldn't affect each other.

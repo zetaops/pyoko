@@ -53,6 +53,7 @@ class Registry(object):
                                              field=reverse_name,
                                              null=lnk['null'],
                                              reverse=lnk['field'],
+                                             reverse_link=lnk['reverse_link'],
                                              lnksrc='_process_links__o2o')
             else:
                 lnk['mdl']._add_linked_model(mdl,
@@ -61,6 +62,7 @@ class Registry(object):
                                              # node=lnk['node'],
                                              m2m='.' in lnk['field'],
                                              field=reverse_name, is_set=True,
+                                             reverse_link=lnk['reverse_link'],
                                              lnksrc='_process_links__O2M')
                 if lnk['reverse_link']:
                     self._create_one_to_many(mdl, lnk['mdl'], reverse_name)
@@ -84,17 +86,18 @@ class Registry(object):
                                              field=lm['field'],
                                              verbose=lm['verbose'],
                                              link_source=False,
-                                             reverse_link= True,
+                                             reverse_link= lm['reverse_link'],
                                              lnksrc='prcs_lzy_lnks_from_target')
                 mdl._add_linked_model(target_mdl,
                                       link_source=True,
                                       reverse=lm['field'],
                                       field=reverse_name,
                                       is_set=True,
-                                      reverse_link=True,
+                                      reverse_link=lm['reverse_link'],
                                       lnksrc='prcs_lzy_lnks_from_mdl')
-                self._create_one_to_many(target_mdl, mdl, reverse_name)
-                setattr(target_mdl, reverse_name, mdl)
+                if lm['reverse_link']:
+                    self._create_one_to_many(target_mdl, mdl, reverse_name)
+                    setattr(target_mdl, reverse_name, mdl)
 
     def _process_links_from_nodes_of_mdl(self, source_mdl):
         # print("Node: %s" % source_mdl.__name__)
