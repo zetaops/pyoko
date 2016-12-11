@@ -29,12 +29,13 @@ class AbstractRole(Model):
     name = field.String("Name")
 
     class Permissions(ListNode):
-        permission = Permission(reverse_name='perms',reverse_link=True)
+        permission = Permission(reverse_link=True)
 
 
 class User(Model):
     name = field.String('Full Name')
     supervisor = LinkProxy('User', verbose_name='Supervisor',reverse_link=True)
+    test_supervisor = LinkProxy('User',reverse_link=True)
 
     def __unicode__(self):
         return "User %s" % self.name
@@ -88,10 +89,18 @@ class TimeTable(Model):
     hours = field.Integer("Hours", default=1, choices=TIMES)
     adate = field.Date()
     bdate = field.Date()
+    # added for testing, it's not logical
+    self_table = LinkProxy('TimeTable')
+    first_role = Role('First Role',reverse_link = True)
+    second_role = Role('Second Role',reverse_link = True)
+
 
     def __unicode__(self):
         return 'TimeTable for %s' % self.lecture
 
+    # added for testing, it's not logical
+    class Employee(ListNode):
+        employee = Employee()
 
 class Scholar(Model):
     name = field.String("Name")
@@ -101,4 +110,6 @@ class Scholar(Model):
 
     class TimeTables(ListNode):
         timetable = TimeTable(reverse_link=True)
+        test_timetable= TimeTable(reverse_link=True)
+        time_test = TimeTable(reverse_link=True)
         confirmed = field.Boolean("Is confirmed")
