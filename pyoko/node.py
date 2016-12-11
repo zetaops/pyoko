@@ -201,13 +201,8 @@ class Node(object):
         """
         Get first item of get_links() method
         """
-        class_name = kw.pop('class_name', '')
-        class_bool = kw.pop('class_bool', False)
         models = cls.get_links(**kw)
-        if class_bool:
-            return [(lambda x: x)(x) for x in models if class_name in x['field']][0]
-        else:
-            return models[0]
+        return models[0]
 
     @classmethod
     def get_links(cls, **kw):
@@ -256,8 +251,7 @@ class Node(object):
                     try:
                         self._root_node._add_back_link(
                         linked_mdl_ins,
-                        self._root_node.get_link(class_name=self.__class__.__name__,
-                                                 class_bool= True,
+                        self._root_node.get_link(field=self.__class__.__name__ + '.' +lnk['field'],
                                                  mdl=lnk['mdl'],
                                                  link_source=not lnk['link_source']))
                     except:
