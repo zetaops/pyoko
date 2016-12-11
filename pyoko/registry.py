@@ -80,7 +80,7 @@ class Registry(object):
             for lm in self.lazy_models[mdl.__name__]:
                 target_mdl = self.registry[lm['from']]
                 reverse_name = un_camel(
-                    lm['reverse'] or mdl.__name__ + ('' if lm['o2o'] else '_'+lm['field']+'_set'))
+                    lm['reverse'] or lm['from'] + ('' if lm['o2o'] else '_'+lm['field']+'_set'))
                 target_mdl._add_linked_model(mdl,
                                              reverse=reverse_name,
                                              field=lm['field'],
@@ -97,7 +97,7 @@ class Registry(object):
                                       lnksrc='prcs_lzy_lnks_from_mdl')
                 if lm['reverse_link']:
                     self._create_one_to_many(target_mdl, mdl, reverse_name)
-                    setattr(target_mdl, reverse_name, mdl)
+                    setattr(target_mdl, lm['field'], mdl)
 
     def _process_links_from_nodes_of_mdl(self, source_mdl):
         # print("Node: %s" % source_mdl.__name__)
