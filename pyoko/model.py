@@ -69,7 +69,7 @@ class Model(Node):
             verbose_name=kwargs.get('verbose_name'),
             null=kwargs.get('null', False),
             unique=kwargs.get('unique'),
-            reverse_name=kwargs.get('reverse_name'),
+            reverse_name=None,
             _pass_perm_checks=kwargs.pop('_pass_perm_checks', False),
             _is_one_to_one=kwargs.pop('one_to_one', False),
             title=kwargs.pop('title', self.__class__.__name__),

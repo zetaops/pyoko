@@ -249,9 +249,10 @@ class Node(object):
                     linked_mdl_ins = data[lnk['field']]
                     self.setattr(lnk['field'], linked_mdl_ins)
                     try:
+                        field_name = "%s.%s" %(self.__class__.__name__,lnk['field'])
                         self._root_node._add_back_link(
                         linked_mdl_ins,
-                        self._root_node.get_link(field=self.__class__.__name__ + '.' +lnk['field'],
+                        self._root_node.get_link(field=field_name,
                                                  mdl=lnk['mdl'],
                                                  link_source=not lnk['link_source']))
                     except:
