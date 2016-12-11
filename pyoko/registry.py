@@ -11,11 +11,14 @@ from collections import defaultdict
 
 from pyoko.lib.utils import un_camel
 
+
 class FakeContext(object):
     def has_permission(self, perm):
         return True
 
+
 super_fake_context = FakeContext()
+
 
 class Registry(object):
     def __init__(self):
@@ -37,7 +40,7 @@ class Registry(object):
             # custom reverse name or model name if one to one
             # or model_name_set otherwise
             reverse_name = un_camel(
-                lnk['reverse'] or mdl.__name__ + ('' if lnk['o2o'] else '_'+lnk['field']+'_set'))
+                lnk['reverse'] or mdl.__name__ + ('' if lnk['o2o'] else "_%s_set" % lnk['field']))
             if lnk['reverse'] is None:
                 # fill the missing 'reverse' info
                 idx = mdl._linked_models[lnk['mdl'].__name__].index(lnk)
@@ -80,13 +83,13 @@ class Registry(object):
             for lm in self.lazy_models[mdl.__name__]:
                 target_mdl = self.registry[lm['from']]
                 reverse_name = un_camel(
-                    lm['reverse'] or lm['from'] + ('' if lm['o2o'] else '_'+lm['field']+'_set'))
+                    lm['reverse'] or lm['from'] + ('' if lm['o2o'] else "_%s_set" % lm['field']))
                 target_mdl._add_linked_model(mdl,
                                              reverse=reverse_name,
                                              field=lm['field'],
                                              verbose=lm['verbose'],
                                              link_source=False,
-                                             reverse_link= lm['reverse_link'],
+                                             reverse_link=lm['reverse_link'],
                                              lnksrc='prcs_lzy_lnks_from_target')
                 mdl._add_linked_model(target_mdl,
                                       link_source=True,
@@ -106,9 +109,8 @@ class Registry(object):
             node = getattr(_src_mdl_ins, node_name)
             # print(node)
             for lnk in node.get_links():
-                reverse_name = "%s_%s" % (
-                    un_camel("%s%s" % (source_mdl.__name__, node_name)), lnk['field'])
-                reverse_name = reverse_name + ('' if lnk['o2o'] else '_set')
+                reverse_name = un_camel(source_mdl.__name__ + node_name) + (
+                '' if lnk['o2o'] else "_%s_set" % lnk['field'])
                 if lnk['o2o']:
                     lnk['mdl']._add_linked_model(source_mdl,
                                                  o2o=True,
@@ -149,7 +151,7 @@ class Registry(object):
 
     def _create_one_to_one(self, source_mdl, target_mdl, field_name):
         mdl_instance = source_mdl(one_to_one=True)
-        mdl_instance.setattrs(_is_auto_created = True)
+        mdl_instance.setattrs(_is_auto_created=True)
         for instance_ref in target_mdl._instance_registry:
             mdl = instance_ref()
             if mdl:  # if not yet garbage collected
@@ -163,7 +165,7 @@ class Registry(object):
             listnode_name = '%s_set' % un_camel(source_mdl.__name__)
         from .listnode import ListNode
         source_instance = source_mdl()
-        source_instance.setattrs(_is_auto_created = True)
+        source_instance.setattrs(_is_auto_created=True)
         # create a new class which extends ListNode
         listnode = type(listnode_name, (ListNode,),
                         {un_camel(source_mdl.__name__): source_instance,
