@@ -141,7 +141,6 @@ class TestCase:
         assert len(mate1.user_supervisor_set) == 0
         assert len(mate2.user_supervisor_set) == 0
 
-
     def test_delete_rel_many_to_one(self, force=True):
         self.prepare_testbed()
         can_sleep = Permission(name="can sleep", codename='can_sleep').save()
@@ -203,7 +202,6 @@ class TestCase:
         r2.reload()
         assert r1.usr == r2.usr
 
-
     def test_reverse_link(self):
         self.prepare_testbed()
 
@@ -234,13 +232,13 @@ class TestCase:
         assert 'time_table_second_role_set' in Role().clean_value()
 
         arole = Role()
-        brole = Role()
         arole.save()
+        brole = Role()
         brole.save()
 
-        atime = TimeTable(first_role = arole)
+        atime = TimeTable(first_role=arole)
         atime.save()
-        btime = TimeTable(second_role = brole)
+        btime = TimeTable(second_role=brole)
         btime.save()
 
         assert len(arole.time_table_first_role_set) == 1
@@ -259,7 +257,7 @@ class TestCase:
         p = Permission()
         p.save()
         a = AbstractRole()
-        a.Permissions(permission = p)
+        a.Permissions(permission=p)
         a.save()
         assert len(a.Permissions) == 1
         assert a.Permissions[0].permission.key == p.key
@@ -267,17 +265,17 @@ class TestCase:
 
         # Two links from Listnode to same model
 
-        # Link from Student model Lectures listnode role field
+        # Link from Scholar model TimeTables listnode timetable field to TimeTable model
         assert 'scholar_time_tables_timetable_set' in TimeTable().clean_value()
-        # Link from Student model Lectures listnode test_role field
+        # Link from Scholar model TimeTables listnode test_timetable field to TimeTable model
         assert 'scholar_time_tables_test_timetable_set' in TimeTable().clean_value()
 
-        s= Scholar(name = 'test_scholar')
+        s = Scholar(name='test_scholar')
         t1 = TimeTable()
         t2 = TimeTable()
         t1.save()
         t2.save()
-        s.TimeTables(timetable = t1)
+        s.TimeTables(timetable=t1)
         s.TimeTables(test_timetable=t2)
         s.save()
         assert len(s.TimeTables) == 2
@@ -289,8 +287,8 @@ class TestCase:
         assert len(t2.scholar_time_tables_test_timetable_set) == 1
         assert len(t2.scholar_time_tables_time_test_set) == 0
 
-        assert t2.scholar_time_tables_test_timetable_set[0].scholar.name ==s.name
-        assert t1.scholar_time_tables_timetable_set[0].scholar.name ==s.name
+        assert t2.scholar_time_tables_test_timetable_set[0].scholar.name == 'test_scholar'
+        assert t1.scholar_time_tables_timetable_set[0].scholar.name == 'test_scholar'
 
         s = Scholar(name='second_test')
         s.save()
@@ -302,7 +300,7 @@ class TestCase:
         assert len(t1.scholar_time_tables_test_timetable_set) == 0
         assert len(t1.scholar_time_tables_time_test_set) == 1
 
-        assert t1.scholar_time_tables_time_test_set[0].scholar.name == s.name
+        assert t1.scholar_time_tables_time_test_set[0].scholar.name == 'second_test'
 
         # Two self reference
 
@@ -311,8 +309,8 @@ class TestCase:
         assert 'user_supervisor_set' in User().clean_value()
         assert 'user_test_supervisor_set' in User().clean_value()
 
-        u = User(name = 'test_name')
-        uu = User(name = 'test_second_name')
+        u = User(name='test_name')
+        uu = User(name='test_second_name')
         uu.save()
         u.supervisor = uu
         u.save()
@@ -321,7 +319,7 @@ class TestCase:
         assert u.test_supervisor.key == None
         assert len(uu.user_supervisor_set) == 1
         assert len(uu.user_test_supervisor_set) == 0
-        assert uu.user_supervisor_set[0].user.name == u.name
+        assert uu.user_supervisor_set[0].user.name == 'test_name'
 
         uu.test_supervisor = u
         uu.save()
@@ -330,8 +328,7 @@ class TestCase:
         assert uu.supervisor.key == None
         assert len(u.user_test_supervisor_set) == 1
         assert len(u.user_supervisor_set) == 0
-        assert u.user_test_supervisor_set[0].user.name == uu.name
-
+        assert u.user_test_supervisor_set[0].user.name == 'test_second_name'
 
     def test_same_links_different_listnode(self):
         """
@@ -377,7 +374,8 @@ class TestCase:
         assert len(first_role.student_lecturer_role_set) == 1
         # First role's student set's student object's data is controlled.
         # Role info is controlled whether it is true or not.
-        assert first_role.student_lecturer_role_set[0].student.clean_value()['lecturer'][0]['role_id'] == first_role.key
+        assert first_role.student_lecturer_role_set[0].student.clean_value()['lecturer'][0][
+                   'role_id'] == first_role.key
         assert len(first_role.student_lectures_role_set) == 0
 
         # Student's Lectures list node's role field is assigned to first_role.
@@ -395,8 +393,10 @@ class TestCase:
         assert len(first_role.student_lecturer_role_set) == 1
         # First role's student set's student object's data is controlled.
         # Role info is controlled whether it is true or not.
-        assert first_role.student_lecturer_role_set[0].student.clean_value()['lecturer'][0]['role_id'] == first_role.key
-        assert first_role.student_lectures_role_set[0].student.clean_value()['lecturer'][0]['role_id'] == first_role.key
+        assert first_role.student_lecturer_role_set[0].student.clean_value()['lecturer'][0][
+                   'role_id'] == first_role.key
+        assert first_role.student_lectures_role_set[0].student.clean_value()['lecturer'][0][
+                   'role_id'] == first_role.key
 
         # Student's Lecturer list node's role field is changed from first_role to second_role.
         student.Lecturer[0].role = second_role
