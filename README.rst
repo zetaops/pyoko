@@ -2,10 +2,12 @@
     :target: http://pyoko.readthedocs.org/en/latest/?badge=latest
     :alt: Documentation Status
 
-
-
-[![pyoko pyoko ultra](http://img.youtube.com/vi/2-dB-rY9_8s/0.jpg/0.jpg)](http://www.youtube.com/watch?v=2-dB-rY9_8s/0.jpg)
-
+.. image:: http://img.youtube.com/vi/2-dB-rY9_8s/0.jpg
+    :width: 380px
+    :align: center
+    :height: 260px
+    :alt: Thx for this lovely song, pyoko pyoko ultra to Japanese friends.
+    :target: http://www.youtube.com/watch?feature=player_embedded&v=2-dB-rY9_8s
 
 
 Pyoko: A Django-esque NoSQL ORM for Riak KV 2.1.4
