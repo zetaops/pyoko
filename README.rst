@@ -2,6 +2,12 @@
     :target: http://pyoko.readthedocs.org/en/latest/?badge=latest
     :alt: Documentation Status
 
+
+
+[![pyoko pyoko ultra](http://img.youtube.com/vi/2-dB-rY9_8s/0.jpg/0.jpg)](http://www.youtube.com/watch?v=2-dB-rY9_8s/0.jpg)
+
+
+
 Pyoko: A Django-esque NoSQL ORM for Riak KV 2.1.4
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -239,12 +245,6 @@ Commercial support from ZetaOps_ requires a valid support contract.
 
 .. _ZetaOps: http://zetaops.io
 
-Authors
-=======
-
-* Evren Esat Özkan
-* Ali Rıza Keleş
-* Gökhan Boranalp
 
 
 License
