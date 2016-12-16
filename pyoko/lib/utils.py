@@ -62,8 +62,8 @@ else:
             return value
 
 
-def un_camel(input):
-    return UN_CAMEL_RE.sub(r'_\1', input).lower()
+def un_camel(input, dash="_"):
+    return UN_CAMEL_RE.sub(r'%s\1' % dash, input).lower()
 
 
 def un_camel_id(input):
@@ -87,10 +87,6 @@ def to_camel(s):
 
 def grayed(*args):
     return '\033[1;37m%s\033[1;m' % ' '.join(map(str, args))
-
-
-def dash_camel(input):
-    return UN_CAMEL_RE.sub(r'-\1', input).lower()
 
 
 class MyEncoder(json.JSONEncoder):
