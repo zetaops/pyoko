@@ -157,7 +157,8 @@ class Node(object):
 
     @classmethod
     def _add_linked_model(cls, mdl, link_source=False, null=False, o2o=False, field=None,
-                          reverse=None, verbose=None, is_set=False, m2m=False,reverse_link=False, **kwargs):
+                          reverse=None, verbose=None, is_set=False, m2m=False,reverse_link=False,
+                          model_listnode= False,**kwargs):
         # name = kwargs.get('field', mdl.__name__)
         lnk = {
             'null': null,
@@ -169,7 +170,8 @@ class Node(object):
             'verbose': verbose,
             'is_set': is_set,
             'm2m': m2m,
-            'reverse_link':reverse_link
+            'reverse_link':reverse_link,
+            'model_listnode':model_listnode
             # 'node': node,
         }
         lnksrc = kwargs.pop('lnksrc', '')

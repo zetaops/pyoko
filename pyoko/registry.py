@@ -142,6 +142,7 @@ class Registry(object):
                                                  m2m=node._TYPE == 'ListNode',
                                                  is_set=True,
                                                  reverse_link=lnk['reverse_link'],
+                                                 model_listnode=True,
                                                  # node=node_name,
                                                  lnksrc='_prcs_lnks_frm_nodes_of_mdl__O2M_SRCMDL')
                     if lnk['reverse_link']:

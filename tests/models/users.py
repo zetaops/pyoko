@@ -109,7 +109,8 @@ class Scholar(Model):
         return 'Scholar named %s' % self.name
 
     class TimeTables(ListNode):
-        timetable = TimeTable(reverse_link=True)
+        timetable = TimeTable(reverse_link = True)
         test_timetable= TimeTable(reverse_link=True)
         time_test = TimeTable(reverse_link=True)
         confirmed = field.Boolean("Is confirmed")
+
