@@ -27,6 +27,7 @@ from sys import argv, stdout
 from six import add_metaclass, PY2
 from pyoko.model import super_context
 from pyoko.lib import utils
+from pyoko.exceptions import ObjectDoesNotExist
 
 
 class CommandRegistry(type):
@@ -188,7 +189,9 @@ class ReIndex(Command):
     PARAMS = [{'name': 'model', 'required': True,
                'help': 'Models name(s) to be cleared. Say "all" to clear all models'},
               {'name': 'exclude',
-               'help': 'Models name(s) to be excluded, comma separated'}
+               'help': 'Models name(s) to be excluded, comma separated'},
+              {'name': 'include_deleted',
+               'help': 'Reindex object even if it was deleted'}
               ]
 
     def run(self):
@@ -219,6 +222,10 @@ class ReIndex(Command):
                         # obj = mdl.bucket.get(key)
                         # if obj.data:
                         #     obj.store()
+                    except ObjectDoesNotExist:
+                        if self.manager.args.include_deleted:
+                            o = mdl.objects.filter(key=key, deleted=True)[0]
+                            o.save()
                     except ConflictError:
                         unsaved_keys.append(key)
                         print("Error on save. Record in conflict: %s > %s" % (mdl.__name__, key))
