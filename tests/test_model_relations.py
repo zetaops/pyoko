@@ -165,7 +165,7 @@ class TestCase:
         arole.blocking_save()
         brole.blocking_save()
         del arole.Permissions[can_eat]
-        arole.save()
+        arole.blocking_save()
         can_eat.reload()
         assert arole not in can_eat.abstract_role_permissions_permission_set
         assert brole in can_eat.abstract_role_permissions_permission_set
@@ -329,6 +329,82 @@ class TestCase:
         assert len(u.user_test_supervisor_set) == 1
         assert len(u.user_supervisor_set) == 0
         assert u.user_test_supervisor_set[0].user.name == 'test_second_name'
+
+    def test_updating_links(self):
+        self.prepare_testbed()
+
+        # Model to Model
+        first_user = User(name= 'first_name')
+        first_user.blocking_save()
+        second_user = User(name = 'second_name')
+        second_user.blocking_save()
+        role = Role(usr = first_user,name = 'role_name')
+        role.blocking_save()
+        first_user.reload()
+        assert role in first_user.role_usr_set
+        assert first_user.role_usr_set[0].role.name == 'role_name'
+
+        role.usr = second_user
+        role.blocking_save()
+        first_user.reload()
+        second_user.reload()
+        assert role not in first_user.role_usr_set
+        assert role in second_user.role_usr_set
+        assert second_user.role_usr_set[0].role.name == 'role_name'
+
+        # Self Referencing
+
+        third_user = User(name = 'third_name')
+        third_user.blocking_save()
+
+        first_user.supervisor = second_user
+        first_user.blocking_save()
+        second_user.reload()
+        assert first_user in second_user.user_supervisor_set
+        assert second_user.user_supervisor_set[0].user.name == 'first_name'
+
+        first_user.supervisor = third_user
+        first_user.blocking_save()
+        second_user.reload()
+        third_user.reload()
+        assert first_user not in second_user.user_supervisor_set
+        assert first_user in third_user.user_supervisor_set
+        assert third_user.user_supervisor_set[0].user.name == 'first_name'
+
+        # Listnode to Model
+
+        scholar = Scholar()
+        first_tt = TimeTable()
+        first_tt.blocking_save()
+        second_tt = TimeTable()
+        second_tt.blocking_save()
+        third_tt = TimeTable()
+        third_tt.blocking_save()
+        fourth_tt = TimeTable()
+        fourth_tt.blocking_save()
+
+        scholar.TimeTables(timetable = first_tt,time_test = second_tt)
+        scholar.save()
+        assert scholar in first_tt.scholar_time_tables_timetable_set
+        assert scholar not in first_tt.scholar_time_tables_time_test_set
+        assert scholar in second_tt.scholar_time_tables_time_test_set
+        assert scholar not in second_tt.scholar_time_tables_timetable_set
+
+        scholar.TimeTables[0].timetable = third_tt
+        scholar.TimeTables[0].time_test = fourth_tt
+        scholar.TimeTables[0].test_timetable = first_tt
+        scholar.blocking_save()
+
+        first_tt.reload()
+        second_tt.reload()
+        third_tt.reload()
+        fourth_tt.reload()
+
+        assert scholar not in first_tt.scholar_time_tables_timetable_set
+        assert scholar not in second_tt.scholar_time_tables_time_test_set
+        assert scholar in third_tt.scholar_time_tables_timetable_set
+        assert scholar in fourth_tt.scholar_time_tables_time_test_set
+        assert scholar in first_tt.scholar_time_tables_test_timetable_set
 
     def test_same_links_different_listnode(self):
         """

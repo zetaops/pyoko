@@ -62,7 +62,7 @@ class Model(Node):
         # self._is_unpermitted_fields_set = False
         # self._context = context
         self.setattrs(
-            reverse_link = kwargs.get('reverse_link',False),
+            reverse_link=kwargs.get('reverse_link', False),
             key=kwargs.pop('key', None),
             _unpermitted_fields=[],
             _context=context,
@@ -285,20 +285,22 @@ class Model(Node):
                     if remote_set._TYPE == 'ListNode' and self not in remote_set:
                         remote_set(**{remote_field_name: self._root_node})
                         if linked_mdl_ins._exists is False:
-                            raise ObjectDoesNotExist('Linked %s on field %s with key %s doesn\'t exist' % (
-                                linked_mdl_ins.__class__.__name__,
-                                remote_field_name,
-                                linked_mdl_ins.key,
-                            ))
+                            raise ObjectDoesNotExist(
+                                'Linked %s on field %s with key %s doesn\'t exist' % (
+                                    linked_mdl_ins.__class__.__name__,
+                                    remote_field_name,
+                                    linked_mdl_ins.key,
+                                ))
                         linked_mdl_ins.save(internal=True)
                 else:
                     linked_mdl_ins.setattr(remote_field_name, self._root_node)
                     if linked_mdl_ins._exists is False:
-                        raise ObjectDoesNotExist('Linked object %s on field %s with key %s doesn\'t exist' % (
-                            linked_mdl_ins.__class__.__name__,
-                            remote_field_name,
-                            linked_mdl_ins.key,
-                        ))
+                        raise ObjectDoesNotExist(
+                            'Linked object %s on field %s with key %s doesn\'t exist' % (
+                                linked_mdl_ins.__class__.__name__,
+                                remote_field_name,
+                                linked_mdl_ins.key,
+                            ))
                     linked_mdl_ins.save(internal=True)
 
     def _add_back_link(self, linked_mdl, link):
@@ -322,15 +324,52 @@ class Model(Node):
                 if self._data[fld_id]:  # exists
                     linked_mdl = getattr(self, link['field'])
                     self._add_back_link(linked_mdl, link)
+                if old_data.get(fld_id, False) and link['reverse_link']:
+                    self.delete_invalid_link(link['mdl'], link['reverse'], old_data[fld_id])
 
-    def _process_relations(self,internal):
+        append_dict = {}
+        for link in self.get_links(model_listnode=True, reverse_link=True):
+
+            if old_data:
+                l_node_name, field_name = link['field'].split('.')
+                l_node_name = un_camel(l_node_name)
+                field_name = un_camel_id(field_name)
+
+                if old_data.get(l_node_name,False) and old_data[l_node_name] != self._data[l_node_name]:
+                    old = [i[field_name] for i in old_data[l_node_name] if i[field_name] is not None]
+                    new = [i[field_name] for i in self._data[l_node_name] if i[field_name] is not None]
+
+                    removed = set(old) - set(new)
+                    appended = set(new) - set(old)
+
+                    for appended_key in appended: append_dict[appended_key] = link
+
+                    for removed_key in removed:
+                        self.delete_invalid_link(link['mdl'], link['reverse'], removed_key)
+
+        self.add_new_appended_links(append_dict)
+
+    def add_new_appended_links(self,append_dict):
+        for appended_key,appended_link in append_dict.items():
+            if not any(appended_key in s for s in self.new_back_links.keys()):
+                obj = appended_link['mdl'].objects.get(appended_key)
+                self._add_back_link(obj, appended_link)
+
+    def delete_invalid_link(self, mdl, reverse, key):
+        removed_obj = mdl.objects.get(key)
+        linked_set = getattr(removed_obj, reverse)
+        if self in linked_set:
+            linked_set.__delitem__(self,sync = False)
+            removed_obj.save()
+
+    def _process_relations(self, internal):
         buffer = []
         for k, v in self.new_back_links.copy().items():
             del self.new_back_links[k]
             if v[1]['o2o'] or v[1]['reverse_link']:
                 buffer.append(v)
         for v in buffer:
-            self._update_new_linked_model(internal,*v)
+            self._update_new_linked_model(internal, *v)
 
     def reload(self):
         """
@@ -513,7 +552,8 @@ class Model(Node):
     def _traverse_relations(self):
         for lnk in self.get_links(link_source=False):
             yield (lnk,
-                   list(lnk['mdl'].objects.filter(**{'%s_id' % un_camel(lnk['reverse']): self.key})))
+                   list(
+                       lnk['mdl'].objects.filter(**{'%s_id' % un_camel(lnk['reverse']): self.key})))
 
     def _delete_relations(self, dry=False):
         for lnk, rels in self._traverse_relations():
@@ -576,7 +616,7 @@ class LinkProxy(object):
                  one_to_one=False,
                  verbose_name=None,
                  reverse_name=None,
-                 reverse_link = False,
+                 reverse_link=False,
                  null=False,
                  unique=False):
         self.link_to = link_to
