@@ -101,11 +101,12 @@ class Node(object):
         if key not in self._fields:
             _attr = getattr(self, key)
             if _attr is not None and _attr.__class__.__name__ != val.__class__.__name__:
-                raise ValidationError("Assigned object's (%s) type (%s) does not matches to \"%s %s\" " %
-                                      (key,
-                                       val.__class__.__name__,
-                                       _attr.__class__.__name__,
-                                       getattr(_attr, '_TYPE', None)))
+                raise ValidationError(
+                    "Assigned object's (%s) type (%s) does not matches to \"%s %s\" " %
+                    (key,
+                     val.__class__.__name__,
+                     _attr.__class__.__name__,
+                     getattr(_attr, '_TYPE', None)))
         object.__setattr__(self, key, val)
 
     def __init__(self, **kwargs):
@@ -157,8 +158,8 @@ class Node(object):
 
     @classmethod
     def _add_linked_model(cls, mdl, link_source=False, null=False, o2o=False, field=None,
-                          reverse=None, verbose=None, is_set=False, m2m=False,reverse_link=False,
-                          model_listnode= False,**kwargs):
+                          reverse=None, verbose=None, is_set=False, m2m=False, reverse_link=False,
+                          model_listnode=False, **kwargs):
         # name = kwargs.get('field', mdl.__name__)
         lnk = {
             'null': null,
@@ -170,8 +171,8 @@ class Node(object):
             'verbose': verbose,
             'is_set': is_set,
             'm2m': m2m,
-            'reverse_link':reverse_link,
-            'model_listnode':model_listnode
+            'reverse_link': reverse_link,
+            'model_listnode': model_listnode
             # 'node': node,
         }
         lnksrc = kwargs.pop('lnksrc', '')
@@ -251,12 +252,16 @@ class Node(object):
                     linked_mdl_ins = data[lnk['field']]
                     self.setattr(lnk['field'], linked_mdl_ins)
                     try:
-                        field_name = "%s.%s" %(self.__class__.__name__,lnk['field'])
-                        self._root_node._add_back_link(
-                        linked_mdl_ins,
-                        self._root_node.get_link(field=field_name,
-                                                 mdl=lnk['mdl'],
-                                                 link_source=not lnk['link_source']))
+                        kw = {'mdl': lnk['mdl'], 'link_source': not lnk['link_source']}
+                        field = "%s.%s" % (self.__class__.__name__, lnk['field'])
+
+                        if self._TYPE == 'ListNode' and self._root_node.get_links(
+                                model_listnode=True,
+                                field=field):
+                            kw['field'] = field
+                        self._root_node._add_back_link(linked_mdl_ins,
+                                                       self._root_node.get_link(**kw))
+
                     except:
                         pass
                 else:
@@ -418,7 +423,8 @@ class Node(object):
         from .listnode import ListNode
         multi = in_multi or isinstance(self, ListNode)
         for lnk in self.get_links(is_set=False):
-            result.append((self._path_of(un_camel_id(lnk['field'])), 'string', True, settings.DEBUG, multi))
+            result.append(
+                (self._path_of(un_camel_id(lnk['field'])), 'string', True, settings.DEBUG, multi))
 
         for name, field_ins in self._fields.items():
             field_name = self._path_of(name)

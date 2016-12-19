@@ -327,6 +327,8 @@ class Model(Node):
                 if old_data.get(fld_id, False) and link['reverse_link']:
                     self.delete_invalid_link(link['mdl'], link['reverse'], old_data[fld_id])
 
+    def _handle_changed_listnode_fields(self, old_data):
+
         append_dict = {}
         for link in self.get_links(model_listnode=True, reverse_link=True):
 
@@ -485,6 +487,7 @@ class Model(Node):
             self.setattrs(_just_created=self.just_created)
         self.objects.save_model(self, meta_data=meta, index_fields=index_fields)
         self._handle_changed_fields(old_data)
+        self._handle_changed_listnode_fields(old_data)
         self._process_relations(internal)
         if not (internal or self._post_save_hook_called):
             self._post_save_hook_called = True
