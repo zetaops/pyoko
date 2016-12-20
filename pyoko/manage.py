@@ -28,12 +28,9 @@ from six import add_metaclass, PY2
 from pyoko.model import super_context
 from pyoko.lib import utils
 from pyoko.exceptions import ObjectDoesNotExist
-<<<<<<< HEAD
 import concurrent.futures as con
 from pyoko.conf import settings
 from importlib import import_module
-=======
->>>>>>> ADD: include_deleted paramter for reindex command
 
 
 class CommandRegistry(type):
