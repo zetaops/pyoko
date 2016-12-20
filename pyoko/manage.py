@@ -190,7 +190,7 @@ class ReIndex(Command):
                'help': 'Models name(s) to be cleared. Say "all" to clear all models'},
               {'name': 'exclude',
                'help': 'Models name(s) to be excluded, comma separated'},
-              {'name': 'include_deleted',
+              {'name': 'include_deleted', 'action': 'store_true',
                'help': 'Reindex object even if it was deleted'}
               ]
 
@@ -215,10 +215,11 @@ class ReIndex(Command):
             unsaved_keys = []
             for key_list in stream:
                 for key in key_list:
-                    i += 1
+                    #i += 1
                     # time.sleep(0.4)
                     try:
                         mdl.objects.get(key).save()
+                        i += 1
                         # obj = mdl.bucket.get(key)
                         # if obj.data:
                         #     obj.store()
@@ -226,6 +227,9 @@ class ReIndex(Command):
                         if self.manager.args.include_deleted:
                             o = mdl.objects.filter(key=key, deleted=True)[0]
                             o.save()
+                            i += 1
+                            print("Deleted object found: %s " % o.key)
+
                     except ConflictError:
                         unsaved_keys.append(key)
                         print("Error on save. Record in conflict: %s > %s" % (mdl.__name__, key))

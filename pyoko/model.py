@@ -328,6 +328,14 @@ class Model(Node):
                     self.delete_invalid_link(link['mdl'], link['reverse'], old_data[fld_id])
 
     def _handle_changed_listnode_fields(self, old_data):
+        """
+        Compares old data's listnode fields and new data's
+        listnode fields. If a link is changed, data is
+        deleted from old side and appended to new side.
+
+        Args:
+            old_data: Object's data before save.
+        """
 
         append_dict = {}
         for link in self.get_links(model_listnode=True, reverse_link=True):
@@ -352,12 +360,27 @@ class Model(Node):
         self.add_new_appended_links(append_dict)
 
     def add_new_appended_links(self,append_dict):
+        """
+        Adds new back link references.
+
+        Args:
+            append_dict(dict): Contains updated objects key
+            and link data to create back_link references.
+        """
         for appended_key,appended_link in append_dict.items():
             if not any(appended_key in s for s in self.new_back_links.keys()):
                 obj = appended_link['mdl'].objects.get(appended_key)
                 self._add_back_link(obj, appended_link)
 
     def delete_invalid_link(self, mdl, reverse, key):
+        """
+        Removes invalid links after data is updated.
+
+        Args:
+            mdl: object's model.
+            reverse: reverse set reference.
+            key: object's database key.
+        """
         removed_obj = mdl.objects.get(key)
         linked_set = getattr(removed_obj, reverse)
         if self in linked_set:
