@@ -250,9 +250,9 @@ class Node(object):
                     linked_mdl_ins = data[lnk['field']]
                     self.setattr(lnk['field'], linked_mdl_ins)
                     try:
-                        if lnk['o2o'] or lnk['reverse_link']:
+                        if lnk['reverse_link'] and self._TYPE == 'ListNode':
                             kw = {'mdl': lnk['mdl'], 'link_source': not lnk['link_source']}
-                            if self._TYPE == 'ListNode' and len(self._root_node.get_links(**kw))>1:
+                            if len(self._root_node.get_links(**kw))>1:
                                 kw['field'] = "%s.%s" % (self.__class__.__name__, lnk['field'])
                             self._root_node._add_back_link(linked_mdl_ins,
                                                            self._root_node.get_link(**kw))
