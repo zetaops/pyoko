@@ -62,14 +62,14 @@ class Model(Node):
         # self._is_unpermitted_fields_set = False
         # self._context = context
         self.setattrs(
-            reverse_link=kwargs.get('reverse_link', False),
+            reverse_link=('reverse_name' in kwargs or kwargs.get('reverse_link', False)),
             key=kwargs.pop('key', None),
             _unpermitted_fields=[],
             _context=context,
             verbose_name=kwargs.get('verbose_name'),
             null=kwargs.get('null', False),
             unique=kwargs.get('unique'),
-            reverse_name=None,
+            reverse_name=kwargs.get('reverse_name'),
             _pass_perm_checks=kwargs.pop('_pass_perm_checks', False),
             _is_one_to_one=kwargs.pop('one_to_one', False),
             title=kwargs.pop('title', self.__class__.__name__),
@@ -80,20 +80,6 @@ class Model(Node):
             on_save=[],
             _exists=None,
         )
-        # self.verbose_name = kwargs.get('verbose_name')
-        # self.null = kwargs.get('null', False)
-        # self.unique = kwargs.get('unique')
-        # self.reverse_name = kwargs.get('reverse_name')
-        # self._pass_perm_checks = kwargs.pop('_pass_perm_checks', False)
-        # self._is_one_to_one = kwargs.pop('one_to_one', False)
-        # self.title = kwargs.pop('title', self.__class__.__name__)
-        # self._root_node = self
-        # self.save_meta_data = None
-        # used as a internal storage to wary of circular overwrite of the self.just_created
-        # self._just_created = None
-        # self._pre_save_hook_called = False
-        # self._post_save_hook_called = False
-        # self.new_back_links = {}
         self.objects._pass_perm_checks = self._pass_perm_checks
         kwargs['context'] = context
         super(Model, self).__init__(**kwargs)
@@ -321,7 +307,7 @@ class Model(Node):
             fld_id = un_camel_id(link['field'])
             if not old_data or old_data.get(fld_id) != self._data[fld_id]:
                 # self is new or linked model changed
-                if self._data[fld_id]:  # exists
+                if self._data[fld_id] and (link['reverse_link'] or link['o2o']):  # exists
                     linked_mdl = getattr(self, link['field'])
                     self._add_back_link(linked_mdl, link)
                 if old_data.get(fld_id, False) and link['reverse_link']:
@@ -336,18 +322,16 @@ class Model(Node):
         Args:
             old_data: Object's data before save.
         """
-
-        append_dict = {}
-        for link in self.get_links(model_listnode=True, reverse_link=True):
-
-            if old_data:
+        if old_data:
+            append_dict = {}
+            for link in self.get_links(model_listnode = True, reverse_link = True):
                 l_node_name, field_name = link['field'].split('.')
                 l_node_name = un_camel(l_node_name)
                 field_name = un_camel_id(field_name)
 
                 if old_data.get(l_node_name,False) and old_data[l_node_name] != self._data[l_node_name]:
-                    old = [i[field_name] for i in old_data[l_node_name] if i[field_name] is not None]
-                    new = [i[field_name] for i in self._data[l_node_name] if i[field_name] is not None]
+                    old = [d[field_name] for d in old_data[l_node_name] if d[field_name] is not None]
+                    new = [d[field_name] for d in self._data[l_node_name] if d[field_name] is not None]
 
                     removed = set(old) - set(new)
                     appended = set(new) - set(old)
@@ -357,7 +341,7 @@ class Model(Node):
                     for removed_key in removed:
                         self.delete_invalid_link(link['mdl'], link['reverse'], removed_key)
 
-        self.add_new_appended_links(append_dict)
+            self.add_new_appended_links(append_dict)
 
     def add_new_appended_links(self,append_dict):
         """
@@ -377,22 +361,21 @@ class Model(Node):
         Removes invalid links after data is updated.
 
         Args:
-            mdl: object's model.
-            reverse: reverse set reference.
-            key: object's database key.
+            mdl: changed object's model.
+            reverse: changed object's reverse set reference.
+            key: changed object's database key.
         """
-        removed_obj = mdl.objects.get(key)
-        linked_set = getattr(removed_obj, reverse)
-        if self in linked_set:
-            linked_set.__delitem__(self,sync = False)
-            removed_obj.save()
+        changed_obj = mdl.objects.get(key)
+        obj_reverse_set = getattr(changed_obj, reverse)
+        if self in obj_reverse_set:
+            obj_reverse_set.__delitem__(self,sync = False)
+            changed_obj.save()
 
     def _process_relations(self, internal):
         buffer = []
         for k, v in self.new_back_links.copy().items():
             del self.new_back_links[k]
-            if v[1]['o2o'] or v[1]['reverse_link']:
-                buffer.append(v)
+            buffer.append(v)
         for v in buffer:
             self._update_new_linked_model(internal, *v)
 
@@ -650,5 +633,5 @@ class LinkProxy(object):
         self.null = null
         self.one_to_one = one_to_one
         self.verbose_name = verbose_name
-        self.reverse_name = None
-        self.reverse_link = reverse_link
+        self.reverse_name = reverse_name
+        self.reverse_link = reverse_name is not None or reverse_link

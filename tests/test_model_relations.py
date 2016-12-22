@@ -36,6 +36,17 @@ class TestCase:
 
     def test_one_to_one_simple(self):
         self.prepare_testbed()
+
+        t = TimeTable()
+        t.save()
+        tt = TimeTable()
+        tt.save()
+        s = Scholar()
+        s.save()
+        s.TimeTables(timetable = t)
+        s.TimeTables[0].timetable = tt
+        s.save()
+
         user = User(name='Joe').save()
         print(user.key)
         employee = Employee(eid='E1', usr=user)
@@ -79,7 +90,7 @@ class TestCase:
         abs_role.Permissions(permission=perm)
         abs_role.save()
         db_perm = Permission.objects.get(perm.key)
-        assert len(db_perm.abstract_role_permissions_permission_set) == 1
+        assert len(db_perm.perms) == 1
         user = User(name='Adams')
         user.save()
         role = Role(abstract_role=abs_role, active=True)
@@ -87,8 +98,8 @@ class TestCase:
         role.usr = user
         role.save()
         user_db = User.objects.get(user.key)
-        assert role.key == user_db.role_usr_set[0].role.key
-        role_node = user_db.role_usr_set[0]
+        assert role.key == user_db.roller[0].role.key
+        role_node = user_db.roller[0]
         db_user_role_abs_role = role_node.role.abstract_role
         assert abs_role.name == db_user_role_abs_role.name
         db_abs_role = AbstractRole.objects.get(abs_role.key)
@@ -132,14 +143,15 @@ class TestCase:
         mate1 = User(name="Mate", supervisor=ceo).blocking_save()
         mate2 = User(name="Mate2", supervisor=ceo).blocking_save()
         ceo.reload()
-        assert mate1 in ceo.user_supervisor_set
-        assert mate2 in ceo.user_supervisor_set
-        assert len(ceo.user_supervisor_set) == 2
+        assert mate1 in ceo.workers
+        assert mate2 in ceo.workers
+        assert len(ceo.workers) == 2
 
-        assert ceo not in mate1.user_supervisor_set
-        assert ceo not in mate2.user_supervisor_set
-        assert len(mate1.user_supervisor_set) == 0
-        assert len(mate2.user_supervisor_set) == 0
+        assert ceo not in mate1.workers
+        assert ceo not in mate2.workers
+        assert len(mate1.workers) == 0
+        assert len(mate2.workers) == 0
+
 
     def test_delete_rel_many_to_one(self, force=True):
         self.prepare_testbed()
@@ -167,8 +179,8 @@ class TestCase:
         del arole.Permissions[can_eat]
         arole.blocking_save()
         can_eat.reload()
-        assert arole not in can_eat.abstract_role_permissions_permission_set
-        assert brole in can_eat.abstract_role_permissions_permission_set
+        assert arole not in can_eat.perms
+        assert brole in can_eat.perms
 
     def test_delete_rel_one_to_many(self):
         self.prepare_testbed()
@@ -252,7 +264,7 @@ class TestCase:
         # Link from Listnode to model
 
         # Link from AbstractRole model Permissions listnode permission field
-        assert 'abstract_role_permissions_permission_set' in Permission().clean_value()
+        assert 'perms' in Permission().clean_value()
 
         p = Permission()
         p.save()
@@ -261,7 +273,7 @@ class TestCase:
         a.save()
         assert len(a.Permissions) == 1
         assert a.Permissions[0].permission.key == p.key
-        assert p.abstract_role_permissions_permission_set[0].abstract_role.key == a.key
+        assert p.perms[0].abstract_role.key == a.key
 
         # Two links from Listnode to same model
 
@@ -306,7 +318,7 @@ class TestCase:
 
         assert 'supervisor_id' in User().clean_value()
         assert 'test_supervisor_id' in User().clean_value()
-        assert 'user_supervisor_set' in User().clean_value()
+        assert 'workers' in User().clean_value()
         assert 'user_test_supervisor_set' in User().clean_value()
 
         u = User(name='test_name')
@@ -317,9 +329,9 @@ class TestCase:
 
         assert u.supervisor == uu
         assert u.test_supervisor.key == None
-        assert len(uu.user_supervisor_set) == 1
+        assert len(uu.workers) == 1
         assert len(uu.user_test_supervisor_set) == 0
-        assert uu.user_supervisor_set[0].user.name == 'test_name'
+        assert uu.workers[0].user.name == 'test_name'
 
         uu.test_supervisor = u
         uu.save()
@@ -327,7 +339,7 @@ class TestCase:
         assert uu.test_supervisor == u
         assert uu.supervisor.key == None
         assert len(u.user_test_supervisor_set) == 1
-        assert len(u.user_supervisor_set) == 0
+        assert len(u.workers) == 0
         assert u.user_test_supervisor_set[0].user.name == 'test_second_name'
 
     def test_updating_links(self):
@@ -341,16 +353,16 @@ class TestCase:
         role = Role(usr = first_user,name = 'role_name')
         role.blocking_save()
         first_user.reload()
-        assert role in first_user.role_usr_set
-        assert first_user.role_usr_set[0].role.name == 'role_name'
+        assert role in first_user.roller
+        assert first_user.roller[0].role.name == 'role_name'
 
         role.usr = second_user
         role.blocking_save()
         first_user.reload()
         second_user.reload()
-        assert role not in first_user.role_usr_set
-        assert role in second_user.role_usr_set
-        assert second_user.role_usr_set[0].role.name == 'role_name'
+        assert role not in first_user.roller
+        assert role in second_user.roller
+        assert second_user.roller[0].role.name == 'role_name'
 
         # Self Referencing
 
@@ -360,16 +372,16 @@ class TestCase:
         first_user.supervisor = second_user
         first_user.blocking_save()
         second_user.reload()
-        assert first_user in second_user.user_supervisor_set
-        assert second_user.user_supervisor_set[0].user.name == 'first_name'
+        assert first_user in second_user.workers
+        assert second_user.workers[0].user.name == 'first_name'
 
         first_user.supervisor = third_user
         first_user.blocking_save()
         second_user.reload()
         third_user.reload()
-        assert first_user not in second_user.user_supervisor_set
-        assert first_user in third_user.user_supervisor_set
-        assert third_user.user_supervisor_set[0].user.name == 'first_name'
+        assert first_user not in second_user.workers
+        assert first_user in third_user.workers
+        assert third_user.workers[0].user.name == 'first_name'
 
         # Listnode to Model
 
@@ -422,6 +434,8 @@ class TestCase:
                 role = Role()
 
         """
+        self.prepare_testbed()
+
         # First role is taken.
         first_role = Role()
         # Second role is taken.
@@ -477,8 +491,7 @@ class TestCase:
         # Student's Lecturer list node's role field is changed from first_role to second_role.
         student.Lecturer[0].role = second_role
         # Student instance is saved.
-        student.save()
-
+        student.blocking_save()
         # Student's Lecturer list number should be 1.
         assert len(student.Lecturer) == 1
         # Student's Lectures list number should be 1.
@@ -487,6 +500,7 @@ class TestCase:
         assert student.Lecturer[0].role == second_role
         assert student.Lectures[0].role == first_role
         # # Second role's student set number should increase one.
-        # assert len(second_role.student_set) == 1
-        # # Second role's student set's student object's data is controlled.
-        # assert second_role.student_set[0].student.clean_value()['lecturer'][0]['role_id'] == second_role.key
+        second_role.reload()
+        assert len(second_role.student_lecturer_role_set) == 1
+        first_role.reload()
+        assert len(first_role.student_lecturer_role_set) == 0

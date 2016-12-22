@@ -29,12 +29,12 @@ class AbstractRole(Model):
     name = field.String("Name")
 
     class Permissions(ListNode):
-        permission = Permission(reverse_link=True)
+        permission = Permission(reverse_name='perms')
 
 
 class User(Model):
     name = field.String('Full Name')
-    supervisor = LinkProxy('User', verbose_name='Supervisor',reverse_link=True)
+    supervisor = LinkProxy('User', verbose_name='Supervisor', reverse_name='workers')
     test_supervisor = LinkProxy('User',reverse_link=True)
 
     def __unicode__(self):
@@ -42,8 +42,8 @@ class User(Model):
 
 
 class Role(Model):
-    usr = User(verbose_name='Kul', reverse_link=True)
-    teammate = LinkProxy('User', verbose_name="Teammate")
+    usr = User(verbose_name='Kul', reverse_name='roller')
+    teammate = LinkProxy('User', verbose_name="Teammate", reverse_name="team")
     abstract_role = AbstractRole()
     name = field.String("Name")
     active = field.Boolean("Is Active", index=True)

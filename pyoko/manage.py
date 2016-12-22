@@ -212,17 +212,15 @@ class ReIndex(Command):
         for mdl in models:
             stream = mdl.objects.adapter.bucket.stream_keys()
             i = 0
+            t = 0
             unsaved_keys = []
             for key_list in stream:
                 for key in key_list:
-                    #i += 1
+                    t += 1
                     # time.sleep(0.4)
                     try:
                         mdl.objects.get(key).save()
                         i += 1
-                        # obj = mdl.bucket.get(key)
-                        # if obj.data:
-                        #     obj.store()
                     except ObjectDoesNotExist:
                         if self.manager.args.include_deleted:
                             o = mdl.objects.filter(key=key, deleted=True)[0]
@@ -240,7 +238,7 @@ class ReIndex(Command):
 
                         traceback.print_exc()
             stream.close()
-            print("Re-indexed %s records of %s" % (i, mdl.__name__))
+            print("Re-indexed %s records of %s of %s" % (i,t, mdl.__name__))
             if unsaved_keys:
                 print("\nThese keys cannot be updated:\n\n", unsaved_keys)
 
@@ -801,7 +799,7 @@ endtitle
         from pyoko.conf import settings
         from importlib import import_module
         import_module(settings.MODELS_MODULE)
-        registry = import_module('pyoko.model').model_registry
+        registry = import_module('pyoko.modelmeta').model_registry
         selected_models = self.manager.args.model
         apps_models = registry.get_models_by_apps()
         selected_by_app = list()

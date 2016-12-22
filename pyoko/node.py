@@ -160,7 +160,6 @@ class Node(object):
     def _add_linked_model(cls, mdl, link_source=False, null=False, o2o=False, field=None,
                           reverse=None, verbose=None, is_set=False, m2m=False, reverse_link=False,
                           model_listnode=False, **kwargs):
-        # name = kwargs.get('field', mdl.__name__)
         lnk = {
             'null': null,
             'link_source': link_source,
@@ -173,7 +172,6 @@ class Node(object):
             'm2m': m2m,
             'reverse_link': reverse_link,
             'model_listnode': model_listnode
-            # 'node': node,
         }
         lnksrc = kwargs.pop('lnksrc', '')
         lnk.update(kwargs)
@@ -252,15 +250,12 @@ class Node(object):
                     linked_mdl_ins = data[lnk['field']]
                     self.setattr(lnk['field'], linked_mdl_ins)
                     try:
-                        kw = {'mdl': lnk['mdl'], 'link_source': not lnk['link_source']}
-                        field = "%s.%s" % (self.__class__.__name__, lnk['field'])
-
-                        if self._TYPE == 'ListNode' and self._root_node.get_links(
-                                model_listnode=True,
-                                field=field):
-                            kw['field'] = field
-                        self._root_node._add_back_link(linked_mdl_ins,
-                                                       self._root_node.get_link(**kw))
+                        if lnk['o2o'] or lnk['reverse_link']:
+                            kw = {'mdl': lnk['mdl'], 'link_source': not lnk['link_source']}
+                            if self._TYPE == 'ListNode' and len(self._root_node.get_links(**kw))>1:
+                                kw['field'] = "%s.%s" % (self.__class__.__name__, lnk['field'])
+                            self._root_node._add_back_link(linked_mdl_ins,
+                                                           self._root_node.get_link(**kw))
 
                     except:
                         pass
