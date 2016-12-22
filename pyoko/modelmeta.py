@@ -27,8 +27,6 @@ class ModelMeta(type):
         class_type = getattr(base_model_class, '_TYPE', None)
         if class_type == 'Model':
             mcs.process_models(attrs, base_model_class)
-        # if class_type == 'ListNode':
-        #     mcs.process_listnode(attrs, base_model_class)
         mcs.process_attributes_of_node(attrs, name, class_type)
         new_class = super(ModelMeta, mcs).__new__(mcs, name, bases, attrs)
         return new_class
@@ -54,14 +52,12 @@ class ModelMeta(type):
             class_type (str): Type of class.
                 Can be one of these: 'ListNode', 'Model', 'Node'
         """
-        # print("Node: %s" % node_name)
         attrs['_nodes'] = {}
         attrs['_linked_models'] = defaultdict(list)
         attrs['_debug_linked_models'] = defaultdict(list)
         attrs['_lazy_linked_models'] = defaultdict(list)
         attrs['_fields'] = {}
         attrs['_uniques'] = []
-        # attrs['_many_to_models'] = []
 
         # iterating over attributes of the soon to be created class object.
         for key, attr in list(attrs.items()):
@@ -70,7 +66,6 @@ class ModelMeta(type):
                                                                                      'ListNode']:
                 # converted pops to dict access to allow sphinx to
                 # properly document the models
-                # attrs['_nodes'][key] = attrs.pop(key)
                 attrs['_nodes'][key] = attrs[key]
             else:  # otherwise it should be a field or linked model
                 attr_type = getattr(attr, '_TYPE', '')
@@ -85,7 +80,7 @@ class ModelMeta(type):
                         'mdl': lnk_mdl_ins.__class__,
                         'o2o': lnk_mdl_ins._is_one_to_one,
                         'm2m': class_type == 'ListNode',
-                        'reverse': None,
+                        'reverse': lnk_mdl_ins.reverse_name,
                         'verbose': lnk_mdl_ins.verbose_name,
                         'field': key,
                         'is_set': False,
