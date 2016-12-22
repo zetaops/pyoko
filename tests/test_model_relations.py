@@ -36,17 +36,6 @@ class TestCase:
 
     def test_one_to_one_simple(self):
         self.prepare_testbed()
-
-        t = TimeTable()
-        t.save()
-        tt = TimeTable()
-        tt.save()
-        s = Scholar()
-        s.save()
-        s.TimeTables(timetable = t)
-        s.TimeTables[0].timetable = tt
-        s.save()
-
         user = User(name='Joe').save()
         print(user.key)
         employee = Employee(eid='E1', usr=user)
