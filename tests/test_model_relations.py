@@ -133,10 +133,13 @@ class TestCase:
         mate2 = User(name="Mate2", supervisor=ceo).blocking_save()
         ceo.reload()
         assert mate1 in ceo.workers
+        assert mate2 in ceo.workers
         assert len(ceo.workers) == 2
 
-        # FIXME: THIS SHOULD PASS!!! #5342 #GH-63
-        # assert ceo not in mate1.workers
+        assert ceo not in mate1.workers
+        assert ceo not in mate2.workers
+        assert len(mate1.workers) == 0
+        assert len(mate2.workers) == 0
 
 
     def test_delete_rel_many_to_one(self, force=True):

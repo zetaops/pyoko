@@ -62,8 +62,8 @@ else:
             return value
 
 
-def un_camel(input):
-    return UN_CAMEL_RE.sub(r'_\1', input).lower()
+def un_camel(input, dash="_"):
+    return UN_CAMEL_RE.sub(r'%s\1' % dash, input).lower()
 
 
 def un_camel_id(input):

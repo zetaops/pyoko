@@ -180,6 +180,8 @@ class DateTime(BaseField):
         else:
             try:
                 value = datetime.datetime.strptime(value, DATE_TIME_FORMAT)
+            except ValueError:
+                value = datetime.datetime.strptime(value, self.format)
             except TypeError:
                 # this is just a workaround for timestamp fields
                 # migration from Timestamp() to DateTime() field type
@@ -218,7 +220,10 @@ class Date(BaseField):
         if value is None or value == EMPTY_DATETIME:
             value = ''
         else:
-            value = datetime.datetime.strptime(value, DATE_FORMAT).date()
+            try:
+                value = datetime.datetime.strptime(value, DATE_FORMAT).date()
+            except ValueError:
+                value = datetime.datetime.strptime(value, self.format).date()
         instance._field_values[self.name] = value
 
 
