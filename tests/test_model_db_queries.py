@@ -277,6 +277,12 @@ class TestCase:
         assert 2 == Student.objects.or_filter(name__contains='rob',
                                               surname__startswith='rob').count()
 
+        assert 1 == Student.objects.filter(surname__endswith = 'oby').count()
+        assert 1 == Student.objects.or_filter(name__endswith='i',
+                                              surname__endswith='i').count()
+        assert 0 == Student.objects.or_filter(name__endswith='ila',
+                                           surname__endswith='i').count()
+
     def test_range_queries(self):
         TimeTable.objects.delete()
         with BlockSave(TimeTable):

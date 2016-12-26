@@ -652,7 +652,7 @@ class Adapter(BaseAdapter):
             elif modifier == 'startswith':
                 qval = "%s*" % qval
             elif modifier == 'endswith':
-                qval = "%s*" % qval
+                qval = "*%s" % qval
             elif modifier == 'lte':
                 qval = '[* TO %s]' % qval
             elif modifier == 'gte':
