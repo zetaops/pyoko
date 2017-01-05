@@ -452,6 +452,8 @@ class Model(Node):
                 self.setattrs(just_created=self._just_created,
                               _just_created=False)
                 self.post_creation()
+        self._pre_save_hook_called = False
+        self._post_save_hook_called = False
         return self
 
     def changed_fields(self):

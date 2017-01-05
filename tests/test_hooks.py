@@ -25,20 +25,13 @@ class TestCase:
         assert e.pre_save_counter == 1
         assert e.post_creation_counter == 1
         e.save()
+        assert e.post_save_counter == 2
+        assert e.pre_save_counter == 2
+        assert e.post_creation_counter == 1
+        e.delete()
         assert e.post_save_counter == 1
         assert e.pre_save_counter == 1
         assert e.post_creation_counter == 1
-        e.delete()
-        assert e.post_save_counter == 0
-        assert e.pre_save_counter == 0
-        assert e.post_creation_counter == 1
-
-
-
-
-
-
-
 
 
 
