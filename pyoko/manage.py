@@ -799,7 +799,7 @@ endtitle
         from pyoko.conf import settings
         from importlib import import_module
         import_module(settings.MODELS_MODULE)
-        registry = import_module('pyoko.modelmeta').model_registry
+        registry = import_module('pyoko.model').model_registry
         selected_models = self.manager.args.model
         apps_models = registry.get_models_by_apps()
         selected_by_app = list()

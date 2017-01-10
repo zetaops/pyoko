@@ -101,12 +101,11 @@ class Node(object):
         if key not in self._fields:
             _attr = getattr(self, key)
             if _attr is not None and _attr.__class__.__name__ != val.__class__.__name__:
-                raise ValidationError(
-                    "Assigned object's (%s) type (%s) does not matches to \"%s %s\" " %
-                    (key,
-                     val.__class__.__name__,
-                     _attr.__class__.__name__,
-                     getattr(_attr, '_TYPE', None)))
+                raise ValidationError("Assigned object's (%s) type (%s) does not matches to \"%s %s\" " %
+                                      (key,
+                                       val.__class__.__name__,
+                                       _attr.__class__.__name__,
+                                       getattr(_attr, '_TYPE', None)))
         object.__setattr__(self, key, val)
 
     def __init__(self, **kwargs):
@@ -418,8 +417,7 @@ class Node(object):
         from .listnode import ListNode
         multi = in_multi or isinstance(self, ListNode)
         for lnk in self.get_links(is_set=False):
-            result.append(
-                (self._path_of(un_camel_id(lnk['field'])), 'string', True, settings.DEBUG, multi))
+            result.append((self._path_of(un_camel_id(lnk['field'])), 'string', True, settings.DEBUG, multi))
 
         for name, field_ins in self._fields.items():
             field_name = self._path_of(name)

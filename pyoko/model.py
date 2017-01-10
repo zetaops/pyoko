@@ -271,22 +271,20 @@ class Model(Node):
                     if remote_set._TYPE == 'ListNode' and self not in remote_set:
                         remote_set(**{remote_field_name: self._root_node})
                         if linked_mdl_ins._exists is False:
-                            raise ObjectDoesNotExist(
-                                'Linked %s on field %s with key %s doesn\'t exist' % (
-                                    linked_mdl_ins.__class__.__name__,
-                                    remote_field_name,
-                                    linked_mdl_ins.key,
-                                ))
-                        linked_mdl_ins.save(internal=True)
-                else:
-                    linked_mdl_ins.setattr(remote_field_name, self._root_node)
-                    if linked_mdl_ins._exists is False:
-                        raise ObjectDoesNotExist(
-                            'Linked object %s on field %s with key %s doesn\'t exist' % (
+                            raise ObjectDoesNotExist('Linked %s on field %s with key %s doesn\'t exist' % (
                                 linked_mdl_ins.__class__.__name__,
                                 remote_field_name,
                                 linked_mdl_ins.key,
                             ))
+                        linked_mdl_ins.save(internal=True)
+                else:
+                    linked_mdl_ins.setattr(remote_field_name, self._root_node)
+                    if linked_mdl_ins._exists is False:
+                        raise ObjectDoesNotExist('Linked object %s on field %s with key %s doesn\'t exist' % (
+                            linked_mdl_ins.__class__.__name__,
+                            remote_field_name,
+                            linked_mdl_ins.key,
+                        ))
                     linked_mdl_ins.save(internal=True)
 
     def _add_back_link(self, linked_mdl, link):
@@ -371,13 +369,13 @@ class Model(Node):
             obj_reverse_set.__delitem__(self,sync = False)
             changed_obj.save()
 
-    def _process_relations(self, internal):
+    def _process_relations(self,internal):
         buffer = []
         for k, v in self.new_back_links.copy().items():
             del self.new_back_links[k]
             buffer.append(v)
         for v in buffer:
-            self._update_new_linked_model(internal, *v)
+            self._update_new_linked_model(internal,*v)
 
     def reload(self):
         """
@@ -561,8 +559,7 @@ class Model(Node):
     def _traverse_relations(self):
         for lnk in self.get_links(link_source=False):
             yield (lnk,
-                   list(
-                       lnk['mdl'].objects.filter(**{'%s_id' % un_camel(lnk['reverse']): self.key})))
+                   list(lnk['mdl'].objects.filter(**{'%s_id' % un_camel(lnk['reverse']): self.key})))
 
     def _delete_relations(self, dry=False):
         for lnk, rels in self._traverse_relations():
