@@ -16,9 +16,6 @@ import json
 from datetime import date, timedelta
 import time
 from datetime import datetime
-
-from riak import RiakObject
-from riak.content import RiakContent
 from riak.util import bytes_to_str
 
 from pyoko.db.adapter.base import BaseAdapter
@@ -348,7 +345,10 @@ class Adapter(BaseAdapter):
 
     def set_to_cache(self, key, value):
         try:
-            cache.set(key, value)
+            if not value['deleted']:
+                cache.set(key, value)
+            else:
+                cache.delete(key)
         except Exception as e:
             # todo should add log.error()
             pass
@@ -360,26 +360,36 @@ class Adapter(BaseAdapter):
             # todo should add log.error()
             return ""
 
+    def delete_from_cache(self, key):
+        try:
+            cache.delete(key)
+        except Exception as e:
+            # todo should add log.error()
+            pass
+
     def get(self, key=None):
         if key:
-            data = self.get_from_cache(key)
-            if data:
-                if six.PY2:
-                    _data = data
-                if six.PY3:
-                    _data = data.decode()
-                data = ast.literal_eval(_data)
-                return data, key
+            if settings.ENABLE_CACHING:
+                data = self.get_from_cache(key)
+                if data:
+                    if six.PY2:
+                        _data = data
+                    if six.PY3:
+                        _data = data.decode()
+                    data = ast.literal_eval(_data)
+                    return data, key
+                else:
+                    self._riak_cache = [self.bucket.get(key)]
+                    # In order to set to the cache
+                    _data, _key = self.get_one()
+                    try:
+                        self.set_to_cache(_key, _data)
+                    except Exception as e:
+                        # todo should add log.error()
+                        pass
+                    return _data, _key
             else:
                 self._riak_cache = [self.bucket.get(key)]
-                # In order to set to the cache
-                _data, _key = self.get_one()
-                try:
-                    self.set_to_cache(_key, _data)
-                except Exception as e:
-                    # todo should add log.error()
-                    pass
-                return _data, _key
         else:
             self._exec_query()
             if self.count() > 1:
