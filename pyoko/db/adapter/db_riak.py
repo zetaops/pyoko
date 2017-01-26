@@ -17,6 +17,8 @@ from datetime import date, timedelta
 import time
 from datetime import datetime
 
+from riak import RiakObject
+from riak.content import RiakContent
 from riak.util import bytes_to_str
 
 from pyoko.db.adapter.base import BaseAdapter
@@ -34,6 +36,8 @@ from pyoko.db.connection import client, cache, log_bucket, version_bucket
 import riak
 from pyoko.exceptions import MultipleObjectsReturned, ObjectDoesNotExist, PyokoError
 import traceback
+import ast
+
 # TODO: Add OR support
 
 import sys
@@ -316,6 +320,9 @@ class Adapter(BaseAdapter):
         else:
             version_key = ''
 
+        if settings.ENABLE_CACHING:
+            self.set_to_cache(model.key, clean_value)
+
         meta_data = meta_data or model.save_meta_data
         if settings.ENABLE_ACTIVITY_LOGGING and meta_data:
             self._write_log(version_key, meta_data, index_fields)
@@ -339,9 +346,40 @@ class Adapter(BaseAdapter):
         #     })
         return model
 
+    def set_to_cache(self, key, value):
+        try:
+            cache.set(key, value)
+        except Exception as e:
+            # todo should add log.error()
+            pass
+
+    def get_from_cache(self, key):
+        try:
+            return cache.get(key)
+        except Exception as e:
+            # todo should add log.error()
+            return ""
+
     def get(self, key=None):
         if key:
-            self._riak_cache = [self.bucket.get(key)]
+            data = self.get_from_cache(key)
+            if data:
+                if six.PY2:
+                    _data = data
+                if six.PY3:
+                    _data = data.decode()
+                data = ast.literal_eval(_data)
+                return data, key
+            else:
+                self._riak_cache = [self.bucket.get(key)]
+                # In order to set to the cache
+                _data, _key = self.get_one()
+                try:
+                    self.set_to_cache(_key, _data)
+                except Exception as e:
+                    # todo should add log.error()
+                    pass
+                return _data, _key
         else:
             self._exec_query()
             if self.count() > 1:
@@ -358,21 +396,14 @@ class Adapter(BaseAdapter):
         """
         if not self._riak_cache:
             self._exec_query()
-        if not self._riak_cache:
             if not self._solr_cache['docs']:
                 raise ObjectDoesNotExist("%s %s" % (self.index_name, self.compiled_query))
-            # if settings.DEBUG:
-            #     t1 = time.time()
+
             self._riak_cache = [self.bucket.get(self._solr_cache['docs'][0]['_yz_rk'])]
-            # if settings.DEBUG:
+
             sys.PYOKO_LOGS[self._model_class.__name__].append(
                 self._solr_cache['docs'][0]['_yz_rk'])
-            # sys.PYOKO_STAT_COUNTER['read'] += 1
-            # sys._debug_db_queries.append({
-            #     'TIMESTAMP': t1,
-            #     'KEY': self._solr_cache['docs'][0]['_yz_rk'],
-            #     'BUCKET': self.index_name,
-            #     'TIME': round(time.time() - t1, 5)})
+
         if not self._riak_cache[0].exists:
             raise ObjectDoesNotExist("%s %s" % (self.index_name,
                                                 self._riak_cache[0].key))

@@ -36,3 +36,6 @@ ENABLE_ACTIVITY_LOGGING = os.environ.get('ENABLE_ACTIVITY_LOGGING', 'False') == 
 #: Set the name of logging bucket type and bucket name.
 ACTIVITY_LOGGING_BUCKET = os.environ.get('ACTIVITY_LOGGING_BUCKET', 'log')
 VERSION_BUCKET = os.environ.get('VERSION_BUCKET', 'version')
+
+#: Set True to enable caching all models to Redis
+ENABLE_CACHING = os.environ.get('ENABLE_CACHING', 'False') == 'True'
