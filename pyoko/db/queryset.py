@@ -480,12 +480,12 @@ class QuerySet(object):
         """
         return copy.deepcopy(self).adapter.count()
 
-    def _clear(self):
+    def _clear(self, wait=True):
         """
         Removes all data from model.
         Should be used only for development purposes
         """
-        return self.adapter._clear()
+        return self.adapter._clear(wait)
 
     def order_by(self, *args):
         """

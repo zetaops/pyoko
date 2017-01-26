@@ -27,6 +27,8 @@ from sys import argv, stdout
 from six import add_metaclass, PY2
 from pyoko.model import super_context
 from pyoko.lib import utils
+from pyoko.exceptions import ObjectDoesNotExist
+import concurrent.futures as con
 
 
 class CommandRegistry(type):
@@ -98,6 +100,30 @@ class Command(object):
         raise NotImplemented("You should override this method in your command class")
 
 
+class BaseThreadedCommand(object):
+    def find_models(self):
+        from pyoko.conf import settings
+        from importlib import import_module
+        import_module(settings.MODELS_MODULE)
+        registry = import_module('pyoko.model').model_registry
+        model_name = self.manager.args.model
+
+        params = [prm['name'] for prm in self.PARAMS]
+        if model_name != 'all':
+            models = [registry.get_model(name) for name in model_name.split(',')]
+        else:
+            models = registry.get_base_models()
+            if 'exclude' in params and self.manager.args.exclude:
+                excluded_models = [registry.get_model(name) for name in
+                                   self.manager.args.exclude.split(',')]
+                models = [model for model in models if model not in excluded_models]
+        return models
+
+    def do(self, func, iterables, threads_number=None):
+        threads = threads_number or self.manager.args.threads
+        with con.ThreadPoolExecutor(max_workers=int(threads)) as executor:
+            executor.map(func, iterables)
+
 class Shell(Command):
     CMD_NAME = 'shell'
     PARAMS = [
@@ -108,7 +134,7 @@ class Shell(Command):
 
     def run(self):
         if not self.manager.args.no_model:
-            exec ('from %s import *' % settings.MODELS_MODULE)
+            exec('from %s import *' % settings.MODELS_MODULE)
         try:
             from IPython import start_ipython
             start_ipython(argv=[], user_ns=locals())
@@ -121,7 +147,7 @@ class Shell(Command):
             shell.interact()
 
 
-class SchemaUpdate(Command):
+class SchemaUpdate(Command, BaseThreadedCommand):
     CMD_NAME = 'migrate'
     PARAMS = [{'name': 'model', 'required': True, 'help': 'Models name(s) to be updated.'
                                                           ' Say "all" to update all models'},
@@ -132,106 +158,93 @@ class SchemaUpdate(Command):
 
     def run(self):
         from pyoko.db.schema_update import SchemaUpdater
-        from pyoko.conf import settings
-        from importlib import import_module
-        import_module(settings.MODELS_MODULE)
-        registry = import_module('pyoko.model').model_registry
-        updater = SchemaUpdater(registry,
-                                self.manager.args.model,
+        models = self.find_models()
+        updater = SchemaUpdater(models,
                                 self.manager.args.threads,
-                                self.manager.args.force,
+                                self.manager.args.force
                                 )
         updater.run()
         return updater.create_report()
 
 
-class FlushDB(Command):
+class FlushDB(Command, BaseThreadedCommand):
     CMD_NAME = 'flush_model'
     HELP = 'REALLY DELETES the contents of models'
     PARAMS = [{'name': 'model', 'required': True,
                'help': 'Models name(s) to be cleared. Say "all" to clear all models'},
               {'name': 'exclude',
                'help': 'Models name(s) to be excluded, comma separated'},
+              {'name': 'threads', 'default': 1, 'help': 'Max number of threads. Defaults to 1'},
               {'name': 'wait_sync', 'action': 'store_true',
                'help': 'Wait till indexes synced. Default: False'
-                       'Wait till flushing reflects to indexes.'},
-              ]
+                       'Wait till flushing reflects to indexes.'}]
 
     def run(self):
-        from pyoko.conf import settings
-        from pyoko.model import super_context
-        from importlib import import_module
-        import_module(settings.MODELS_MODULE)
-        registry = import_module('pyoko.model').model_registry
-        model_name = self.manager.args.model
-        if model_name != 'all':
-            models = [registry.get_model(name) for name in model_name.split(',')]
-        else:
-            models = registry.get_base_models()
-            if self.manager.args.exclude:
-                excluded_models = [registry.get_model(name) for name in
-                                   self.manager.args.exclude.split(',')]
-                models = [model for model in models if model not in excluded_models]
-
-        for mdl in models:
-            num_of_records = mdl(super_context).objects._clear()
-            print("%s object(s) deleted from %s " % (num_of_records, mdl.__name__))
+        models = self.find_models()
+        self.do(self.flush_model, models)
         if self.manager.args.wait_sync:
-            for mdl in models:
-                while mdl(super_context).objects.count():
-                    time.sleep(0.3)
+            self.do(self.sync_flush_model, models)
+
+    def flush_model(self, mdl):
+        num_of_records = mdl(super_context).objects._clear(wait=False)
+        print("%s object(s) deleted from %s " % (num_of_records, mdl.__name__))
+
+    def sync_flush_model(self, mdl):
+        i = 0
+        while mdl(super_context).objects.count():
+            i += 1
+            stdout.write("\r %s model is synchronizing%s" % (mdl.__name__, i * '.'))
+            time.sleep(0.3)
 
 
-class ReIndex(Command):
+class ReIndex(Command, BaseThreadedCommand):
     CMD_NAME = 'reindex'
     HELP = 'Re-indexes model objects'
     PARAMS = [{'name': 'model', 'required': True,
                'help': 'Models name(s) to be cleared. Say "all" to clear all models'},
               {'name': 'exclude',
-               'help': 'Models name(s) to be excluded, comma separated'}
+               'help': 'Models name(s) to be excluded, comma separated'},
+              {'name': 'include_deleted', 'action': 'store_true',
+               'help': 'Reindex object even if it was deleted'},
+              {'name': 'threads', 'default': 1, 'help': 'Max number of threads. Defaults to 1'}
               ]
 
     def run(self):
-        from pyoko.conf import settings
-        from importlib import import_module
-        import_module(settings.MODELS_MODULE)
-        registry = import_module('pyoko.model').model_registry
-        model_name = self.manager.args.model
-        if model_name != 'all':
-            models = [registry.get_model(name) for name in model_name.split(',')]
-        else:
-            models = registry.get_base_models()
-            if self.manager.args.exclude:
-                excluded_models = [registry.get_model(name) for name in
-                                   self.manager.args.exclude.split(',')]
-                models = [model for model in models if model not in excluded_models]
+        models = self.find_models()
+        self.do(self.reindex_model, models)
 
-        for mdl in models:
-            stream = mdl.objects.adapter.bucket.stream_keys()
-            i = 0
-            unsaved_keys = []
-            for key_list in stream:
-                for key in key_list:
+    def reindex_model(self, mdl):
+        stream = mdl.objects.adapter.bucket.stream_keys()
+        i = 0
+        t = 0
+        unsaved_keys = []
+        for key_list in stream:
+            for key in key_list:
+                t += 1
+                # time.sleep(0.4)
+                try:
+                    mdl.objects.get(key).save()
                     i += 1
-                    # time.sleep(0.4)
-                    try:
-                        mdl.objects.get(key).save()
-                        # obj = mdl.bucket.get(key)
-                        # if obj.data:
-                        #     obj.store()
-                    except ConflictError:
-                        unsaved_keys.append(key)
-                        print("Error on save. Record in conflict: %s > %s" % (mdl.__name__, key))
-                    except:
-                        unsaved_keys.append(key)
-                        print("Error on save! %s > %s" % (mdl.__name__, key))
-                        import traceback
+                except ObjectDoesNotExist:
+                    if self.manager.args.include_deleted:
+                        o = mdl.objects.filter(key=key, deleted=True)[0]
+                        o.save()
+                        i += 1
+                        print("Deleted object found: %s " % o.key)
 
-                        traceback.print_exc()
-            stream.close()
-            print("Re-indexed %s records of %s" % (i, mdl.__name__))
-            if unsaved_keys:
-                print("\nThese keys cannot be updated:\n\n", unsaved_keys)
+                except ConflictError:
+                    unsaved_keys.append(key)
+                    print("Error on save. Record in conflict: %s > %s" % (mdl.__name__, key))
+                except:
+                    unsaved_keys.append(key)
+                    print("Error on save! %s > %s" % (mdl.__name__, key))
+                    import traceback
+
+                    traceback.print_exc()
+        stream.close()
+        print("Re-indexed %s records of %s of %s" % (i, t, mdl.__name__))
+        if unsaved_keys:
+            print("\nThese keys cannot be updated:\n\n", unsaved_keys)
 
 
 class SmartFormatter(HelpFormatter):
@@ -321,13 +334,15 @@ class ManagementCommands(object):
         self.args.command()
 
 
-class BaseDumpHandler(object):
+class BaseDumpHandler(BaseThreadedCommand):
     """The base class for different implementations of data dump handlers."""
     EXTENSION = 'dump'
 
-    def __init__(self, models, batch_size, per_model=False, output_path='', remove_dumped=False):
+    def __init__(self, models, batch_size, threads, per_model=False, output_path='',
+                 remove_dumped=False):
         self._models = models
         self._batch_size = batch_size
+        self.threads = threads
         self._per_model = per_model
         self._output_path = output_path
         self._remove_dumped = remove_dumped
@@ -347,41 +362,42 @@ class BaseDumpHandler(object):
             self._outfile = codecs.open(self._output_path, 'w', encoding='utf-8')
             print('Dumping to file {path}'.format(path=self._output_path))
 
-        for mdl in self._models:
+        self.do(self.dump_model_data, self._models, self.threads)
 
-            if self.multi_file:
-                self._prepare_output_multi(mdl)
-            elif self.single_file:
-                print('Dumping {model}'.format(model=mdl.__name__))
+    def dump_model_data(self, mdl):
+        if self.multi_file:
+            self._prepare_output_multi(mdl)
+        elif self.single_file:
+            print('Dumping {model}'.format(model=mdl.__name__))
 
-            model = mdl(super_context)
-            count = model.objects.count()
-            rounds = int(count / self._batch_size) + 1
-            bucket = model.objects.adapter.bucket
+        model = mdl(super_context)
+        count = model.objects.count()
+        rounds = int(count / self._batch_size) + 1
+        bucket = model.objects.adapter.bucket
 
-            self.pre_dump_hook(bucket)
-            for i in range(rounds):
+        self.pre_dump_hook(bucket)
+        for i in range(rounds):
 
-                start = 0 if self._remove_dumped else i
+            start = 0 if self._remove_dumped else i
 
-                data = model.objects.data().raw('*:*').set_params(
-                    sort="timestamp asc",
-                    rows=self._batch_size,
-                    start=start * self._batch_size,
-                )
+            data = model.objects.data().raw('*:*').set_params(
+                sort="timestamp asc",
+                rows=self._batch_size,
+                start=start * self._batch_size,
+            )
 
-                try:
-                    for value, key in data:
-                        if value is not None:
-                            self.handle_data(bucket, key, value)
-                            self.post_handle_data_hook(bucket, key, value)
-                    if self._remove_dumped:
-                        # wait 1 second to pass for next round
-                        print("removed dumped objects from riak, waiting for solr sync")
-                        time.sleep(5)
-                except ValueError:
-                    raise
-            self.post_dump_hook(bucket)
+            try:
+                for value, key in data:
+                    if value is not None:
+                        self.handle_data(bucket, key, value)
+                        self.post_handle_data_hook(bucket, key, value)
+                if self._remove_dumped:
+                    # wait 1 second to pass for next round
+                    print("removed dumped objects from riak, waiting for solr sync")
+                    time.sleep(5)
+            except ValueError:
+                raise
+        self.post_dump_hook(bucket)
 
     def write(self, data):
         if self._output_path:
@@ -440,6 +456,7 @@ class TreeDumpHandler(BaseDumpHandler):
 
 class PrettyDumpHandler(TreeDumpHandler):
     """DO NOT use on big DBs. Formatted version of json_tree."""
+
     def post_dump_hook(self, bucket):
         self.write(json.dumps(self._collected_data, sort_keys=True, indent=4))
 
@@ -464,7 +481,7 @@ class CSVDumpHandler(BaseDumpHandler):
         bucket.set_decoder('application/json', binary_json_decoder)
 
 
-class DumpData(Command):
+class DumpData(Command, BaseThreadedCommand):
     # FIXME: Should be refactored to a backend agnostic form
     CMD_NAME = 'dump_data'
     HELP = 'Dumps all data to stdout or to given file'
@@ -479,7 +496,7 @@ class DumpData(Command):
          'help': 'Models name(s) to be dumped. Say "all" to dump all models'},
         {'name': 'path', 'required': False,
          'help': 'Instead of stdout, write to given file'},
-
+        {'name': 'threads', 'default': 1, 'help': 'Max number of threads. Defaults to 1'},
         {'name': 'type', 'default': 'csv', 'choices': DUMP_HANDLERS.keys(),
          'help': """R|
                 csv: {csv}
@@ -505,36 +522,14 @@ class DumpData(Command):
     ]
 
     def run(self):
-        from pyoko.conf import settings
-        from importlib import import_module
         import os
-        try:
-            import_module(settings.MODELS_MODULE)
-        except:
-            # weird but this is enough to prevent a strange riak error
-            # http://pastebin.com/HiPRmAhM
-            raise
-
-        registry = import_module('pyoko.model').model_registry
-        model_name = self.manager.args.model
-        if model_name != 'all':
-            try:
-                models = [registry.get_model(name) for name in model_name.split(',')]
-            except KeyError as err:
-                print('Model {model} does not exist!'.format(model=err.args[0]))
-                sys.exit(1)
-        else:
-            models = registry.get_base_models()
-            if self.manager.args.exclude:
-                excluded_models = [registry.get_model(name) for name in
-                                   self.manager.args.exclude.split(',')]
-                models = [model for model in models if model not in excluded_models]
-
         batch_size = self.manager.args.batch_size
         type_ = self.manager.args.type
         output_path = self.manager.args.path
         per_model = self.manager.args.per_model
         remove_dumped = self.manager.args.remove_dumped
+        models = self.find_models()
+        threads = self.manager.args.threads
 
         # If per model dumps are requested, the path must be specified and must be a directory
         if per_model and not output_path:
@@ -544,12 +539,12 @@ class DumpData(Command):
             print('If per model dumps are requested, the path must be a directory!')
             sys.exit(1)
 
-        dump_handler = self.DUMP_HANDLERS[type_](models, batch_size, per_model,
+        dump_handler = self.DUMP_HANDLERS[type_](models, batch_size, threads, per_model,
                                                  output_path, remove_dumped)
         dump_handler.dump_data()
 
 
-class LoadData(Command):
+class LoadData(Command, BaseThreadedCommand):
     # FIXME: Should be refactored to a backend agnostic form
     """
     Loads previously dumped data into DB.
@@ -572,6 +567,7 @@ and .js extensions will be loaded."""},
         {'name': 'type', 'default': CSV, 'choices': CHOICES,
          'help': 'Defaults to "csv". See help of dump_data command for more details'
          },
+        {'name': 'threads', 'default': 1, 'help': 'Max number of threads. Defaults to 1'},
         {'name': 'batch_size', 'type': int, 'default': 1000,
          'help': 'Retrieve this amount of objects from Solr in one time, defaults to 1000'},
     ]
@@ -590,16 +586,22 @@ and .js extensions will be loaded."""},
         if os.path.isdir(self.manager.args.path):
             from glob import glob
             ext = 'csv' if self.typ is self.CSV else 'js'
-            for file in glob(os.path.join(self.manager.args.path, "*.%s" % ext)):
-                self.read_file(file)
-                self.record_counter = 0
-                self.already_existing = 0
+            self.do(self.read_each_file, glob(os.path.join(self.manager.args.path, "*.%s" % ext)))
+
         else:
             self.read_file(self.manager.args.path)
-        for mdl in self.registry.get_base_models():
-            if self.typ == self.CSV:
-                mdl(super_context).objects.adapter.bucket.set_encoder("application/json",
-                                                                      binary_json_encoder)
+
+        self.do(self.set_encoder_each_mdl, self.registry.get_base_models())
+
+    def read_each_file(self, file):
+        self.read_file(file)
+        self.record_counter = 0
+        self.already_existing = 0
+
+    def set_encoder_each_mdl(self, mdl):
+        if self.typ == self.CSV:
+            mdl(super_context).objects.adapter.bucket.set_encoder("application/json",
+                                                                  binary_json_encoder)
 
     def prepare_buckets(self):
         """
@@ -625,9 +627,6 @@ and .js extensions will be loaded."""},
 
         if self.already_existing:
             print("%s existing object(s) NOT updated." % self.already_existing)
-
-
-
 
     def read_whole_file(self, file):
         data = json.loads(file.read())
@@ -923,7 +922,7 @@ endtitle
         Find all the non-auto created nodes of the model.
         """
         nodes = [(name, node) for name, node in model._nodes.items()
-                if node._is_auto_created is False]
+                 if node._is_auto_created is False]
         nodes.sort(key=lambda n: n[0])
         return nodes
 

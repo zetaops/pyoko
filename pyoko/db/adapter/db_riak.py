@@ -142,20 +142,20 @@ class Adapter(BaseAdapter):
                 dct[fresult[i]] = fresult[i + 1]
         return dct
 
-    def _clear(self, wait=True):
+    def _clear(self, wait):
         """
         clear outs the all content of current bucket
         only for development purposes
         """
         i = 0
+        t1 = time.time()
         for k in self.bucket.get_keys():
             i += 1
             self.bucket.get(k).delete()
+        print("\nDELETION TOOK: %s" % round(time.time() - t1, 2))
         if wait:
-            t1 = time.time()
             while self._model_class.objects.count():
                 time.sleep(0.3)
-            print("\nDELETION TOOK: %s" % round(time.time() - t1, 2))
         return i
 
     def __iter__(self):
