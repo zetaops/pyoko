@@ -372,7 +372,7 @@ class Adapter(BaseAdapter):
                     if six.PY3:
                         _data = data.decode()
                     data = ast.literal_eval(_data)
-                    return data, key
+                    return data, str(key)
                 else:
                     self._riak_cache = [self.bucket.get(key)]
                     # In order to set to the cache
