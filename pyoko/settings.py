@@ -39,3 +39,6 @@ VERSION_BUCKET = os.environ.get('VERSION_BUCKET', 'version')
 
 #: Set True to enable caching all models to Redis
 ENABLE_CACHING = os.environ.get('ENABLE_CACHING', 'False') == 'True'
+
+#: Set True to enable caching all models to Redis
+CACHE_EXPIRE_DURATION = os.environ.get('CACHE_EXPIRE_DURATION', 36000)

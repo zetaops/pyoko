@@ -343,29 +343,24 @@ class Adapter(BaseAdapter):
         #     })
         return model
 
-    def set_to_cache(self, key, value):
+    @staticmethod
+    def set_to_cache(key, value):
         try:
             if not value['deleted']:
-                cache.set(key, value)
+                cache.set(key, value, settings.CACHE_EXPIRE_DURATION)
             else:
                 cache.delete(key)
         except Exception as e:
             # todo should add log.error()
             pass
 
-    def get_from_cache(self, key):
+    @staticmethod
+    def get_from_cache(key):
         try:
             return cache.get(key)
         except Exception as e:
             # todo should add log.error()
             return ""
-
-    def delete_from_cache(self, key):
-        try:
-            cache.delete(key)
-        except Exception as e:
-            # todo should add log.error()
-            pass
 
     def get(self, key=None):
         if key:
@@ -390,12 +385,7 @@ class Adapter(BaseAdapter):
                     return _data, _key
             else:
                 self._riak_cache = [self.bucket.get(key)]
-        else:
-            self._exec_query()
-            if self.count() > 1:
-                raise MultipleObjectsReturned(
-                    "%s objects returned for %s" % (self.count(),
-                                                    self._model_class.__name__))
+
         return self.get_one()
 
     def get_one(self):
@@ -409,6 +399,11 @@ class Adapter(BaseAdapter):
             if not self._solr_cache['docs']:
                 raise ObjectDoesNotExist("%s %s" % (self.index_name, self.compiled_query))
 
+            if self.count() > 1:
+                raise MultipleObjectsReturned(
+                    "%s objects returned for %s" % (self.count(),
+                                                    self._model_class.__name__))
+
             self._riak_cache = [self.bucket.get(self._solr_cache['docs'][0]['_yz_rk'])]
 
             sys.PYOKO_LOGS[self._model_class.__name__].append(
@@ -417,6 +412,7 @@ class Adapter(BaseAdapter):
         if not self._riak_cache[0].exists:
             raise ObjectDoesNotExist("%s %s" % (self.index_name,
                                                 self._riak_cache[0].key))
+
         return self._riak_cache[0].data, self._riak_cache[0].key
 
     def count(self):
