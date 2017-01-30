@@ -155,17 +155,17 @@ class QuerySet(object):
         #     self._model = model
         return self.adapter.save_model(model, meta_data, index_fields)
 
-    def _get(self):
-        """
-        executes solr query if needed then returns first object according to
-        selected ReturnType (defaults to Model)
-        :return: pyoko.Model or riak.Object or solr document
-        """
-        data, key = self.adapter.get_one()
-        if self._cfg['rtype'] == ReturnType.Model:
-            return self._make_model(data, key)
-        else:
-            return data
+    # def _get(self):
+    #     """
+    #     executes solr query if needed then returns first object according to
+    #     selected ReturnType (defaults to Model)
+    #     :return: pyoko.Model or riak.Object or solr document
+    #     """
+    #     data, key = self.adapter.get_one()
+    #     if self._cfg['rtype'] == ReturnType.Model:
+    #         return self._make_model(data, key)
+    #     else:
+    #         return data
 
     def _make_model(self, data, key=None):
         """
