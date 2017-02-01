@@ -8,7 +8,7 @@
 
 from tests.models import Student
 from pyoko.db.connection import cache
-import ast
+import json
 import six
 from pyoko import settings
 
@@ -30,7 +30,7 @@ class TestCase():
             if six.PY3:
                 cached_value = cached_value.decode()
 
-            cached_value_d = ast.literal_eval(cached_value)
+            cached_value_d = json.loads(cached_value)
 
             for key in cached_value_d.keys():
                 assert cached_value_d[key] == clean_value[key]

@@ -347,7 +347,7 @@ class Adapter(BaseAdapter):
     def set_to_cache(key, value):
         try:
             if not value['deleted']:
-                cache.set(key, value, settings.CACHE_EXPIRE_DURATION)
+                cache.set(key, json.dumps(value), settings.CACHE_EXPIRE_DURATION)
             else:
                 cache.delete(key)
         except Exception as e:
@@ -371,7 +371,7 @@ class Adapter(BaseAdapter):
                         _data = data
                     if six.PY3:
                         _data = data.decode()
-                    data = ast.literal_eval(_data)
+                    data = json.loads(_data)
                     return data, str(key)
                 else:
                     self._riak_cache = [self.bucket.get(key)]
