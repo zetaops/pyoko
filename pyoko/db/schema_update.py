@@ -173,7 +173,7 @@ class SchemaUpdater(object):
 
     def creating_schema_and_index(self, models, func):
         """
-        Given models are executed with given functions(create_schema, create_index etc.)
+        Executes given functions with given models.
 
         Args:
             models: models to execute

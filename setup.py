@@ -10,7 +10,7 @@ setup(
     author='Zetaops AS',
     license='GPL v3',
     requires=['enum34', 'six', 'riak', 'lazy_object_proxy'],
-    install_requires=['enum34', 'six', 'riak', 'lazy_object_proxy'],
+    install_requires=['enum34', 'six', 'riak', 'lazy_object_proxy', 'futures'],
     author_email='info@zetaops.io',
     url='https://github.com/zetaops/pyoko',
     packages=find_packages(exclude=['tests', 'tests.*']),
