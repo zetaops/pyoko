@@ -3,3 +3,4 @@ lazy_object_proxy
 enum34
 six
 redis
+futures

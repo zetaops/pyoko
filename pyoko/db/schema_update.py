@@ -17,13 +17,15 @@ from riak import ConflictError, RiakError
 from pyoko.conf import settings
 from pyoko.db.connection import client, log_bucket
 import os, inspect
-from pyoko.lib.utils import un_camel, random_word
+import copy
+from pyoko.manage import BaseThreadedCommand
+from pyoko.manage import ReIndex
+
 try:
     from urllib.request import urlopen
     from urllib.error import HTTPError
 except ImportError:
     from urllib2 import urlopen, HTTPError
-
 
 
 class FakeContext(object):
@@ -89,14 +91,14 @@ class SchemaUpdater(object):
     FIELD_TEMPLATE = '<field    type="{type}" name="{name}"  indexed="{index}" ' \
                      'stored="{store}" multiValued="{multi}" />'
 
-    def __init__(self, registry, bucket_names, threads, force):
+    def __init__(self, models, threads, force):
         self.report = []
-        self.registry = registry
+        self.models = models
         self.force = force
         self.client = client
         self.threads = int(threads)
-        self.bucket_names = [b.lower() for b in bucket_names.split(',')]
-        self.t1 = 0.0  # start time
+        self.n_val = client.bucket_type(settings.DEFAULT_BUCKET_TYPE).get_property('n_val')
+        self.base_thread = BaseThreadedCommand()
 
     def run(self, check_only=False):
         """
@@ -107,37 +109,144 @@ class SchemaUpdater(object):
         Returns:
 
         """
-        self.t1 = time.time()
-        apply_threads = []
-        models = [model for model in self.registry.get_base_models()
-                  if self.bucket_names[0] == 'all' or
-                  model.__name__.lower() in self.bucket_names]
+        reindex = ReIndex().reindex_model
+        models = copy.deepcopy(self.models)
         num_models = len(models)
-        pack_size = int(num_models / self.threads) or 1
-        n_val = self.client.bucket_type(settings.DEFAULT_BUCKET_TYPE).get_property('n_val')
-        self.client.create_search_index('foo_index', '_yz_default', n_val=n_val)
-        for i in range(0, num_models, pack_size):
-            job_pack = []
-            for model in models[i:i + pack_size]:
-                ins = model(fake_context)
-                fields = self.get_schema_fields(ins._collect_index_fields())
-                new_schema = self.compile_schema(fields)
-                job_pack.append((new_schema, model))
-            apply_threads.append(
-                threading.Thread(target=self.apply_schema, args=(self.client,
-                                                                 self.force,
-                                                                 job_pack,
-                                                                 check_only)))
+        self.client.create_search_index('foo_index', '_yz_default', n_val=self.n_val)
 
         print("Schema creation started for %s model(s) with max %s threads\n" % (
             num_models, self.threads))
-        for t in apply_threads:
-            t.start()
-        for t in apply_threads:
-            t.join()
-        if apply_threads:
-            self.report = "\nSchema and index definitions successfully " \
-                          "applied for the models listed above."
+
+        exec_models = []
+        self.base_thread.do_with_submit(self.find_models_and_delete_search_index, models,
+                                        self.force, exec_models, check_only,
+                                        threads=self.threads)
+
+        if exec_models:
+            models = copy.deepcopy(exec_models)
+            self.creating_schema_and_index(models, self.create_schema)
+            self.creating_schema_and_index(models, self.create_index)
+            self.base_thread.do_with_submit(reindex, models, threads=self.threads)
+
+    def find_models_and_delete_search_index(self, model, force, exec_models, check_only):
+        """
+        Finds models to execute and these models' exist search indexes are deleted.
+        For other operations, necessary models are gathered to list(exec_models)
+
+        Args:
+            model: model to execute
+            force(bool): True or False if True, all given models are executed.
+            exec_models(list): if not force, models to execute are gathered to list.
+            If there is not necessity to migrate operation model doesn't put to exec list.
+            check_only: do not migrate, only report migration is needed or not if True
+
+        Returns:
+
+        """
+        ins = model(fake_context)
+        fields = self.get_schema_fields(ins._collect_index_fields())
+        new_schema = self.compile_schema(fields)
+        bucket_name = model._get_bucket_name()
+        bucket_type = client.bucket_type(settings.DEFAULT_BUCKET_TYPE)
+        bucket = bucket_type.bucket(bucket_name)
+        index_name = "%s_%s" % (settings.DEFAULT_BUCKET_TYPE, bucket_name)
+        if not force:
+            try:
+                schema = get_schema_from_solr(index_name)
+                if schema == new_schema:
+                    print("Schema %s is already up to date, nothing to do!" % index_name)
+                    return
+                elif check_only and schema != new_schema:
+                    print("Schema %s is not up to date, migrate this model!" % index_name)
+                    return
+            except:
+                import traceback
+                traceback.print_exc()
+        bucket.set_property('search_index', 'foo_index')
+        try:
+            client.delete_search_index(index_name)
+        except RiakError as e:
+            if 'notfound' != e.value:
+                raise
+        wait_for_schema_deletion(index_name)
+        exec_models.append(model)
+
+    def creating_schema_and_index(self, models, func):
+        """
+        Executes given functions with given models.
+
+        Args:
+            models: models to execute
+            func: function name to execute
+
+        Returns:
+
+        """
+        waiting_models = []
+        self.base_thread.do_with_submit(func, models, waiting_models, threads=self.threads)
+        if waiting_models:
+            print("WAITING MODELS ARE CHECKING...")
+            self.creating_schema_and_index(waiting_models, func)
+
+    def create_schema(self, model, waiting_models):
+        """
+        Creates search schemas.
+
+        Args:
+            model: model to execute
+            waiting_models: if riak can't return response immediately, model is taken to queue.
+            After first execution session, method is executed with waiting models and controlled.
+            And be ensured that all given models are executed properly.
+
+        Returns:
+
+        """
+        bucket_name = model._get_bucket_name()
+        index_name = "%s_%s" % (settings.DEFAULT_BUCKET_TYPE, bucket_name)
+        ins = model(fake_context)
+        fields = self.get_schema_fields(ins._collect_index_fields())
+        new_schema = self.compile_schema(fields)
+        schema = get_schema_from_solr(index_name)
+        if not (schema == new_schema):
+            try:
+                client.create_search_schema(index_name, new_schema)
+                print("+ %s (%s) search schema is created." % (model.__name__, index_name))
+            except:
+                print("+ %s (%s) search schema checking operation is taken to queue." % (
+                    model.__name__, index_name))
+                waiting_models.append(model)
+
+    def create_index(self, model, waiting_models):
+        """
+        Creates search indexes.
+
+        Args:
+            model: model to execute
+            waiting_models: if riak can't return response immediately, model is taken to queue.
+            After first execution session, method is executed with waiting models and controlled.
+            And be ensured that all given models are executed properly.
+
+        Returns:
+
+        """
+        bucket_name = model._get_bucket_name()
+        bucket_type = client.bucket_type(settings.DEFAULT_BUCKET_TYPE)
+        index_name = "%s_%s" % (settings.DEFAULT_BUCKET_TYPE, bucket_name)
+        bucket = bucket_type.bucket(bucket_name)
+        try:
+            client.get_search_index(index_name)
+            if not (bucket.get_property('search_index') == index_name):
+                bucket.set_property('search_index', index_name)
+                print("+ %s (%s) search index is created." % (model.__name__, index_name))
+        except RiakError:
+            try:
+                client.create_search_index(index_name, index_name, self.n_val)
+                bucket.set_property('search_index', index_name)
+                print("+ %s (%s) search index is created." % (model.__name__, index_name))
+            except RiakError:
+                print("+ %s (%s) search index checking operation is taken to queue." % (
+                model.__name__, index_name))
+                waiting_models.append(model)
 
     def create_report(self):
         """
@@ -182,78 +291,3 @@ class SchemaUpdater(object):
         with codecs.open("%s/solr_schema_template.xml" % path, 'r', 'utf-8') as fh:
             schema_template = fh.read()
         return schema_template.format('\n'.join(fields)).encode('utf-8')
-
-    @staticmethod
-    def apply_schema(client, force, job_pack, check_only):
-        """
-        riak doesn't support schema/index updates ( http://git.io/vLOTS )
-
-        as a workaround, we create a temporary index,
-        attach it to the bucket, delete the old index/schema,
-        re-create the index with new schema, assign it to bucket,
-        then delete the temporary index.
-
-        :param byte new_schema: compiled schema
-        :param str bucket_name: name of schema, index and bucket.
-        :return: True or False
-        :rtype: bool
-        """
-        for new_schema, model in job_pack:
-            try:
-                bucket_name = model._get_bucket_name()
-                bucket_type = client.bucket_type(settings.DEFAULT_BUCKET_TYPE)
-                bucket = bucket_type.bucket(bucket_name)
-                n_val = bucket_type.get_property('n_val')
-                index_name = "%s_%s" % (settings.DEFAULT_BUCKET_TYPE, bucket_name)
-                if not force:
-                    try:
-                        schema = get_schema_from_solr(index_name)
-                        if schema == new_schema:
-                            print("Schema %s is already up to date, nothing to do!" % index_name)
-                            continue
-                        elif check_only and schema != new_schema:
-                            print("Schema %s is not up to date, migrate this model!" % index_name)
-                            continue
-                    except:
-                        import traceback
-                        traceback.print_exc()
-                bucket.set_property('search_index', 'foo_index')
-                try:
-                    client.delete_search_index(index_name)
-                except RiakError as e:
-                    if 'notfound' != e.value:
-                        raise
-                wait_for_schema_deletion(index_name)
-                client.create_search_schema(index_name, new_schema)
-                client.create_search_index(index_name, index_name, n_val)
-                bucket.set_property('search_index', index_name)
-                print("+ %s (%s)" % (model.__name__, index_name))
-                stream = bucket.stream_keys()
-                i = 0
-                unsaved_keys = []
-                for key_list in stream:
-                    for key in key_list:
-                        i += 1
-                        # time.sleep(0.4)
-                        try:
-                            obj = bucket.get(key)
-                            if obj.data:
-                                obj.store()
-                        except ConflictError:
-                            unsaved_keys.append(key)
-                            print("Error on save. Record in conflict: %s > %s" % (bucket_name, key))
-                        except:
-                            unsaved_keys.append(key)
-                            print("Error on save! %s > %s" % (bucket_name, key))
-                            import traceback
-                            traceback.print_exc()
-                stream.close()
-                print("Re-indexed %s records of %s" % (i, bucket_name))
-                if unsaved_keys:
-                    print("\nThese keys cannot be updated:\n\n", unsaved_keys)
-
-            except:
-                print("n_val: %s" % n_val)
-                print("bucket_name: %s" % bucket_name)
-                print("bucket_type: %s" % bucket_type)
-                raise
