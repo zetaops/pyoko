@@ -119,12 +119,17 @@ class BaseThreadedCommand(object):
                 models = [model for model in models if model not in excluded_models]
         return models
 
-    def do(self, func, iterables, threads):
-        with con.ThreadPoolExecutor(max_workers=int(threads)) as executor:
-            executor.map(func, iterables)
-
     def do_with_submit(self, func, iterables, *args, **kwargs):
-        threads = kwargs.get('threads_number', None) or 1
+        """
+
+        Args:
+            func: function name to execute
+            iterables: iterables list to execute with given function
+
+        Returns:
+
+        """
+        threads = kwargs.get('threads', None) or 1
         with con.ThreadPoolExecutor(max_workers=int(threads)) as executor:
             for item in iterables:
                 executor.submit(func, item, *args)
@@ -139,7 +144,7 @@ class Shell(Command):
 
     def run(self):
         if not self.manager.args.no_model:
-            exec('from %s import *' % settings.MODELS_MODULE)
+            exec ('from %s import *' % settings.MODELS_MODULE)
         try:
             from IPython import start_ipython
             start_ipython(argv=[], user_ns=locals())
@@ -186,9 +191,9 @@ class FlushDB(Command, BaseThreadedCommand):
 
     def run(self):
         models = self.find_models()
-        self.do(self.flush_model, models, self.manager.args.threads)
+        self.do_with_submit(self.flush_model, models, threads=self.manager.args.threads)
         if self.manager.args.wait_sync:
-            self.do(self.sync_flush_model, models, self.manager.args.threads)
+            self.do_with_submit(self.sync_flush_model, models, threads=self.manager.args.threads)
 
     def flush_model(self, mdl):
         num_of_records = mdl(super_context).objects._clear(wait=False)
@@ -216,7 +221,7 @@ class ReIndex(Command, BaseThreadedCommand):
 
     def run(self):
         models = self.find_models()
-        self.do(self.reindex_model, models, self.manager.args.threads)
+        self.do_with_submit(self.reindex_model, models, threads=self.manager.args.threads)
 
     def reindex_model(self, mdl):
         stream = mdl.objects.adapter.bucket.stream_keys()
@@ -367,7 +372,7 @@ class BaseDumpHandler(BaseThreadedCommand):
             self._outfile = codecs.open(self._output_path, 'w', encoding='utf-8')
             print('Dumping to file {path}'.format(path=self._output_path))
 
-        self.do(self.dump_model_data, self._models, self.threads)
+        self.do_with_submit(self.dump_model_data, self._models, threads=self.threads)
 
     def dump_model_data(self, mdl):
         if self.multi_file:
@@ -591,13 +596,15 @@ and .js extensions will be loaded."""},
         if os.path.isdir(self.manager.args.path):
             from glob import glob
             ext = 'csv' if self.typ is self.CSV else 'js'
-            self.do(self.read_each_file, glob(os.path.join(self.manager.args.path, "*.%s" % ext)),
-                    self.threads)
+            self.do_with_submit(self.read_each_file,
+                                glob(os.path.join(self.manager.args.path, "*.%s" % ext)),
+                                threads=self.threads)
 
         else:
             self.read_file(self.manager.args.path)
 
-        self.do(self.set_encoder_each_mdl, self.registry.get_base_models(), self.threads)
+        self.do_with_submit(self.set_encoder_each_mdl, self.registry.get_base_models(),
+                            threads=self.threads)
 
     def read_each_file(self, file):
         self.read_file(file)
