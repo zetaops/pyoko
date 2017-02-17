@@ -29,6 +29,8 @@ from pyoko.model import super_context
 from pyoko.lib import utils
 from pyoko.exceptions import ObjectDoesNotExist
 import concurrent.futures as con
+from pyoko.conf import settings
+from importlib import import_module
 
 
 class CommandRegistry(type):
@@ -102,8 +104,6 @@ class Command(object):
 
 class BaseThreadedCommand(object):
     def find_models(self):
-        from pyoko.conf import settings
-        from importlib import import_module
         import_module(settings.MODELS_MODULE)
         registry = import_module('pyoko.model').model_registry
         model_name = self.manager.args.model
@@ -119,10 +119,15 @@ class BaseThreadedCommand(object):
                 models = [model for model in models if model not in excluded_models]
         return models
 
-    def do(self, func, iterables, threads_number=None):
-        threads = threads_number or self.manager.args.threads
+    def do(self, func, iterables, threads):
         with con.ThreadPoolExecutor(max_workers=int(threads)) as executor:
             executor.map(func, iterables)
+
+    def do_with_submit(self, func, iterables, *args, **kwargs):
+        threads = kwargs.get('threads_number', None) or 1
+        with con.ThreadPoolExecutor(max_workers=int(threads)) as executor:
+            for item in iterables:
+                executor.submit(func, item, *args)
 
 class Shell(Command):
     CMD_NAME = 'shell'
@@ -181,9 +186,9 @@ class FlushDB(Command, BaseThreadedCommand):
 
     def run(self):
         models = self.find_models()
-        self.do(self.flush_model, models)
+        self.do(self.flush_model, models, self.manager.args.threads)
         if self.manager.args.wait_sync:
-            self.do(self.sync_flush_model, models)
+            self.do(self.sync_flush_model, models, self.manager.args.threads)
 
     def flush_model(self, mdl):
         num_of_records = mdl(super_context).objects._clear(wait=False)
@@ -211,7 +216,7 @@ class ReIndex(Command, BaseThreadedCommand):
 
     def run(self):
         models = self.find_models()
-        self.do(self.reindex_model, models)
+        self.do(self.reindex_model, models, self.manager.args.threads)
 
     def reindex_model(self, mdl):
         stream = mdl.objects.adapter.bucket.stream_keys()
@@ -456,7 +461,6 @@ class TreeDumpHandler(BaseDumpHandler):
 
 class PrettyDumpHandler(TreeDumpHandler):
     """DO NOT use on big DBs. Formatted version of json_tree."""
-
     def post_dump_hook(self, bucket):
         self.write(json.dumps(self._collected_data, sort_keys=True, indent=4))
 
@@ -582,16 +586,18 @@ and .js extensions will be loaded."""},
         self.record_counter = 0
         self.already_existing = 0
         self.prepare_buckets()
+        self.threads = self.manager.args.threads
 
         if os.path.isdir(self.manager.args.path):
             from glob import glob
             ext = 'csv' if self.typ is self.CSV else 'js'
-            self.do(self.read_each_file, glob(os.path.join(self.manager.args.path, "*.%s" % ext)))
+            self.do(self.read_each_file, glob(os.path.join(self.manager.args.path, "*.%s" % ext)),
+                    self.threads)
 
         else:
             self.read_file(self.manager.args.path)
 
-        self.do(self.set_encoder_each_mdl, self.registry.get_base_models())
+        self.do(self.set_encoder_each_mdl, self.registry.get_base_models(), self.threads)
 
     def read_each_file(self, file):
         self.read_file(file)
@@ -627,6 +633,9 @@ and .js extensions will be loaded."""},
 
         if self.already_existing:
             print("%s existing object(s) NOT updated." % self.already_existing)
+
+
+
 
     def read_whole_file(self, file):
         data = json.loads(file.read())
@@ -922,7 +931,7 @@ endtitle
         Find all the non-auto created nodes of the model.
         """
         nodes = [(name, node) for name, node in model._nodes.items()
-                 if node._is_auto_created is False]
+                if node._is_auto_created is False]
         nodes.sort(key=lambda n: n[0])
         return nodes
 
