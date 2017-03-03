@@ -328,7 +328,7 @@ class Model(Node):
             del self.new_back_links[k]
             buffer.append(v)
         for v in buffer:
-            self._update_new_linked_model(internal,*v)
+            self._update_new_linked_model(internal, *v)
 
     def reload(self):
         """
@@ -400,16 +400,43 @@ class Model(Node):
         if self._uniques:
             for u in self._uniques:
                 val = _getattr(u)
-                if val and self.objects.filter(**{u: val}).count():
-                    raise IntegrityError("Unique mismatch: %s for %s already exists for value: %s" %
-                                         (u, self.__class__.__name__, val))
+                if self.exist and not (u in self.changed_fields() if not callable(val) else
+                                       (str(u) + "_id") in self.changed_fields()):
+                    if val and self.objects.filter(**{u: val}).count() > 1:
+                        raise IntegrityError("Unique mismatch: %s for %s already exists for value: "
+                                             "%s" % (u, self.__class__.__name__, val))
+                else:
+                    if val and self.objects.filter(**{u: val}).count():
+                        raise IntegrityError("Unique mismatch: %s for %s already exists for value: "
+                                             "%s" % (u, self.__class__.__name__, val))
         if self.Meta.unique_together:
             for uniques in self.Meta.unique_together:
                 vals = dict([(u, _getattr(u)) for u in uniques])
-                if self.objects.filter(**vals).count():
-                    raise IntegrityError(
-                        "Unique together mismatch: %s combination already exists for %s"
-                        % (vals, self.__class__.__name__))
+                if self.exist:
+                    query_is_changed = []
+                    for uni in vals.keys():
+                        if callable(vals[uni]):
+                            is_changed = (str(uni) + "_id") in self.changed_fields()
+                            query_is_changed.append(is_changed)
+                        else:
+                            is_changed = uni in self.changed_fields()
+                            query_is_changed.append(is_changed)
+                    is_unique_changed = any(query_is_changed)
+                    if not is_unique_changed:
+                        if self.objects.filter(**vals).count() > 1:
+                            raise IntegrityError(
+                                "Unique together mismatch: %s combination already exists for %s"
+                                % (vals, self.__class__.__name__))
+                    else:
+                        if self.objects.filter(**vals).count():
+                            raise IntegrityError(
+                                "Unique together mismatch: %s combination already exists for %s"
+                                % (vals, self.__class__.__name__))
+                else:
+                    if self.objects.filter(**vals).count():
+                        raise IntegrityError(
+                            "Unique together mismatch: %s combination already exists for %s"
+                            % (vals, self.__class__.__name__))
 
     def save(self, internal=False, meta=None, index_fields=None):
         """
@@ -434,8 +461,8 @@ class Model(Node):
         if not (internal or self._pre_save_hook_called):
             self._pre_save_hook_called = True
             self.pre_save()
+        self._handle_uniqueness()
         if not self.exist:
-            self._handle_uniqueness()
             self.pre_creation()
         old_data = self._data.copy()
         if self.just_created is None:

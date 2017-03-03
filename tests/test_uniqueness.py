@@ -45,3 +45,40 @@ class TestCase():
         sleep(1)
         with pytest.raises(IntegrityError):
             Uniques(id='a', foo_id='ae', username='foo3').save()
+
+    def test_unique_update(self):
+        self.prepare_testbed()
+        Uniques(id='k', foo_id='l', rel=UniqRelation().save(), username='foo4').save()
+        sleep(1)
+        uni2 = Uniques(id='x', foo_id='y', username='foo5').save()
+        sleep(1)
+        with pytest.raises(IntegrityError):
+            uni2.id = 'k'
+            uni2.username = 'foo4'
+            uni2.save()
+
+    def test_unique_together_update(self):
+        self.prepare_testbed()
+        Uniques(id='p', foo_id='pip', username='foo6').save()
+        sleep(1)
+        uni2 = Uniques(id='p', foo_id='pep', username='foo7').save()
+        sleep(1)
+        with pytest.raises(IntegrityError):
+            uni2.foo_id = 'pip'
+            uni2.save()
+
+    def test_unique_together_update_with_links(self):
+        self.prepare_testbed()
+        rel = UniqRelation().save()
+        other_rel = OtherUniqRelation().save()
+        Uniques(id='l', rel=rel, other_rel=other_rel, foo_id='lamp', username='foo8').save()
+        sleep(1)
+        uni2 = Uniques(id='q', rel=UniqRelation().save(), other_rel=OtherUniqRelation().save(),
+                       foo_id='qq', username='foo9').save()
+        sleep(1)
+        with pytest.raises(IntegrityError):
+            uni2.rel = rel
+            uni2.other_rel = other_rel
+            sleep(1)
+            uni2.save()
+
