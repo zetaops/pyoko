@@ -386,6 +386,17 @@ class Model(Node):
 
     def _handle_uniqueness(self):
         """
+        Checks marked as unique and unique_together fields of the Model at each
+        creation and update, and if it violates the uniqueness raises IntegrityError.
+
+        First, looks at the fields which marked as "unique". If Model's unique fields
+        did not change, it means that there is still a record at db with same unique
+        field values. So, it must be checked that if more than one result violates the
+        uniqueness. If it is, raise an IntegrityError. Otherwise, when marked as unique
+        fields in the list of changed fields, it must be checked that if exists any
+        violation instead of more than one. And, if it is, again raise an IntegrityError.
+
+        Then, looks at the fields which marked as "unique_together" with the same logic.
 
         Raises:
             IntegrityError if unique and unique_together checks does not pass

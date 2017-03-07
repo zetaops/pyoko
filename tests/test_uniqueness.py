@@ -82,3 +82,16 @@ class TestCase():
             sleep(1)
             uni2.save()
 
+    def test_unique_delete(self):
+        self.prepare_testbed()
+        rel = UniqRelation().save()
+        u = Uniques(id='qwe', rel=rel, username='bar').blocking_save()
+        u_id, u_username = u.id, u.username
+        u.blocking_delete()
+        p = Uniques(id='qwe', rel=rel, username='bar').blocking_save()
+        assert u_id == p.id
+        assert u_username == p.username
+        assert rel == p.rel
+
+
+
