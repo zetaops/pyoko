@@ -461,7 +461,8 @@ class Model(Node):
         if not (internal or self._pre_save_hook_called):
             self._pre_save_hook_called = True
             self.pre_save()
-        self._handle_uniqueness()
+        if not self.deleted:
+            self._handle_uniqueness()
         if not self.exist:
             self.pre_creation()
         old_data = self._data.copy()
@@ -495,7 +496,7 @@ class Model(Node):
             # in 'list node sets' makes differences between clean_data and object._data.
 
             # Thus, after clean_value, object's data is taken from db again.
-            db_data = self.objects.data().filter(key=self.key)[0][0]
+            db_data = self.objects.data().get(self.key)[0]
 
             set_current, set_past = set(current_dict.keys()), set(db_data.keys())
             intersect = set_current.intersection(set_past)
