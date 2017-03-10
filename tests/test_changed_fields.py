@@ -14,7 +14,7 @@ class TestCase:
     def test_changed_fields(self):
 
         # String, Date and ListNode test
-        s = Student.objects.filter()[0]
+        s = Student.objects.all()[0]
         name = '%s_test' % s.name
         s.name = name
         s.join_date = datetime.now().date()
@@ -24,7 +24,7 @@ class TestCase:
         assert 'pno' and 'number' not in s.changed_fields()
 
         # Integer test
-        t = TimeTable.objects.filter()[0]
+        t = TimeTable.objects.all()[0]
         week_day = t.week_day + 1
         t.week_day = week_day
         assert t.is_changed('week_day') == True
@@ -32,7 +32,7 @@ class TestCase:
         assert 'lecture' and 'hours' not in t.changed_fields()
 
         # Datetime test
-        u = Uniques.objects.filter()[0]
+        u = Uniques.objects.all()[0]
         assert u.join_date != datetime.now()
         u.join_date = datetime.now()
         assert u.is_changed('join_date') == True
@@ -40,9 +40,9 @@ class TestCase:
         assert 'rel_id' and 'id' not in u.changed_fields()
 
         # Boolean and Link test
-        r = Role.objects.filter()[0]
+        r = Role.objects.all()[0]
         user = ''
-        for user in User.objects.filter():
+        for user in User.objects.all():
             if user != r.usr:
                 break
         bool = r.active

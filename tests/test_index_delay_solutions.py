@@ -19,7 +19,7 @@ class TestCase:
     """
 
     def test_block_save(self):
-        Student.objects.filter().delete()
+        Student.objects.all().delete()
         t1 = time.time()
         with BlockSave(Student):
             for i in range(10):
@@ -40,7 +40,7 @@ class TestCase:
         assert len(Student.objects.filter(surname='zubizu')) == 9
 
     def test_block_delete(self):
-        Student.objects.filter().delete()
+        Student.objects.all().delete()
         time.sleep(1)
 
         with BlockSave(Student):
