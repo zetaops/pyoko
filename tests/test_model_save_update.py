@@ -58,7 +58,7 @@ class TestCase:
         db_student = Student.objects.get(student.key)
         db_student.surname = 'Freeman'
         db_student.save()
-        updated_db_student = Student.objects.filter().get(db_student.key)
+        updated_db_student = Student.objects.all().get(db_student.key)
         assert updated_db_student.surname == db_student.surname
         assert updated_db_student.name == student.name
 

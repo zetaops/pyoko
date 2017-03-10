@@ -20,6 +20,7 @@ from riak.util import bytes_to_str
 
 from pyoko.db.adapter.base import BaseAdapter
 from pyoko.fields import DATE_FORMAT, DATE_TIME_FORMAT
+import concurrent.futures as con
 
 try:
     from urllib.request import urlopen
@@ -64,10 +65,13 @@ class BlockSave(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         key_list = list(set(Adapter.block_saved_keys))
         self.query_dict['key__in'] = key_list
-        indexed_obj_count = self.mdl.objects.filter(**self.query_dict)
-        while Adapter.block_saved_keys and indexed_obj_count.count() < len(key_list):
-            time.sleep(.4)
-        Adapter.COLLECT_SAVES = False
+        try:
+            indexed_obj_count = self.mdl.objects.filter(**self.query_dict)
+            while Adapter.block_saved_keys and indexed_obj_count.count() < len(key_list):
+                time.sleep(.4)
+            Adapter.COLLECT_SAVES = False
+        except ValueError:
+            pass
 
 
 class BlockDelete(object):
@@ -80,10 +84,13 @@ class BlockDelete(object):
         Adapter.COLLECT_SAVES_FOR_MODEL = self.mdl.__name__
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        indexed_obj_count = self.mdl.objects.filter(key__in=Adapter.block_saved_keys)
-        while Adapter.block_saved_keys and indexed_obj_count.count():
-            time.sleep(.4)
-        Adapter.COLLECT_SAVES = False
+        try:
+            indexed_obj_count = self.mdl.objects.filter(key__in=Adapter.block_saved_keys)
+            while Adapter.block_saved_keys and indexed_obj_count.count():
+                time.sleep(.4)
+            Adapter.COLLECT_SAVES = False
+        except ValueError:
+            pass
 
 
 # noinspection PyTypeChecker
@@ -158,24 +165,97 @@ class Adapter(BaseAdapter):
                 time.sleep(0.3)
         return i
 
-    def __iter__(self):
-        self._exec_query()
-        for doc in self._solr_cache['docs']:
-            # if settings.DEBUG:
-            #     t1 = time.time()
-            obj = self.bucket.get(doc['_yz_rk'])
-            if not obj.exists:
-                raise ObjectDoesNotExist("We got %s from Solr for %s bucket but cannot find it in the Riak" % (
+    def collect_from_riak(self, doc):
+        obj = self.bucket.get(doc['_yz_rk'])
+        if not obj.exists:
+            raise ObjectDoesNotExist(
+                "We got %s from Solr for %s bucket but cannot find it in the Riak" % (
                     doc['_yz_rk'], self._model_class))
-            yield obj.data, obj.key
-            if settings.DEBUG:
-                sys.PYOKO_STAT_COUNTER['read'] += 1
-                sys.PYOKO_LOGS[self._model_class.__name__].append(doc['_yz_rk'])
-                # sys._debug_db_queries.append({
-                #     'TIMESTAMP': t1,
-                #     'KEY': doc['_yz_rk'],
-                #     'BUCKET': self.index_name,
-                #     'TIME': round(time.time() - t1, 5)})
+        if settings.DEBUG:
+            sys.PYOKO_STAT_COUNTER['read'] += 1
+            sys.PYOKO_LOGS[self._model_class.__name__].append(doc['_yz_rk'])
+        # objs.append(obj)
+        return obj
+
+    # def get_from_riak_threaded(self, docs):
+    #     with con.ThreadPoolExecutor(max_workers=10) as executor:
+    #         future_to_obj = {executor.submit(self.collect_from_riak, doc): doc for doc in docs}
+    #         for future in con.as_completed(future_to_obj):
+    #             return future.result()
+
+    def get_from_solr(self, number):
+        start = number * self._cfg['row_size']
+        self._solr_params.update({'start': start})
+        self._solr_locked = False
+        return self._exec_query()
+
+    def __iter__(self):
+
+        # self._solr_params.update({'start': self._cfg['start']})
+        # self._exec_query()
+        # for doc in self._solr_cache['docs']:
+        #     obj = self.collect_from_riak(doc)
+        #     yield obj.data, obj.key
+
+        count = copy.deepcopy(self).count()
+        start = self._cfg['start']
+        while count > 0:
+            count -= self._cfg['row_size']
+            self._solr_params.update({'start': start})
+            self._exec_query()
+
+            for doc in self._solr_cache['docs']:
+                obj = self.collect_from_riak(doc)
+                yield obj.data, obj.key
+
+            self._solr_locked = False
+            start += self._cfg['row_size']
+        self._solr_locked = True
+
+        # count = copy.deepcopy(self).count()
+        # chunk_size = (count / self._cfg['row_size'])
+        # if not count % self._cfg['row_size'] == 0: chunk_size +=1
+        # chunk_size_list = range(chunk_size)
+        # with con.ThreadPoolExecutor(max_workers=5) as executor:
+        #     future_to_obj = {executor.submit(self.get_from_solr, number): number for number in chunk_size_list}
+        #     for future in con.as_completed(future_to_obj):
+        #         docs = future.result()
+        #         with con.ThreadPoolExecutor(max_workers=10) as executor:
+        #             future_to_obj = {executor.submit(self.collect_from_riak, doc): doc for doc in docs}
+        #             for future in con.as_completed(future_to_obj):
+        #                 obj = future.result()
+        #                 yield obj.data, obj.key
+
+        # count = copy.deepcopy(self).count()
+        # start =self._cfg['start']
+        # while count > 0:
+        #     count -= self._cfg['row_size']
+        #     self._solr_params.update({'start': start})
+        #     self._exec_query()
+        #     with con.ThreadPoolExecutor(max_workers=3) as executor:
+        #         future_to_obj = {executor.submit(self.collect_from_riak, doc): doc for doc in self._solr_cache['docs']}
+        #         for future in con.as_completed(future_to_obj):
+        #             obj = future.result()
+        #             yield obj.data, obj.key
+        #     self._solr_locked = False
+        #     start += self._cfg['row_size']
+        # self._solr_locked = True
+
+        # count = copy.deepcopy(self).count()
+        # start =self._cfg['start']
+        # while count > 0:
+        #     count -= self._cfg['row_size']
+        #     self._solr_params.update({'start': start})
+        #     self._exec_query()
+        #     objs = []
+        #     with con.ThreadPoolExecutor(max_workers=5) as executor:
+        #         for doc in self._solr_cache['docs']:
+        #             executor.submit(self.collect_from_riak, doc, objs)
+        #     for obj in objs:
+        #         yield obj.data, obj.key
+        #     self._solr_locked = False
+        #     start += self._cfg['row_size']
+        # self._solr_locked = True
 
     def __deepcopy__(self, memo=None):
         """
@@ -691,6 +771,9 @@ class Adapter(BaseAdapter):
                 is_escaped = True
             # __in query is same as OR_QRY but key stays same for all values
             elif key.endswith('__in'):
+                if not val:
+                    raise ValueError("query value list can not be empty for __in query, "
+                                     "please check if it is empty or not before execute filter.")
                 key = key[:-4]
                 val = ' OR '.join(
                     ['%s:%s' % (key, self._escape_query(v, is_escaped)) for v in val])
@@ -798,3 +881,4 @@ class Adapter(BaseAdapter):
                 err.value += self._get_debug_data()
                 raise
             self._solr_locked = True
+            # return self._solr_cache['docs']

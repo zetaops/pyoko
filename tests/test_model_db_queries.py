@@ -114,21 +114,21 @@ class TestCase:
 
         assert len(exclude_result) == 0
 
-        assert User.objects.filter().exclude(
+        assert User.objects.all().exclude(
             name='ThereIsNoSuchAName').count() == User.objects.count()
-        assert User.objects.filter().exclude(name='Mate2').count() == User.objects.count() - 1
+        assert User.objects.all().exclude(name='Mate2').count() == User.objects.count() - 1
         assert User.objects.filter(name='Mate2').exclude(
             supervisor_id='ThereIsNoSuchAnId').count() == 1
         assert Student.objects.filter(name='Jack').exclude(surname='Black').count() == 0
         assert User.objects.filter(name='Mate2').exclude(name='Mate2').count() == 0
 
         role_names = ['Foo Fighters']
-        assert Role.objects.filter().exclude(
+        assert Role.objects.all().exclude(
             name__in=role_names).count() == Role.objects.count() - 1
 
         # There are two role with 'Foo Frighters' name and one role with 'Foo Fighters'
         role_names = ['Foo Fighters', 'Foo Frighters']
-        assert Role.objects.filter().exclude(
+        assert Role.objects.all().exclude(
             name__in=role_names).count() == Role.objects.count() - 3
 
         role_keys = Role.objects.filter(name__in=role_names).values_list('key')
@@ -209,7 +209,7 @@ class TestCase:
         with BlockSave(TimeTable):
             for i in range(5):
                 TimeTable(week_day=i, hours=i).save()
-        items = TimeTable.objects.filter()[1:2]
+        items = TimeTable.objects.all()[1:2]
         assert len(list(items)) == 1
 
     def test_or_queries(self):
