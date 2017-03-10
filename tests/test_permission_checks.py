@@ -23,7 +23,7 @@ class TestCase:
     def prepare_testbed(cls):
         if not cls.cleaned_up:
             # FlushDB(model='Person').run()
-            Person.objects.filter().delete()
+            Person.objects.all().delete()
             cls.cleaned_up = True
 
 

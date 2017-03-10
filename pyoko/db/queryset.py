@@ -199,11 +199,12 @@ class QuerySet(object):
         except TypeError:
             raise
 
-    def filter(self, **filters):
+    def filter(self, all_records=False, **filters):
         """
         Applies given query filters.
 
         Args:
+            all_records (bool):
             **filters: Query filters as keyword arguments.
 
         Returns:
@@ -215,9 +216,33 @@ class QuerySet(object):
             >>> # Assume u1 and u2 as related model instances.
             >>> Person.objects.filter(work_unit__in=[u1, u2], name__startswith='jo')
         """
+
         clone = copy.deepcopy(self)
         clone.adapter.add_query(filters.items())
+        clone_length = clone.count()
+        if clone_length > self._cfg['row_size'] and not all_records:
+            raise Exception("""Your query result count(%s) is more than specified result value(%s).
+            You can narrow your filters, you can apply your own pagination or
+            you can use all() method for getting all filter results.
+            Example Usage: Unit.objects.all()
+            """ % (clone_length, self._cfg['row_size']))
+
         return clone
+
+
+    def all(self, **filters):
+        """
+        Applies given query filters and returns all results regardless of result count.
+
+        Args:
+            **filters: Query filters as keyword arguments.
+
+        Returns:
+            Self. Queryset object.
+
+        """
+
+        return self.filter(all_records=True, **filters)
 
     def exclude(self, **filters):
         """
@@ -263,7 +288,7 @@ class QuerySet(object):
 
 
         """
-        existing = list(self.filter(**kwargs))
+        existing = list(self.all(**kwargs))
         count = len(existing)
         try:
             if count > 1:
@@ -331,7 +356,7 @@ class QuerySet(object):
         if key:
             data, key = clone.adapter.get(key)
         elif kwargs:
-            data, key = clone.filter(**kwargs).adapter.get()
+            data, key = clone.all(**kwargs).adapter.get()
         else:
             data, key = clone.adapter.get()
         if clone._cfg['rtype'] == ReturnType.Object:
