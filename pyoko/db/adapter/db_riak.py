@@ -197,34 +197,35 @@ class Adapter(BaseAdapter):
         #     obj = self.collect_from_riak(doc)
         #     yield obj.data, obj.key
 
-        count = copy.deepcopy(self).count()
-        start = self._cfg['start']
-        while count > 0:
-            count -= self._cfg['row_size']
-            self._solr_params.update({'start': start})
-            self._exec_query()
-
-            for doc in self._solr_cache['docs']:
-                obj = self.collect_from_riak(doc)
-                yield obj.data, obj.key
-
-            self._solr_locked = False
-            start += self._cfg['row_size']
-        self._solr_locked = True
-
         # count = copy.deepcopy(self).count()
-        # chunk_size = (count / self._cfg['row_size'])
-        # if not count % self._cfg['row_size'] == 0: chunk_size +=1
-        # chunk_size_list = range(chunk_size)
-        # with con.ThreadPoolExecutor(max_workers=5) as executor:
-        #     future_to_obj = {executor.submit(self.get_from_solr, number): number for number in chunk_size_list}
-        #     for future in con.as_completed(future_to_obj):
-        #         docs = future.result()
-        #         with con.ThreadPoolExecutor(max_workers=10) as executor:
-        #             future_to_obj = {executor.submit(self.collect_from_riak, doc): doc for doc in docs}
-        #             for future in con.as_completed(future_to_obj):
-        #                 obj = future.result()
-        #                 yield obj.data, obj.key
+        # start = self._cfg['start']
+        # while count > 0:
+        #     count -= self._cfg['row_size']
+        #     self._solr_params.update({'start': start})
+        #     self._exec_query()
+        #
+        #     for doc in self._solr_cache['docs']:
+        #         obj = self.collect_from_riak(doc)
+        #         yield obj.data, obj.key
+        #
+        #     self._solr_locked = False
+        #     start += self._cfg['row_size']
+        # self._solr_locked = True
+
+        count = copy.deepcopy(self).count()
+        chunk_size = int(count / self._cfg['row_size'])
+        if not count % self._cfg['row_size'] == 0:
+            chunk_size += 1
+        chunk_size_list = range(chunk_size)
+        with con.ThreadPoolExecutor(max_workers=5) as executor:
+            future_to_obj = {executor.submit(self.get_from_solr, number): number for number in chunk_size_list}
+            for future in con.as_completed(future_to_obj):
+                docs = future.result()
+                with con.ThreadPoolExecutor(max_workers=10) as executor:
+                    future_to_obj = {executor.submit(self.collect_from_riak, doc): doc for doc in docs}
+                    for future in con.as_completed(future_to_obj):
+                        obj = future.result()
+                        yield obj.data, obj.key
 
         # count = copy.deepcopy(self).count()
         # start =self._cfg['start']
@@ -881,4 +882,4 @@ class Adapter(BaseAdapter):
                 err.value += self._get_debug_data()
                 raise
             self._solr_locked = True
-            # return self._solr_cache['docs']
+            return self._solr_cache['docs']
