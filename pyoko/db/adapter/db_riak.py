@@ -832,7 +832,7 @@ class Adapter(BaseAdapter):
         if 'rows' not in self._solr_params:
             self._solr_params['rows'] = self._cfg['row_size']
         for key, val in self._solr_params.items():
-            if isinstance(val, str):
+            if isinstance(val, str) and six.PY2:
                 self._solr_params[key] = val.encode(encoding='UTF-8')
         return self._solr_params
 
