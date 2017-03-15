@@ -429,7 +429,7 @@ class Node(object):
             result.append((field_name,
                            solr_type,
                            field_ins.index,
-                           field_ins.store or settings.DEBUG,
+                           field_ins.store or settings.SOLR['store'],
                            multi))
         for mdl_ins in self._nodes:
             result.extend(getattr(self, mdl_ins)._collect_index_fields(multi))
