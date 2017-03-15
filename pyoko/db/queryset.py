@@ -136,7 +136,7 @@ class QuerySet(object):
             elif k == '_cfg':
                 obj._cfg = v.copy()
             else:
-                if k == '_cfg': print("CFG %s" % v.keys())
+                # if k == '_cfg': print("CFG %s" % v.keys())
                 obj.__dict__[k] = copy.deepcopy(v, memo)
         obj.is_clone = True
         return obj
@@ -151,8 +151,6 @@ class QuerySet(object):
                 [('lorem','bin'),('dolar','int')]
         :return:
         """
-        # if model:
-        #     self._model = model
         return self.adapter.save_model(model, meta_data, index_fields)
 
     # def _get(self):
