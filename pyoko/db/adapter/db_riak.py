@@ -123,7 +123,9 @@ class Adapter(BaseAdapter):
         self._QUERY_GLUE = ' AND '
         self._solr_query = []  # query parts, will be compiled before execution
         self._solr_params = {
-            'sort': 'timestamp desc'}  # search parameters. eg: rows, fl, start, sort etc.
+            'sort': 'timestamp desc',
+            'fl': '_yz_rk, score',
+        }  # search parameters. eg: rows, fl, start, sort etc.
         self._solr_locked = False
         self._solr_cache = {}
         # self.key = None
@@ -216,15 +218,17 @@ class Adapter(BaseAdapter):
         chunk_size = int(count / self._cfg['row_size'])
         if not count % self._cfg['row_size'] == 0:
             chunk_size += 1
+
         chunk_size_list = range(chunk_size)
-        with con.ThreadPoolExecutor(max_workers=5) as executor:
-            future_to_obj = {executor.submit(self.get_from_solr, number): number for number in chunk_size_list}
-            for future in con.as_completed(future_to_obj):
+        with con.ThreadPoolExecutor(max_workers=5) as exc:
+            clone = copy.deepcopy(self)
+            future_to_obj_list = {exc.submit(clone.get_from_solr, number): number for number in chunk_size_list}
+            for future in con.as_completed(future_to_obj_list):
                 docs = future.result()
                 with con.ThreadPoolExecutor(max_workers=10) as executor:
-                    future_to_obj = {executor.submit(self.collect_from_riak, doc): doc for doc in docs}
-                    for future in con.as_completed(future_to_obj):
-                        obj = future.result()
+                    future_to_obj = {executor.submit(clone.collect_from_riak, doc): doc for doc in docs}
+                    for future_obj in con.as_completed(future_to_obj):
+                        obj = future_obj.result()
                         yield obj.data, obj.key
 
         # count = copy.deepcopy(self).count()
@@ -242,8 +246,9 @@ class Adapter(BaseAdapter):
         #     start += self._cfg['row_size']
         # self._solr_locked = True
 
+        #
         # count = copy.deepcopy(self).count()
-        # start =self._cfg['start']
+        # start = self._cfg['start']
         # while count > 0:
         #     count -= self._cfg['row_size']
         #     self._solr_params.update({'start': start})
@@ -253,6 +258,7 @@ class Adapter(BaseAdapter):
         #         for doc in self._solr_cache['docs']:
         #             executor.submit(self.collect_from_riak, doc, objs)
         #     for obj in objs:
+        #         print(obj.key)
         #         yield obj.data, obj.key
         #     self._solr_locked = False
         #     start += self._cfg['row_size']
@@ -851,9 +857,6 @@ class Adapter(BaseAdapter):
         Returns:
             Self.
         """
-        # https://github.com/basho/riak-python-client/issues/362
-        # if not self._solr_cache:
-        #     self.set_params(fl='_yz_rk')  # we're going to riak, fetch only keys
         if not self._solr_locked:
             if not self.compiled_query:
                 self._compile_query()
@@ -869,15 +872,6 @@ class Adapter(BaseAdapter):
                 if settings.DEBUG and settings.DEBUG_LEVEL >= 5:
                     print("QRY => %s\nSOLR_PARAMS => %s" % (self.compiled_query, solr_params))
 
-
-                    # if settings.DEBUG:
-                    #     sys.PYOKO_STAT_COUNTER['search'] += 1
-                    #     sys._debug_db_queries.append({
-                    #         'TIMESTAMP': t1,
-                    #         'QUERY': self.compiled_query,
-                    #         'BUCKET': self.index_name,
-                    #         'QUERY_PARAMS': solr_params,
-                    #         'TIME': round(time.time() - t1, 4)})
             except riak.RiakError as err:
                 err.value += self._get_debug_data()
                 raise
