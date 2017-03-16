@@ -58,39 +58,28 @@ class BlockSave(object):
 
     def __enter__(self):
         Adapter.block_saved_keys = []
+        Adapter.block_save_time = datetime.now().strftime(DATE_TIME_FORMAT)
         Adapter.COLLECT_SAVES = True
         Adapter.COLLECT_SAVES_FOR_MODEL = self.mdl.__name__
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         key_list = list(set(Adapter.block_saved_keys))
-        self.query_dict['key__in'] = key_list
-        try:
-            indexed_obj_count = self.mdl.objects.filter(**self.query_dict)
-            while Adapter.block_saved_keys and indexed_obj_count.count() < len(key_list):
-                time.sleep(.4)
-            Adapter.COLLECT_SAVES = False
-        except ValueError:
-            pass
+        self.query_dict['updated_at__gt'] = Adapter.block_save_time
+        self.make_sure(key_list)
+        Adapter.COLLECT_SAVES = False
+
+    def make_sure(self, key_list):
+        while Adapter.block_saved_keys and not set(key_list).issubset(
+                self.mdl.objects.filter(**self.query_dict).values_list('key')):
+            time.sleep(.4)
 
 
-class BlockDelete(object):
-    def __init__(self, mdl):
-        self.mdl = mdl
-
-    def __enter__(self):
-        Adapter.block_saved_keys = []
-        Adapter.COLLECT_SAVES = True
-        Adapter.COLLECT_SAVES_FOR_MODEL = self.mdl.__name__
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        try:
-            indexed_obj_count = self.mdl.objects.filter(key__in=Adapter.block_saved_keys)
-            while Adapter.block_saved_keys and indexed_obj_count.count():
-                time.sleep(.4)
-            Adapter.COLLECT_SAVES = False
-        except ValueError:
-            pass
-
+class BlockDelete(BlockSave):
+    def make_sure(self, key_list):
+        while Adapter.block_saved_keys and not set(key_list).issubset(
+                self.mdl.objects.filter(
+                    updated_at__gt=Adapter.block_save_time, deleted=True).values_list('key')):
+            time.sleep(.4)
 
 # noinspection PyTypeChecker
 class Adapter(BaseAdapter):
