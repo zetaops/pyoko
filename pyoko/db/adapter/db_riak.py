@@ -65,30 +65,21 @@ class BlockSave(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         key_list = list(set(Adapter.block_saved_keys))
         self.query_dict['updated_at__gt'] = Adapter.block_save_time
+        self.make_sure(key_list)
+        Adapter.COLLECT_SAVES = False
+
+    def make_sure(self, key_list):
         while Adapter.block_saved_keys and not set(key_list).issubset(
                 self.mdl.objects.filter(**self.query_dict).values_list('key')):
             time.sleep(.4)
-        Adapter.COLLECT_SAVES = False
 
 
-class BlockDelete(object):
-    def __init__(self, mdl):
-        self.mdl = mdl
-
-    def __enter__(self):
-        Adapter.block_saved_keys = []
-        Adapter.block_save_time = datetime.now().strftime(DATE_TIME_FORMAT)
-        Adapter.COLLECT_SAVES = True
-        Adapter.COLLECT_SAVES_FOR_MODEL = self.mdl.__name__
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        key_list = list(set(Adapter.block_saved_keys))
+class BlockDelete(BlockSave):
+    def make_sure(self, key_list):
         while Adapter.block_saved_keys and not set(key_list).issubset(
                 self.mdl.objects.filter(
                     updated_at__gt=Adapter.block_save_time, deleted=True).values_list('key')):
             time.sleep(.4)
-        Adapter.COLLECT_SAVES = False
-
 
 # noinspection PyTypeChecker
 class Adapter(BaseAdapter):
