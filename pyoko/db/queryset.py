@@ -97,7 +97,7 @@ class QuerySet(object):
             # Adjust the index if a slice was defined previously
             adjusted_index = index + (self._start or 0)
             clone.adapter.set_params(rows=1, start=adjusted_index)
-            data, key = clone.adapter.get_one()
+            data, key = clone.adapter.get()
             return (clone._make_model(data, key)
                     if clone._cfg['rtype'] == ReturnType.Model
                     else (data, key))

@@ -394,36 +394,42 @@ class Adapter(BaseAdapter):
             # todo should add log.error()
             return ""
 
+    def _get_from_riak(self, key):
+        """
+        Args:
+            key (str): riak key
+        Returns:
+            (tuple): riak obj json data and riak key
+        :param key:
+        :return:
+        """
+        obj = self.bucket.get(key)
+        if obj.exists:
+            return obj.data, obj.key
+
+        raise ObjectDoesNotExist("%s %s" % (key, self.compiled_query))
+
     def get(self, key=None):
         if key:
             if settings.ENABLE_CACHING:
                 data = self.get_from_cache(key)
+
                 if data:
+                    if six.PY2:
+                        _data = data
                     if six.PY3:
-                        data = data.decode()
-                    return json.loads(data), str(key)
+                        _data = data.decode()
+                    data = json.loads(_data)
+                    return data, str(key)
+
                 else:
-                    self._riak_cache = [self.bucket.get(key)]
-                    # In order to set to the cache
-                    _data, _key = self.get_one()
-                    try:
-                        self.set_to_cache(_key, _data)
-                    except Exception as e:
-                        # todo should add log.error()
-                        pass
-                    return _data, _key
+                    data, key = self._get_from_riak(key)
+                    self.set_to_cache(key, data)
+                    return data, key
             else:
-                self._riak_cache = [self.bucket.get(key)]
+                return self._get_from_riak(key)
 
-        return self.get_one()
-
-    def get_one(self):
-        """
-        executes solr query if needed then returns first object according to
-        selected ReturnType (defaults to Model)
-        :return: pyoko.Model or riak.Object or solr document
-        """
-        if not self._riak_cache:
+        else:
             self._exec_query()
             if not self._solr_cache['docs']:
                 raise ObjectDoesNotExist("%s %s" % (self.index_name, self.compiled_query))
@@ -433,16 +439,7 @@ class Adapter(BaseAdapter):
                     "%s objects returned for %s" % (self.count(),
                                                     self._model_class.__name__))
 
-            self._riak_cache = [self.bucket.get(self._solr_cache['docs'][0]['_yz_rk'])]
-
-            sys.PYOKO_LOGS[self._model_class.__name__].append(
-                self._solr_cache['docs'][0]['_yz_rk'])
-
-        if not self._riak_cache[0].exists:
-            raise ObjectDoesNotExist("%s %s" % (self.index_name,
-                                                self._riak_cache[0].key))
-
-        return self._riak_cache[0].data, self._riak_cache[0].key
+            return self._get_from_riak(self._solr_cache['docs'][0]['_yz_rk'])
 
     def count(self):
         """Counts the number of results that could be accessed with the current parameters.
