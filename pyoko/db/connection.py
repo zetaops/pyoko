@@ -7,11 +7,10 @@ riak client configuration
 #
 # This file is licensed under the GNU General Public License v3
 # (GPLv3).  See LICENSE.txt for details.
-import json
 
 import riak
+import json
 import six
-
 from pyoko.conf import settings
 from riak.client.multi import MultiGetPool
 from riak.client.multi import Empty

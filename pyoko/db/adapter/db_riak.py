@@ -182,7 +182,6 @@ class Adapter(BaseAdapter):
             self.keys[number] = map(lambda item: item['_yz_rk'], results)
 
     def riak_multi_get(self, multi_get_list):
-
         pool = PyokoMG()
         objs = self._client.multiget(multi_get_list, pool=pool)
         pool.stop()
