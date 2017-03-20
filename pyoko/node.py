@@ -420,7 +420,8 @@ class Node(object):
         from .listnode import ListNode
         multi = in_multi or isinstance(self, ListNode)
         for lnk in self.get_links(is_set=False):
-            result.append((self._path_of(un_camel_id(lnk['field'])), 'string', True, settings.DEBUG, multi))
+            result.append((self._path_of(un_camel_id(lnk['field'])), 'string',
+                           True, settings.SOLR['store'], multi))
 
         for name, field_ins in self._fields.items():
             field_name = self._path_of(name)

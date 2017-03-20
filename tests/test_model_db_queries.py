@@ -176,7 +176,9 @@ class TestCase:
     def test_riak_save_query_list_solr_docs(self):
         # FIXME: order of multivalued field values varies between solr versions
         st = self.prepare_testbed()
-        qset = Student.objects.filter(auth_info__email=data['auth_info']['email'])
+
+        # fl default is only _yz_rk, score
+        qset = Student.objects.set_params(fl='_yz_rk, _yz_rb, _yz_rt, score').filter(auth_info__email=data['auth_info']['email'])
         qset.adapter._exec_query()
         st2_doc = qset.adapter._solr_cache['docs'][0]
         assert st2_doc['_yz_rb'] == 'student'
