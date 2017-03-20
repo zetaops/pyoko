@@ -170,24 +170,6 @@ class Adapter(BaseAdapter):
                 time.sleep(0.3)
         return i
 
-    def collect_from_riak(self, doc):
-        obj = self.bucket.get(doc['_yz_rk'])
-        if not obj.exists:
-            raise ObjectDoesNotExist(
-                "We got %s from Solr for %s bucket but cannot find it in the Riak" % (
-                    doc['_yz_rk'], self._model_class))
-        if settings.DEBUG:
-            sys.PYOKO_STAT_COUNTER['read'] += 1
-            sys.PYOKO_LOGS[self._model_class.__name__].append(doc['_yz_rk'])
-        # objs.append(obj)
-        return obj
-
-    # def get_from_riak_threaded(self, docs):
-    #     with con.ThreadPoolExecutor(max_workers=10) as executor:
-    #         future_to_obj = {executor.submit(self.collect_from_riak, doc): doc for doc in docs}
-    #         for future in con.as_completed(future_to_obj):
-    #             return future.result()
-
     def get_from_solr(self, number):
         start = number * self._cfg['row_size']
         self._solr_params.update({'start': start})
@@ -200,7 +182,6 @@ class Adapter(BaseAdapter):
             self.keys[number] = map(lambda item: item['_yz_rk'], results)
 
     def riak_multi_get(self, multi_get_list):
-
         pool = PyokoMG()
         objs = self._client.multiget(multi_get_list, pool=pool)
         pool.stop()
