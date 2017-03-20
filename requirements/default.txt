@@ -5,4 +5,3 @@ six
 redis
 futures
 riak
-

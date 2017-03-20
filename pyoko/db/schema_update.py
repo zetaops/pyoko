@@ -13,7 +13,6 @@ from random import randint
 from sys import stdout
 import threading
 import time
-
 import six
 from riak import ConflictError, RiakError
 from pyoko.conf import settings
@@ -294,7 +293,6 @@ class SchemaUpdater(object):
             schema_template = fh.read()
 
         schema = schema_template.format('\n'.join(fields))
-
         if six.PY2:
             return schema.encode('utf-8')
 

@@ -354,7 +354,7 @@ class QuerySet(object):
         if key:
             data, key = clone.adapter.get(key)
         elif kwargs:
-            data, key = clone.all(**kwargs).adapter.get()
+            data, key = clone.filter(**kwargs).adapter.get()
         else:
             data, key = clone.adapter.get()
         if clone._cfg['rtype'] == ReturnType.Object:
@@ -525,6 +525,7 @@ class QuerySet(object):
             >>> Person.objects.order_by('-name', 'join_date')
         """
         clone = copy.deepcopy(self)
+        clone.adapter.ordered = True
         clone.adapter.order_by(*args)
         return clone
 

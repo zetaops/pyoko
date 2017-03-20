@@ -16,7 +16,8 @@ from . import fields as field
 from .db.queryset import QuerySet
 from .lib.utils import un_camel, lazy_property, pprnt, un_camel_id
 import weakref
-
+from pyoko.conf import settings
+from pyoko.db.connection import cache
 super_context = FakeContext()
 
 # kept for backwards-compatibility
@@ -595,6 +596,8 @@ class Model(Node):
             self.deleted_at = datetime.now()
             self.save(internal=True, meta=meta, index_fields=index_fields)
             self.post_delete()
+            if settings.ENABLE_CACHING:
+                cache.delete(self.key)
         return results, errors
 
 

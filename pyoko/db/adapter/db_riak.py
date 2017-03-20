@@ -21,6 +21,8 @@ from riak.util import bytes_to_str
 from pyoko.db.adapter.base import BaseAdapter
 from pyoko.fields import DATE_FORMAT, DATE_TIME_FORMAT
 import concurrent.futures as con
+from math import ceil
+from pyoko.db.connection import PyokoMG
 
 try:
     from urllib.request import urlopen
@@ -35,7 +37,6 @@ import riak
 from pyoko.exceptions import MultipleObjectsReturned, ObjectDoesNotExist, PyokoError
 import traceback
 import ast
-
 # TODO: Add OR support
 
 import sys
@@ -92,7 +93,6 @@ class BlockDelete(object):
         except ValueError:
             pass
 
-
 # noinspection PyTypeChecker
 class Adapter(BaseAdapter):
     """
@@ -106,6 +106,9 @@ class Adapter(BaseAdapter):
         self.version_bucket = riak.RiakBucket
         self._client = self._cfg.pop('client', client)
         self.index_name = ''
+        self.multi_get_list = {}
+        self.keys = {}
+        self.ordered = False
 
         if '_model_class' in conf:
             self._model_class = conf['model_class']
@@ -167,102 +170,48 @@ class Adapter(BaseAdapter):
                 time.sleep(0.3)
         return i
 
-    def collect_from_riak(self, doc):
-        obj = self.bucket.get(doc['_yz_rk'])
-        if not obj.exists:
-            raise ObjectDoesNotExist(
-                "We got %s from Solr for %s bucket but cannot find it in the Riak" % (
-                    doc['_yz_rk'], self._model_class))
-        if settings.DEBUG:
-            sys.PYOKO_STAT_COUNTER['read'] += 1
-            sys.PYOKO_LOGS[self._model_class.__name__].append(doc['_yz_rk'])
-        # objs.append(obj)
-        return obj
-
-    # def get_from_riak_threaded(self, docs):
-    #     with con.ThreadPoolExecutor(max_workers=10) as executor:
-    #         future_to_obj = {executor.submit(self.collect_from_riak, doc): doc for doc in docs}
-    #         for future in con.as_completed(future_to_obj):
-    #             return future.result()
-
     def get_from_solr(self, number):
         start = number * self._cfg['row_size']
         self._solr_params.update({'start': start})
         self._solr_locked = False
-        return self._exec_query()
+        results = self._exec_query()
+        multi_get_list = [(self._cfg['bucket_type'], self._cfg['bucket_name'], doc['_yz_rk']) for
+                          doc in results]
+        self.multi_get_list[number] = multi_get_list
+        if self.ordered:
+            self.keys[number] = map(lambda item: item['_yz_rk'], results)
+
+    def riak_multi_get(self, multi_get_list):
+
+        pool = PyokoMG()
+        objs = self._client.multiget(multi_get_list, pool=pool)
+        pool.stop()
+        if not self.ordered:
+            return objs
 
     def __iter__(self):
 
-        # self._solr_params.update({'start': self._cfg['start']})
-        # self._exec_query()
-        # for doc in self._solr_cache['docs']:
-        #     obj = self.collect_from_riak(doc)
-        #     yield obj.data, obj.key
-
-        # count = copy.deepcopy(self).count()
-        # start = self._cfg['start']
-        # while count > 0:
-        #     count -= self._cfg['row_size']
-        #     self._solr_params.update({'start': start})
-        #     self._exec_query()
-        #
-        #     for doc in self._solr_cache['docs']:
-        #         obj = self.collect_from_riak(doc)
-        #         yield obj.data, obj.key
-        #
-        #     self._solr_locked = False
-        #     start += self._cfg['row_size']
-        # self._solr_locked = True
-
         count = copy.deepcopy(self).count()
-        chunk_size = int(count / self._cfg['row_size'])
-        if not count % self._cfg['row_size'] == 0:
-            chunk_size += 1
+        chunk_size = ceil(count / float(self._cfg['row_size']))
+        chunk_size_list = range(int(chunk_size))
 
-        chunk_size_list = range(chunk_size)
-        with con.ThreadPoolExecutor(max_workers=5) as exc:
-            clone = copy.deepcopy(self)
-            future_to_obj_list = {exc.submit(clone.get_from_solr, number): number for number in chunk_size_list}
-            for future in con.as_completed(future_to_obj_list):
-                docs = future.result()
-                with con.ThreadPoolExecutor(max_workers=10) as executor:
-                    future_to_obj = {executor.submit(clone.collect_from_riak, doc): doc for doc in docs}
-                    for future_obj in con.as_completed(future_to_obj):
-                        obj = future_obj.result()
-                        yield obj.data, obj.key
+        with con.ThreadPoolExecutor(max_workers=10) as exc:
+            exc.map(self.get_from_solr, chunk_size_list)
+        exc.shutdown()
 
-        # count = copy.deepcopy(self).count()
-        # start =self._cfg['start']
-        # while count > 0:
-        #     count -= self._cfg['row_size']
-        #     self._solr_params.update({'start': start})
-        #     self._exec_query()
-        #     with con.ThreadPoolExecutor(max_workers=3) as executor:
-        #         future_to_obj = {executor.submit(self.collect_from_riak, doc): doc for doc in self._solr_cache['docs']}
-        #         for future in con.as_completed(future_to_obj):
-        #             obj = future.result()
-        #             yield obj.data, obj.key
-        #     self._solr_locked = False
-        #     start += self._cfg['row_size']
-        # self._solr_locked = True
-
-        #
-        # count = copy.deepcopy(self).count()
-        # start = self._cfg['start']
-        # while count > 0:
-        #     count -= self._cfg['row_size']
-        #     self._solr_params.update({'start': start})
-        #     self._exec_query()
-        #     objs = []
-        #     with con.ThreadPoolExecutor(max_workers=5) as executor:
-        #         for doc in self._solr_cache['docs']:
-        #             executor.submit(self.collect_from_riak, doc, objs)
-        #     for obj in objs:
-        #         print(obj.key)
-        #         yield obj.data, obj.key
-        #     self._solr_locked = False
-        #     start += self._cfg['row_size']
-        # self._solr_locked = True
+        if not self.ordered:
+            with con.ThreadPoolExecutor(max_workers=5) as exc:
+                exc_future_objs = {exc.submit(self.riak_multi_get, multi_get_list): multi_get_list
+                                   for multi_get_list in self.multi_get_list.values()}
+                for future_objs in con.as_completed(exc_future_objs):
+                    objs = future_objs.result()
+                    for obj in objs:
+                        yield obj[0], obj[1]
+        else:
+            for index, multi_get_list in self.multi_get_list.items():
+                self.riak_multi_get(multi_get_list)
+                for key in self.keys[index]:
+                    yield self.get(key)
 
     def __deepcopy__(self, memo=None):
         """
@@ -433,10 +382,7 @@ class Adapter(BaseAdapter):
     @staticmethod
     def set_to_cache(key, value):
         try:
-            if not value['deleted']:
-                cache.set(key, json.dumps(value), settings.CACHE_EXPIRE_DURATION)
-            else:
-                cache.delete(key)
+            cache.set(key, json.dumps(value), settings.CACHE_EXPIRE_DURATION)
         except Exception as e:
             # todo should add log.error()
             pass
@@ -454,12 +400,9 @@ class Adapter(BaseAdapter):
             if settings.ENABLE_CACHING:
                 data = self.get_from_cache(key)
                 if data:
-                    if six.PY2:
-                        _data = data
                     if six.PY3:
-                        _data = data.decode()
-                    data = json.loads(_data)
-                    return data, str(key)
+                        data = data.decode()
+                    return json.loads(data), str(key)
                 else:
                     self._riak_cache = [self.bucket.get(key)]
                     # In order to set to the cache
