@@ -135,6 +135,7 @@ class BaseThreadedCommand(object):
             for item in iterables:
                 executor.submit(func, item, *args)
 
+
 class Shell(Command):
     CMD_NAME = 'shell'
     PARAMS = [

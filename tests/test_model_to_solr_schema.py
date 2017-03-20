@@ -17,7 +17,7 @@ def test_collect_index_fields():
     st = Student()
     result = st._collect_index_fields()
     sorted_result = sorted(result, key=lambda x: x[0])
-    if not settings.DEBUG:
+    if not settings.SOLR['store']:
         sorted_data = sorted(test_data_solr_fields_debug_zero, key=lambda x: x[0])
         assert sorted_result == sorted_data
 
@@ -30,7 +30,7 @@ def test_create_solr_schema():
     st = Student()
     fields = st._collect_index_fields()
     result = SchemaUpdater.get_schema_fields(fields)
-    if not settings.DEBUG:
+    if not settings.SOLR['store']:
         assert sorted(result) == sorted(test_data_solr_schema_debug_zero)
 
     else:
