@@ -23,6 +23,8 @@ client = riak.RiakClient(protocol=settings.RIAK_PROTOCOL,
                          host=settings.RIAK_SERVER,
                          http_port=settings.RIAK_PORT)
 
+riak.disable_list_exceptions = True
+
 
 class PyokoMG(MultiGetPool):
     def _worker_method(self):
