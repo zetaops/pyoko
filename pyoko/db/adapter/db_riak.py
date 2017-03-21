@@ -194,33 +194,30 @@ class Adapter(BaseAdapter):
         chunk_size = ceil(count / float(self._cfg['row_size']))
         chunk_size_list = range(int(chunk_size))
 
-        objs = []
+        page_multiget_list = []
 
         with con.ThreadPoolExecutor(max_workers=10) as exc:
-            exc_future_objs = {exc.submit(self.get_from_solr, copy.deepcopy(self), p): p for p in chunk_size_list}
+            exc_future_objs = {exc.submit(self.get_from_solr, copy.deepcopy(self), p): p for p in
+                               chunk_size_list}
             for future_objs in con.as_completed(exc_future_objs):
-                objs.append(future_objs.result())
+                page_multiget_list.append(future_objs.result())
         exc.shutdown()
 
-        pages = []
+        if not self.ordered:
+            with con.ThreadPoolExecutor(max_workers=5) as exc:
+                exc_future_objs = {exc.submit(self.riak_multi_get, key_list_tuple): key_list_tuple
+                                   for _, key_list_tuple in page_multiget_list}
 
-        with con.ThreadPoolExecutor(max_workers=5) as exc:
-            exc_future_objs = {exc.submit(self.riak_multi_get, key_list_tuple): key_list_tuple
-                               for _, key_list_tuple in objs}
-
-            for future_objs in con.as_completed(exc_future_objs):
-                objs = future_objs.result()
-                if not self.ordered:
+                for future_objs in con.as_completed(exc_future_objs):
+                    objs = future_objs.result()
                     for obj in objs:
-                        yield obj[0], obj[1]
-                else:
-                    pages.append(objs)
-
-        if pages:
-            for index, multi_get_list in sorted(pages):
-                self.riak_multi_get(multi_get_list)
-                for key in self.keys[index]:
-                    yield self.get(key)
+                        yield obj[1], obj[2]
+        else:
+            for key_list_tuple in page_multiget_list:
+                objs = self.riak_multi_get(key_list_tuple)
+                objs = sorted(objs)
+                for obj in objs:
+                    yield obj[1], obj[2]
 
     def __deepcopy__(self, memo=None):
         """
