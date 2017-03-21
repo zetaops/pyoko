@@ -354,7 +354,7 @@ class Adapter(BaseAdapter):
             version_key = ''
 
         if settings.ENABLE_CACHING:
-            self.set_to_cache(model.key, clean_value)
+            self.set_to_cache(clean_value, model.key)
 
         meta_data = meta_data or model.save_meta_data
         if settings.ENABLE_ACTIVITY_LOGGING and meta_data:
@@ -380,20 +380,38 @@ class Adapter(BaseAdapter):
         return model
 
     @staticmethod
-    def set_to_cache(key, value):
+    def set_to_cache(value, key):
+        """
+        Args:
+            value (dict): obj data
+            key (str): obj key
+
+        Return:
+            tuple: value (dict), key (string)
+        """
+
         try:
             cache.set(key, json.dumps(value), settings.CACHE_EXPIRE_DURATION)
         except Exception as e:
-            # todo should add log.error()
             pass
+            # todo should add log.error()
+        return value, key
 
     @staticmethod
     def get_from_cache(key):
+        """
+        Args:
+            key (str):
+        Return:
+            (dict): from json string
+        """
+
         try:
-            return cache.get(key)
+            value = cache.get(key)
+            return json.loads(value), key if value else None
         except Exception as e:
             # todo should add log.error()
-            return ""
+            return None
 
     def _get_from_riak(self, key):
         """
@@ -401,9 +419,8 @@ class Adapter(BaseAdapter):
             key (str): riak key
         Returns:
             (tuple): riak obj json data and riak key
-        :param key:
-        :return:
         """
+
         obj = self.bucket.get(key)
         if obj.exists:
             return obj.data, obj.key
@@ -411,17 +428,25 @@ class Adapter(BaseAdapter):
         raise ObjectDoesNotExist("%s %s" % (key, self.compiled_query))
 
     def get(self, key=None):
+        """
+
+        If key is not None, tries to get obj from cache first. If not
+        found, tries to get from riak and sets to cache.
+
+        If key is None, then execute solr query and checks result. Returns
+        obj data and key tuple or raises exception ObjectDoesNotExist or
+        MultipleObjectsReturned.
+
+        Args:
+            key(str): obj key
+        Return:
+            (tuple): obj data dict, obj key
+
+        """
         if key:
             if settings.ENABLE_CACHING:
-                data = self.get_from_cache(key)
+                return self.get_from_cache(key) or self.set_to_cache(self._get_from_riak(key))
 
-                if data:
-                    return data.decode() if six.PY3 else data, str(key)
-
-                else:
-                    data, key = self._get_from_riak(key)
-                    self.set_to_cache(key, data)
-                    return data, key
             else:
                 return self._get_from_riak(key)
 
