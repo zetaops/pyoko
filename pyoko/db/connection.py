@@ -25,7 +25,6 @@ client = riak.RiakClient(protocol=settings.RIAK_PROTOCOL,
 
 riak.disable_list_exceptions = True
 
-
 class PyokoMG(MultiGetPool):
     def _worker_method(self):
         """
@@ -53,7 +52,7 @@ class PyokoMG(MultiGetPool):
                     cache.set(task.key, json.dumps(obj.data))
                     task.outq.put((obj.data, obj.key))
                 else:
-                    task.outq.put((json.loads(obj_data), task.key))
+                    task.outq.put((index, json.loads(obj_data), task.key))
 
 
                     # if settings.ENABLE_CACHING:
