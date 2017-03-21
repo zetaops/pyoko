@@ -175,49 +175,45 @@ class Adapter(BaseAdapter):
         start = number * clone._cfg['row_size']
         clone._solr_params.update({'start': start})
         clone._solr_locked = False
-        return number, [(number + index, clone._cfg['bucket_type'], clone._cfg['bucket_type'], i.get('_yz_rk')) for i in clone._exec_query()]
-
-        # multi_get_list = [self._solr_cache['docs']]
-        # self.multi_get_list[number] = multi_get_list
-        # if self.ordered:
-        #     self.keys[number] = map(lambda item: item['_yz_rk'], results)
+        return number, [(clone._cfg['bucket_type'], clone._cfg['bucket_name'], doc.get('_yz_rk')) for doc in clone._exec_query()]
 
     def riak_multi_get(self, key_list_tuple):
-        pool = PyokoMG(riak_client=self._client, bucket_type=self._cfg['bucket_type'], bucket=self._cfg['bucket_name'])
+        pool = PyokoMG()
         objs = self._client.multiget(key_list_tuple, pool=pool)
         pool.stop()
-        if not self.ordered:
-            return objs
+        return objs
 
     def __iter__(self):
         count = copy.deepcopy(self).count()
         chunk_size = ceil(count / float(self._cfg['row_size']))
         chunk_size_list = range(int(chunk_size))
 
-        page_multiget_list = []
-
+        page_list = []
         with con.ThreadPoolExecutor(max_workers=10) as exc:
-            exc_future_objs = {exc.submit(self.get_from_solr, copy.deepcopy(self), p): p for p in
-                               chunk_size_list}
-            for future_objs in con.as_completed(exc_future_objs):
-                page_multiget_list.append(future_objs.result())
+            future_page_list = {exc.submit(self.get_from_solr, copy.deepcopy(self), p): p for p in
+                                chunk_size_list}
+            for multiget_page_list in con.as_completed(future_page_list):
+                page_list.append(multiget_page_list.result())
         exc.shutdown()
 
-        if not self.ordered:
-            with con.ThreadPoolExecutor(max_workers=5) as exc:
-                exc_future_objs = {exc.submit(self.riak_multi_get, key_list_tuple): key_list_tuple
-                                   for _, key_list_tuple in page_multiget_list}
+        pages = []
+        with con.ThreadPoolExecutor(max_workers=5) as exc:
+            future_objs = {exc.submit(self.riak_multi_get, key_list_tuple): key_list_tuple for
+                           _, key_list_tuple in page_list}
 
-                for future_objs in con.as_completed(exc_future_objs):
-                    objs = future_objs.result()
+            for riak_objs in con.as_completed(future_objs):
+                objs = riak_objs.result()
+                if not self.ordered:
                     for obj in objs:
-                        yield obj[1], obj[2]
-        else:
-            for key_list_tuple in page_multiget_list:
-                objs = self.riak_multi_get(key_list_tuple)
-                objs = sorted(objs)
-                for obj in objs:
-                    yield obj[1], obj[2]
+                        yield obj[1], obj[0]
+                else:
+                    pages.extend(objs)
+
+        if pages:
+            objs = dict(pages)
+            for _, key_list_tuple in sorted(page_list):
+                for _, _, key in key_list_tuple:
+                    yield objs.get(key), key
 
     def __deepcopy__(self, memo=None):
         """
