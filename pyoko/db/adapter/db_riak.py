@@ -170,44 +170,54 @@ class Adapter(BaseAdapter):
                 time.sleep(0.3)
         return i
 
-    def get_from_solr(self, number):
-        start = number * self._cfg['row_size']
-        self._solr_params.update({'start': start})
-        self._solr_locked = False
-        results = self._exec_query()
-        multi_get_list = [(self._cfg['bucket_type'], self._cfg['bucket_name'], doc['_yz_rk']) for
-                          doc in results]
-        self.multi_get_list[number] = multi_get_list
-        if self.ordered:
-            self.keys[number] = map(lambda item: item['_yz_rk'], results)
+    @staticmethod
+    def get_from_solr(clone, number):
+        start = number * clone._cfg['row_size']
+        clone._solr_params.update({'start': start})
+        clone._solr_locked = False
+        return number, [(number + index, clone._cfg['bucket_type'], clone._cfg['bucket_type'], i.get('_yz_rk')) for i in clone._exec_query()]
 
-    def riak_multi_get(self, multi_get_list):
-        pool = PyokoMG()
-        objs = self._client.multiget(multi_get_list, pool=pool)
+        # multi_get_list = [self._solr_cache['docs']]
+        # self.multi_get_list[number] = multi_get_list
+        # if self.ordered:
+        #     self.keys[number] = map(lambda item: item['_yz_rk'], results)
+
+    def riak_multi_get(self, key_list_tuple):
+        pool = PyokoMG(riak_client=self._client, bucket_type=self._cfg['bucket_type'], bucket=self._cfg['bucket_name'])
+        objs = self._client.multiget(key_list_tuple, pool=pool)
         pool.stop()
         if not self.ordered:
             return objs
 
     def __iter__(self):
-
         count = copy.deepcopy(self).count()
         chunk_size = ceil(count / float(self._cfg['row_size']))
         chunk_size_list = range(int(chunk_size))
 
+        objs = []
+
         with con.ThreadPoolExecutor(max_workers=10) as exc:
-            exc.map(self.get_from_solr, chunk_size_list)
+            exc_future_objs = {exc.submit(self.get_from_solr, copy.deepcopy(self), p): p for p in chunk_size_list}
+            for future_objs in con.as_completed(exc_future_objs):
+                objs.append(future_objs.result())
         exc.shutdown()
 
-        if not self.ordered:
-            with con.ThreadPoolExecutor(max_workers=5) as exc:
-                exc_future_objs = {exc.submit(self.riak_multi_get, multi_get_list): multi_get_list
-                                   for multi_get_list in self.multi_get_list.values()}
-                for future_objs in con.as_completed(exc_future_objs):
-                    objs = future_objs.result()
+        pages = []
+
+        with con.ThreadPoolExecutor(max_workers=5) as exc:
+            exc_future_objs = {exc.submit(self.riak_multi_get, key_list_tuple): key_list_tuple
+                               for _, key_list_tuple in objs}
+
+            for future_objs in con.as_completed(exc_future_objs):
+                objs = future_objs.result()
+                if not self.ordered:
                     for obj in objs:
                         yield obj[0], obj[1]
-        else:
-            for index, multi_get_list in self.multi_get_list.items():
+                else:
+                    pages.append(objs)
+
+        if pages:
+            for index, multi_get_list in sorted(pages):
                 self.riak_multi_get(multi_get_list)
                 for key in self.keys[index]:
                     yield self.get(key)
@@ -415,12 +425,7 @@ class Adapter(BaseAdapter):
                 data = self.get_from_cache(key)
 
                 if data:
-                    if six.PY2:
-                        _data = data
-                    if six.PY3:
-                        _data = data.decode()
-                    data = json.loads(_data)
-                    return data, str(key)
+                    return data.decode() if six.PY3 else data, str(key)
 
                 else:
                     data, key = self._get_from_riak(key)
