@@ -106,8 +106,6 @@ class Adapter(BaseAdapter):
         self.version_bucket = riak.RiakBucket
         self._client = self._cfg.pop('client', client)
         self.index_name = ''
-        self.multi_get_list = {}
-        self.keys = {}
         self.ordered = False
 
         if '_model_class' in conf:
