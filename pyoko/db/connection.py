@@ -50,9 +50,9 @@ class PyokoMG(MultiGetPool):
                     btype = task.client.bucket_type(task.bucket_type)
                     obj = btype.bucket(task.bucket).get(task.key, **task.options)
                     cache.set(task.key, json.dumps(obj.data))
-                    task.outq.put((obj.data, obj.key))
+                    task.outq.put((obj.key,obj.data))
                 else:
-                    task.outq.put((index, json.loads(obj_data), task.key))
+                    task.outq.put((task.key,json.loads(obj_data)))
 
 
                     # if settings.ENABLE_CACHING:
