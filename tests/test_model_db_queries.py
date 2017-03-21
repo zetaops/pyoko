@@ -36,8 +36,7 @@ class TestCase:
         if cls.new_obj is None or reset:
             cls.new_obj = Student()
             cls.new_obj.set_data(data)
-            cls.new_obj.save()
-            sleep(1)  # wait for Riak -> Solr sync
+            cls.new_obj.blocking_save()
         return cls.new_obj
 
     @classmethod
@@ -68,8 +67,7 @@ class TestCase:
 
     def test_get_multiple_objects_exception(self):
         self.prepare_testbed()
-        Student(name='Foo').save()
-        sleep(1)
+        Student(name='Foo').blocking_save()
         with pytest.raises(MultipleObjectsReturned):
             Student.objects.get()
 
