@@ -31,8 +31,7 @@ class BaseAdapter(object):
         # pass permission checks to genareted model instances
         self._pass_perm_checks = False
         self._cfg = {'row_size': 1000,
-                     'rtype': ReturnType.Model,
-                     'start': 0}
+                     'rtype': ReturnType.Model}
         self._cfg.update(conf)
         self._model = None
         self.is_clone = False
