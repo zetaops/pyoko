@@ -25,6 +25,15 @@ client = riak.RiakClient(protocol=settings.RIAK_PROTOCOL,
 
 riak.disable_list_exceptions = True
 
+
+class FoundInCache(Exception):
+    pass
+
+
+class NotFound(Exception):
+    pass
+
+
 class PyokoMG(MultiGetPool):
     def _worker_method(self):
         """
@@ -45,36 +54,27 @@ class PyokoMG(MultiGetPool):
                 continue
 
             try:
-                obj_data = cache.get(task.key)
-                if not obj_data:
-                    btype = task.client.bucket_type(task.bucket_type)
-                    obj = btype.bucket(task.bucket).get(task.key, **task.options)
-                    cache.set(task.key, json.dumps(obj.data))
-                    task.outq.put((obj.key,obj.data))
-                else:
-                    task.outq.put((task.key,json.loads(obj_data)))
+                if settings.ENABLE_CACHING:
+                    obj_data = cache.get(task.key)
+                    if obj_data:
+                        task.outq.put((task.key, json.loads(obj_data)))
+                        raise FoundInCache()
 
+                btype = task.client.bucket_type(task.bucket_type)
+                obj = btype.bucket(task.bucket).get(task.key, **task.options)
 
-                    # if settings.ENABLE_CACHING:
-                    #     obj_data = cache.get(task.key)
-                    #     if not obj_data:
-                    #         btype = task.client.bucket_type(task.bucket_type)
-                    #         obj = btype.bucket(task.bucket).get(task.key, **task.options)
-                    #         obj_data = obj.data.decode() if six.PY3 else obj.data
-                    #         cache.set(task.key, json.dumps(obj_data))
-                    #         task.outq.put((obj_data, obj.key))
-                    #     else:
-                    #         if six.PY3:
-                    #             obj_data = obj_data.decode()
-                    #         task.outq.put((obj_data, task.key))
-                    # else:
-                    #     btype = task.client.bucket_type(task.bucket_type)
-                    #     obj = btype.bucket(task.bucket).get(task.key, **task.options)
-                    #     obj_data = obj.data.decode() if six.PY3 else obj.data
-                    #     task.outq.put((obj_data, obj.key))
+                if not obj.exists:
+                    raise NotFound()
+
+                if settings.ENABLE_CACHING:
+                    cache.set(task.key, json.dumps(obj.data), settings.CACHE_EXPIRE_DURATION)
+
+                task.outq.put((obj.key, obj.data))
 
             except KeyboardInterrupt:
                 raise
+            except FoundInCache or NotFound:
+                pass
             except Exception as err:
                 errdata = (task.bucket_type, task.bucket, task.key, err)
                 task.outq.put(errdata)
