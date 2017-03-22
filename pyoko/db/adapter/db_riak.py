@@ -422,6 +422,12 @@ class Adapter(BaseAdapter):
         """
 
         obj = self.bucket.get(key)
+
+        # seems riak client has a bug, bucket.get method
+        # returns bytes instead of dict erroneously
+        if isinstance(obj.data, bytes):
+            obj.data = json.loads(obj.data)
+
         if obj.exists:
             return obj.data, obj.key
 
