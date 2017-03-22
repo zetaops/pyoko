@@ -354,7 +354,7 @@ class Adapter(BaseAdapter):
             version_key = ''
 
         if settings.ENABLE_CACHING:
-            self.set_to_cache(clean_value, model.key)
+            self.set_to_cache((clean_value, model.key))
 
         meta_data = meta_data or model.save_meta_data
         if settings.ENABLE_ACTIVITY_LOGGING and meta_data:
@@ -380,22 +380,22 @@ class Adapter(BaseAdapter):
         return model
 
     @staticmethod
-    def set_to_cache(value, key):
+    def set_to_cache(vk):
         """
         Args:
-            value (dict): obj data
-            key (str): obj key
+            vk (tuple): obj data (dict), obj key(str)
 
         Return:
             tuple: value (dict), key (string)
         """
+        v, k = vk
 
         try:
-            cache.set(key, json.dumps(value), settings.CACHE_EXPIRE_DURATION)
+            cache.set(k, json.dumps(v), settings.CACHE_EXPIRE_DURATION)
         except Exception as e:
             pass
             # todo should add log.error()
-        return value, key
+        return v, k
 
     @staticmethod
     def get_from_cache(key):
