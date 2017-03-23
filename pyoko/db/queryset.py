@@ -199,7 +199,8 @@ class QuerySet(object):
 
     def filter(self, all_records=False, **filters):
         """
-        Applies given query filters.
+        Applies given query filters. If wanted result is more than specified size,
+        exception is raised about using all() method instead of filter.
 
         Args:
             all_records (bool):

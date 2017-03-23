@@ -10,7 +10,6 @@ riak client configuration
 
 import riak
 import json
-import six
 from pyoko.conf import settings
 from riak.client.multi import MultiGetPool
 from riak.client.multi import Empty
@@ -54,6 +53,8 @@ class PyokoMG(MultiGetPool):
                 continue
 
             try:
+                # If data is found in cache this data is used.
+                # Else, data is taken from riak and set to cache.
                 if settings.ENABLE_CACHING:
                     obj_data = cache.get(task.key)
                     if obj_data:
