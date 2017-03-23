@@ -35,8 +35,6 @@ from pyoko.conf import settings
 from pyoko.db.connection import client, cache, log_bucket, version_bucket
 import riak
 from pyoko.exceptions import MultipleObjectsReturned, ObjectDoesNotExist, PyokoError
-import traceback
-import ast
 # TODO: Add OR support
 
 import sys
@@ -170,26 +168,73 @@ class Adapter(BaseAdapter):
 
     @staticmethod
     def get_from_solr(clone, number):
+        """
+        With the given number(0,1,2..) multiplies default row size and determines start parameter.
+        Takes results from solr according to this parameter. For example, if number is 2 and default
+         row size is 1000, takes results from solr between 2000 and 3000.
+
+        Args:
+            clone: Queryset adapter clone
+            number(int): Uses for solr start parameter. Multiplies with default row size.
+
+        Returns:
+             tuple with given number and riak_multi_get method input list.
+             Example return = (0, [('models','personel','McAPchPZzB6RVJ8QI2XSVQk4mUR'),
+                                 ('models','personel','XyZZrsadVJ8QI2XSVQk4mUR'),
+                                 ('models','personel','SkFl3RPZzB6RVJ8QI2XSVQk4mUR'),
+                                 ('models','personel','PxCdytPZzB6RVJ8QI2XSVQk4mUR')])
+
+        """
         start = number * clone._cfg['row_size']
         clone._solr_params.update({'start': start})
         clone._solr_locked = False
-        return number, [(clone._cfg['bucket_type'], clone._cfg['bucket_name'], doc.get('_yz_rk')) for doc in clone._exec_query()]
+        return number, [(clone._cfg['bucket_type'], clone._cfg['bucket_name'], doc.get('_yz_rk'))
+                        for doc in clone._exec_query()]
 
     def riak_multi_get(self, key_list_tuple):
+        """
+        Sends given tuples of list to multiget method and took riak objs' keys and data. For each
+        multiget call, separate pools are used and after execution, pools are stopped.
+        Args:
+            key_list_tuple(list of tuples): [('bucket_type','bucket','riak_key')]
+
+                                            Example:
+                                            [('models','personel','McAPchPZzB6RVJ8QI2XSVQk4mUR')]
+
+        Returns:
+            objs(tuple): obj's key and obj's value
+
+        """
         pool = PyokoMG()
         objs = self._client.multiget(key_list_tuple, pool=pool)
         pool.stop()
         return objs
 
     def __iter__(self):
+        """
+        Gets riak keys from solr an ordered and with these keys takes riak objs' keys and data from
+        riak. While taking data from riak executes threaded. According to demanded type
+        (ordered, unordered) yields key and data.
+
+        Unordered type:
+            Returns data and key which are first come regardless of solr order.
+
+        Ordered type:
+            Key and value tuples are put to a list. List is transformed to dict. And according to
+            solr order, yields key and data.
+
+        Returns:
+            tuple: obj's data, obj's key
+
+        """
         count = copy.deepcopy(self).count()
         chunk_size = ceil(count / float(self._cfg['row_size']))
         chunk_size_list = range(int(chunk_size))
 
         page_list = []
         with con.ThreadPoolExecutor(max_workers=10) as exc:
-            future_page_list = {exc.submit(self.get_from_solr, copy.deepcopy(self), p): p for p in
-                                chunk_size_list}
+            future_page_list = {exc.submit(self.get_from_solr, copy.deepcopy(self), page): page for
+                                page in chunk_size_list}
             for multiget_page_list in con.as_completed(future_page_list):
                 page_list.append(multiget_page_list.result())
         exc.shutdown()
