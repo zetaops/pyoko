@@ -10,7 +10,7 @@
     :target: http://www.youtube.com/watch?feature=player_embedded&v=2-dB-rY9_8s
 
 
-Pyoko: A Django-esque NoSQL ORM for Riak KV 2.1.4
+Pyoko: A Django-esque NoSQL ORM for Riak KV >= 2.2
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Features
