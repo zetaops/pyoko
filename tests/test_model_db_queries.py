@@ -95,7 +95,7 @@ class TestCase:
 
         assert len(filter_result) == 0
 
-    def test_all(self):
+        def test_all(self):
         mb = client.bucket_type('pyoko_models').bucket('student')
         row_size = BaseAdapter()._cfg['row_size']
         Student.objects._clear()
@@ -121,17 +121,16 @@ class TestCase:
         ordered_key_list = [doc['_yz_rk'] for doc in results['docs']]
 
         # Getting data from riak with unordered way is tested.
-        temp_key_list = []
-        for s in Student.objects.all():
-            temp_key_list.append(s.key)
-
-        assert len(temp_key_list) == row_size + 100
-        assert temp_key_list != ordered_key_list
+        students = Student.objects.all()
+        assert len(students) == row_size + 100
+        assert students.adapter.ordered == False
 
         # Getting data from riak with ordered way is tested.
         temp_key_list = []
-        for s in Student.objects.order_by().all():
-            temp_key_list.append(s.key)
+        students = Student.objects.order_by().all()
+        assert students.adapter.ordered == True
+        for student in students:
+            temp_key_list.append(student.key)
 
         assert len(temp_key_list) == row_size + 100
         assert temp_key_list == ordered_key_list

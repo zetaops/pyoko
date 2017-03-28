@@ -171,7 +171,7 @@ class Adapter(BaseAdapter):
         """
         With the given number(0,1,2..) multiplies default row size and determines start parameter.
         Takes results from solr according to this parameter. For example, if number is 2 and default
-         row size is 1000, takes results from solr between 2000 and 3000.
+        row size is 1000, takes results from solr between 2000 and 3000.
 
         Args:
             clone: Queryset adapter clone
