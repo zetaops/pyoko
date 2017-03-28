@@ -1,6 +1,7 @@
-git+https://github.com/zetaops/riak-python-client.git#egg=riak
+#git+https://github.com/zetaops/riak-python-client.git#egg=riak
 lazy_object_proxy
 enum34
 six
 redis
 futures
+riak

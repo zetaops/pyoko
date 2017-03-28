@@ -97,7 +97,7 @@ class QuerySet(object):
             # Adjust the index if a slice was defined previously
             adjusted_index = index + (self._start or 0)
             clone.adapter.set_params(rows=1, start=adjusted_index)
-            data, key = clone.adapter.get_one()
+            data, key = clone.adapter.get()
             return (clone._make_model(data, key)
                     if clone._cfg['rtype'] == ReturnType.Model
                     else (data, key))
@@ -136,7 +136,6 @@ class QuerySet(object):
             elif k == '_cfg':
                 obj._cfg = v.copy()
             else:
-                if k == '_cfg': print("CFG %s" % v.keys())
                 obj.__dict__[k] = copy.deepcopy(v, memo)
         obj.is_clone = True
         return obj
@@ -144,6 +143,7 @@ class QuerySet(object):
     def save_model(self, model, meta_data=None, index_fields=None):
         """
         saves the model instance to riak
+
         Args:
             meta (dict): JSON serializable meta data for logging of save operation.
                 {'lorem': 'ipsum', 'dolar': 5}
@@ -151,21 +151,7 @@ class QuerySet(object):
                 [('lorem','bin'),('dolar','int')]
         :return:
         """
-        # if model:
-        #     self._model = model
         return self.adapter.save_model(model, meta_data, index_fields)
-
-    # def _get(self):
-    #     """
-    #     executes solr query if needed then returns first object according to
-    #     selected ReturnType (defaults to Model)
-    #     :return: pyoko.Model or riak.Object or solr document
-    #     """
-    #     data, key = self.adapter.get_one()
-    #     if self._cfg['rtype'] == ReturnType.Model:
-    #         return self._make_model(data, key)
-    #     else:
-    #         return data
 
     def _make_model(self, data, key=None):
         """
@@ -199,11 +185,13 @@ class QuerySet(object):
         except TypeError:
             raise
 
-    def filter(self, **filters):
+    def filter(self, all_records=False, **filters):
         """
-        Applies given query filters.
+        Applies given query filters. If wanted result is more than specified size,
+        exception is raised about using all() method instead of filter.
 
         Args:
+            all_records (bool):
             **filters: Query filters as keyword arguments.
 
         Returns:
@@ -215,9 +203,32 @@ class QuerySet(object):
             >>> # Assume u1 and u2 as related model instances.
             >>> Person.objects.filter(work_unit__in=[u1, u2], name__startswith='jo')
         """
+
         clone = copy.deepcopy(self)
         clone.adapter.add_query(filters.items())
+        clone_length = clone.count()
+        if clone_length > self._cfg['row_size'] and not all_records:
+            raise Exception("""Your query result count(%s) is more than specified result value(%s).
+            You can narrow your filters, you can apply your own pagination or
+            you can use all() method for getting all filter results.
+            Example Usage: Unit.objects.all()
+            """ % (clone_length, self._cfg['row_size']))
+
         return clone
+
+    def all(self, **filters):
+        """
+        Applies given query filters and returns all results regardless of result count.
+
+        Args:
+            **filters: Query filters as keyword arguments.
+
+        Returns:
+            Self. Queryset object.
+
+        """
+
+        return self.filter(all_records=True, **filters)
 
     def exclude(self, **filters):
         """
@@ -263,7 +274,7 @@ class QuerySet(object):
 
 
         """
-        existing = list(self.filter(**kwargs))
+        existing = list(self.all(**kwargs))
         count = len(existing)
         try:
             if count > 1:
@@ -502,7 +513,9 @@ class QuerySet(object):
             >>> Person.objects.order_by('-name', 'join_date')
         """
         clone = copy.deepcopy(self)
-        clone.adapter.order_by(*args)
+        clone.adapter.ordered = True
+        if args:
+            clone.adapter.order_by(*args)
         return clone
 
     def set_params(self, **params):

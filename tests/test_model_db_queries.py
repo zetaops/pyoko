@@ -10,11 +10,14 @@ import datetime
 from time import sleep
 import pytest
 from pyoko.conf import settings
-from pyoko.db.adapter.db_riak import BlockSave, BlockDelete
+from pyoko.db.adapter.db_riak import BlockSave, BlockDelete, Adapter
 from pyoko.exceptions import MultipleObjectsReturned
 from pyoko.manage import FlushDB
 from tests.data.test_data import data, clean_data
 from tests.models import Student, TimeTable, User, Role
+from pyoko.db.adapter.base import BaseAdapter
+from pyoko.db.connection import client
+import time
 
 
 class TestCase:
@@ -36,8 +39,7 @@ class TestCase:
         if cls.new_obj is None or reset:
             cls.new_obj = Student()
             cls.new_obj.set_data(data)
-            cls.new_obj.save()
-            sleep(1)  # wait for Riak -> Solr sync
+            cls.new_obj.blocking_save()
         return cls.new_obj
 
     @classmethod
@@ -68,8 +70,7 @@ class TestCase:
 
     def test_get_multiple_objects_exception(self):
         self.prepare_testbed()
-        Student(name='Foo').save()
-        sleep(1)
+        Student(name='Foo').blocking_save()
         with pytest.raises(MultipleObjectsReturned):
             Student.objects.get()
 
@@ -94,6 +95,47 @@ class TestCase:
 
         assert len(filter_result) == 0
 
+    def test_all(self):
+        mb = client.bucket_type('pyoko_models').bucket('student')
+        row_size = BaseAdapter()._cfg['row_size']
+        Student.objects._clear()
+        assert Student.objects.count() == 0
+
+        for i in range(row_size + 100):
+            Student(name=str(i)).save()
+
+        while Student.objects.count() != row_size + 100:
+            time.sleep(0.3)
+
+        # Wanted result from filter method much than default row_size.
+        # It should raise an exception.
+        with pytest.raises(Exception):
+            Student.objects.filter()
+
+        # Results are taken from solr in ordered with 'timestamp' sort parameter.
+        results = mb.search('-deleted:True', 'pyoko_models_student',
+                            **{'sort': 'timestamp desc', 'fl': '_yz_rk, score',
+                               'rows': row_size + 100})
+
+        # Ordered key list is created.
+        ordered_key_list = [doc['_yz_rk'] for doc in results['docs']]
+
+        # Getting data from riak with unordered way is tested.
+        students = Student.objects.all()
+        assert len(students) == row_size + 100
+        assert students.adapter.ordered == False
+
+        # Getting data from riak with ordered way is tested.
+        temp_key_list = []
+        students = Student.objects.order_by().all()
+        assert students.adapter.ordered == True
+        for student in students:
+            temp_key_list.append(student.key)
+
+        assert len(temp_key_list) == row_size + 100
+        assert temp_key_list == ordered_key_list
+        self.prepare_testbed(reset=True)
+
     def test_riak_raw_query(self):
         self.prepare_testbed()
         assert 'Jack' == Student.objects.raw('name:Jack').get().name
@@ -114,21 +156,21 @@ class TestCase:
 
         assert len(exclude_result) == 0
 
-        assert User.objects.filter().exclude(
+        assert User.objects.all().exclude(
             name='ThereIsNoSuchAName').count() == User.objects.count()
-        assert User.objects.filter().exclude(name='Mate2').count() == User.objects.count() - 1
+        assert User.objects.all().exclude(name='Mate2').count() == User.objects.count() - 1
         assert User.objects.filter(name='Mate2').exclude(
             supervisor_id='ThereIsNoSuchAnId').count() == 1
         assert Student.objects.filter(name='Jack').exclude(surname='Black').count() == 0
         assert User.objects.filter(name='Mate2').exclude(name='Mate2').count() == 0
 
         role_names = ['Foo Fighters']
-        assert Role.objects.filter().exclude(
+        assert Role.objects.all().exclude(
             name__in=role_names).count() == Role.objects.count() - 1
 
         # There are two role with 'Foo Frighters' name and one role with 'Foo Fighters'
         role_names = ['Foo Fighters', 'Foo Frighters']
-        assert Role.objects.filter().exclude(
+        assert Role.objects.all().exclude(
             name__in=role_names).count() == Role.objects.count() - 3
 
         role_keys = Role.objects.filter(name__in=role_names).values_list('key')
@@ -176,7 +218,9 @@ class TestCase:
     def test_riak_save_query_list_solr_docs(self):
         # FIXME: order of multivalued field values varies between solr versions
         st = self.prepare_testbed()
-        qset = Student.objects.filter(auth_info__email=data['auth_info']['email'])
+
+        # fl default is only _yz_rk, score
+        qset = Student.objects.set_params(fl='_yz_rk, _yz_rb, _yz_rt, score').filter(auth_info__email=data['auth_info']['email'])
         qset.adapter._exec_query()
         st2_doc = qset.adapter._solr_cache['docs'][0]
         assert st2_doc['_yz_rb'] == 'student'
@@ -209,7 +253,7 @@ class TestCase:
         with BlockSave(TimeTable):
             for i in range(5):
                 TimeTable(week_day=i, hours=i).save()
-        items = TimeTable.objects.filter()[1:2]
+        items = TimeTable.objects.all()[1:2]
         assert len(list(items)) == 1
 
     def test_or_queries(self):

@@ -20,6 +20,9 @@ from riak.util import bytes_to_str
 
 from pyoko.db.adapter.base import BaseAdapter
 from pyoko.fields import DATE_FORMAT, DATE_TIME_FORMAT
+import concurrent.futures as con
+from math import ceil
+from pyoko.db.connection import PyokoMG
 
 try:
     from urllib.request import urlopen
@@ -32,10 +35,6 @@ from pyoko.conf import settings
 from pyoko.db.connection import client, cache, log_bucket, version_bucket
 import riak
 from pyoko.exceptions import MultipleObjectsReturned, ObjectDoesNotExist, PyokoError
-import traceback
-import ast
-
-# TODO: Add OR support
 
 import sys
 
@@ -64,10 +63,13 @@ class BlockSave(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         key_list = list(set(Adapter.block_saved_keys))
         self.query_dict['key__in'] = key_list
-        indexed_obj_count = self.mdl.objects.filter(**self.query_dict)
-        while Adapter.block_saved_keys and indexed_obj_count.count() < len(key_list):
-            time.sleep(.4)
-        Adapter.COLLECT_SAVES = False
+        try:
+            indexed_obj_count = self.mdl.objects.filter(**self.query_dict)
+            while Adapter.block_saved_keys and indexed_obj_count.count() < len(key_list):
+                time.sleep(.4)
+            Adapter.COLLECT_SAVES = False
+        except ValueError:
+            pass
 
 
 class BlockDelete(object):
@@ -80,10 +82,13 @@ class BlockDelete(object):
         Adapter.COLLECT_SAVES_FOR_MODEL = self.mdl.__name__
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        indexed_obj_count = self.mdl.objects.filter(key__in=Adapter.block_saved_keys)
-        while Adapter.block_saved_keys and indexed_obj_count.count():
-            time.sleep(.4)
-        Adapter.COLLECT_SAVES = False
+        try:
+            indexed_obj_count = self.mdl.objects.filter(key__in=Adapter.block_saved_keys)
+            while Adapter.block_saved_keys and indexed_obj_count.count():
+                time.sleep(.4)
+            Adapter.COLLECT_SAVES = False
+        except ValueError:
+            pass
 
 
 # noinspection PyTypeChecker
@@ -99,6 +104,9 @@ class Adapter(BaseAdapter):
         self.version_bucket = riak.RiakBucket
         self._client = self._cfg.pop('client', client)
         self.index_name = ''
+
+        # yield query result in order
+        self.ordered = False
 
         if '_model_class' in conf:
             self._model_class = conf['model_class']
@@ -116,10 +124,13 @@ class Adapter(BaseAdapter):
         self._QUERY_GLUE = ' AND '
         self._solr_query = []  # query parts, will be compiled before execution
         self._solr_params = {
-            'sort': 'timestamp desc'}  # search parameters. eg: rows, fl, start, sort etc.
+            "sort": {"timestamp": "desc"},
+            # we need only riak key, score for riak client bug
+            # https://github.com/basho/riak-python-client/issues/362
+            "fl": "_yz_rk, score",
+        }
         self._solr_locked = False
         self._solr_cache = {}
-        # self.key = None
         self._riak_cache = []  # caching riak result,
         # for repeating iterations on same query
 
@@ -158,24 +169,97 @@ class Adapter(BaseAdapter):
                 time.sleep(0.3)
         return i
 
+    @staticmethod
+    def get_from_solr(clone, number):
+        """
+        With the given number(0,1,2..) multiplies default row size and determines start parameter.
+        Takes results from solr according to this parameter. For example, if number is 2 and default
+        row size is 1000, takes results from solr between 2000 and 3000.
+
+        Args:
+            clone: Queryset adapter clone
+            number(int): Uses for solr start parameter. Multiplies with default row size.
+
+        Returns:
+             tuple with given number and riak_multi_get method input list.
+             Example return = (0, [('models','personel','McAPchPZzB6RVJ8QI2XSVQk4mUR'),
+                                 ('models','personel','XyZZrsadVJ8QI2XSVQk4mUR'),
+                                 ('models','personel','SkFl3RPZzB6RVJ8QI2XSVQk4mUR'),
+                                 ('models','personel','PxCdytPZzB6RVJ8QI2XSVQk4mUR')])
+
+        """
+        start = number * clone._cfg['row_size']
+        clone._solr_params.update({'start': start})
+        clone._solr_locked = False
+        return number, [(clone._cfg['bucket_type'], clone._cfg['bucket_name'], doc.get('_yz_rk'))
+                        for doc in clone._exec_query()]
+
+    def riak_multi_get(self, key_list_tuple):
+        """
+        Sends given tuples of list to multiget method and took riak objs' keys and data. For each
+        multiget call, separate pools are used and after execution, pools are stopped.
+        Args:
+            key_list_tuple(list of tuples): [('bucket_type','bucket','riak_key')]
+
+                                            Example:
+                                            [('models','personel','McAPchPZzB6RVJ8QI2XSVQk4mUR')]
+
+        Returns:
+            objs(tuple): obj's key and obj's value
+
+        """
+        pool = PyokoMG()
+        objs = self._client.multiget(key_list_tuple, pool=pool)
+        pool.stop()
+        return objs
+
     def __iter__(self):
-        self._exec_query()
-        for doc in self._solr_cache['docs']:
-            # if settings.DEBUG:
-            #     t1 = time.time()
-            obj = self.bucket.get(doc['_yz_rk'])
-            if not obj.exists:
-                raise ObjectDoesNotExist("We got %s from Solr for %s bucket but cannot find it in the Riak" % (
-                    doc['_yz_rk'], self._model_class))
-            yield obj.data, obj.key
-            if settings.DEBUG:
-                sys.PYOKO_STAT_COUNTER['read'] += 1
-                sys.PYOKO_LOGS[self._model_class.__name__].append(doc['_yz_rk'])
-                # sys._debug_db_queries.append({
-                #     'TIMESTAMP': t1,
-                #     'KEY': doc['_yz_rk'],
-                #     'BUCKET': self.index_name,
-                #     'TIME': round(time.time() - t1, 5)})
+        """
+        Gets riak keys from solr an ordered and with these keys takes riak objs' keys and data from
+        riak. While taking data from riak executes threaded. According to demanded type
+        (ordered, unordered) yields key and data.
+
+        Unordered type:
+            Returns data and key which are first come regardless of solr order.
+
+        Ordered type:
+            Key and value tuples are put to a list. List is transformed to dict. And according to
+            solr order, yields key and data.
+
+        Returns:
+            tuple: obj's data, obj's key
+
+        """
+        count = copy.deepcopy(self).count()
+        chunk_size = ceil(count / float(self._cfg['row_size']))
+        chunk_size_list = range(int(chunk_size))
+
+        page_list = []
+        with con.ThreadPoolExecutor(max_workers=10) as exc:
+            future_page_list = {exc.submit(self.get_from_solr, copy.deepcopy(self), page): page for
+                                page in chunk_size_list}
+            for multiget_page_list in con.as_completed(future_page_list):
+                page_list.append(multiget_page_list.result())
+        exc.shutdown()
+
+        pages = []
+        with con.ThreadPoolExecutor(max_workers=5) as exc:
+            future_objs = {exc.submit(self.riak_multi_get, key_list_tuple): key_list_tuple for
+                           _, key_list_tuple in page_list}
+
+            for riak_objs in con.as_completed(future_objs):
+                objs = riak_objs.result()
+                if not self.ordered:
+                    for obj in objs:
+                        yield obj[1], obj[0]
+                else:
+                    pages.extend(objs)
+
+        if pages:
+            objs = dict(pages)
+            for _, key_list_tuple in sorted(page_list):
+                for _, _, key in key_list_tuple:
+                    yield objs.get(key), key
 
     def __deepcopy__(self, memo=None):
         """
@@ -318,7 +402,7 @@ class Adapter(BaseAdapter):
             version_key = ''
 
         if settings.ENABLE_CACHING:
-            self.set_to_cache(model.key, clean_value)
+            self.set_to_cache((clean_value, model.key))
 
         meta_data = meta_data or model.save_meta_data
         if settings.ENABLE_ACTIVITY_LOGGING and meta_data:
@@ -344,57 +428,78 @@ class Adapter(BaseAdapter):
         return model
 
     @staticmethod
-    def set_to_cache(key, value):
+    def set_to_cache(vk):
+        """
+        Args:
+            vk (tuple): obj data (dict), obj key(str)
+
+        Return:
+            tuple: value (dict), key (string)
+        """
+        v, k = vk
+
         try:
-            if not value['deleted']:
-                cache.set(key, json.dumps(value), settings.CACHE_EXPIRE_DURATION)
-            else:
-                cache.delete(key)
+            cache.set(k, json.dumps(v), settings.CACHE_EXPIRE_DURATION)
         except Exception as e:
-            # todo should add log.error()
             pass
+            # todo should add log.error()
+        return v, k
 
     @staticmethod
     def get_from_cache(key):
+        """
+        Args:
+            key (str):
+        Return:
+            (dict): from json string
+        """
+
         try:
-            return cache.get(key)
+            value = cache.get(key)
+            return json.loads(value), key if value else None
         except Exception as e:
             # todo should add log.error()
-            return ""
+            return None
+
+    def _get_from_riak(self, key):
+        """
+        Args:
+            key (str): riak key
+        Returns:
+            (tuple): riak obj json data and riak key
+        """
+
+        obj = self.bucket.get(key)
+
+        if obj.exists:
+            return obj.data, obj.key
+
+        raise ObjectDoesNotExist("%s %s" % (key, self.compiled_query))
 
     def get(self, key=None):
+        """
+
+        If key is not None, tries to get obj from cache first. If not
+        found, tries to get from riak and sets to cache.
+
+        If key is None, then execute solr query and checks result. Returns
+        obj data and key tuple or raises exception ObjectDoesNotExist or
+        MultipleObjectsReturned.
+
+        Args:
+            key(str): obj key
+        Return:
+            (tuple): obj data dict, obj key
+
+        """
         if key:
             if settings.ENABLE_CACHING:
-                data = self.get_from_cache(key)
-                if data:
-                    if six.PY2:
-                        _data = data
-                    if six.PY3:
-                        _data = data.decode()
-                    data = json.loads(_data)
-                    return data, str(key)
-                else:
-                    self._riak_cache = [self.bucket.get(key)]
-                    # In order to set to the cache
-                    _data, _key = self.get_one()
-                    try:
-                        self.set_to_cache(_key, _data)
-                    except Exception as e:
-                        # todo should add log.error()
-                        pass
-                    return _data, _key
+                return self.get_from_cache(key) or self.set_to_cache(self._get_from_riak(key))
+
             else:
-                self._riak_cache = [self.bucket.get(key)]
+                return self._get_from_riak(key)
 
-        return self.get_one()
-
-    def get_one(self):
-        """
-        executes solr query if needed then returns first object according to
-        selected ReturnType (defaults to Model)
-        :return: pyoko.Model or riak.Object or solr document
-        """
-        if not self._riak_cache:
+        else:
             self._exec_query()
             if not self._solr_cache['docs']:
                 raise ObjectDoesNotExist("%s %s" % (self.index_name, self.compiled_query))
@@ -404,16 +509,7 @@ class Adapter(BaseAdapter):
                     "%s objects returned for %s" % (self.count(),
                                                     self._model_class.__name__))
 
-            self._riak_cache = [self.bucket.get(self._solr_cache['docs'][0]['_yz_rk'])]
-
-            sys.PYOKO_LOGS[self._model_class.__name__].append(
-                self._solr_cache['docs'][0]['_yz_rk'])
-
-        if not self._riak_cache[0].exists:
-            raise ObjectDoesNotExist("%s %s" % (self.index_name,
-                                                self._riak_cache[0].key))
-
-        return self._riak_cache[0].data, self._riak_cache[0].key
+            return self._get_from_riak(self._solr_cache['docs'][0]['_yz_rk'])
 
     def count(self):
         """Counts the number of results that could be accessed with the current parameters.
@@ -471,6 +567,8 @@ class Adapter(BaseAdapter):
         """
         Applies query ordering.
 
+        New parameters are appended to current ones, overwriting existing ones.
+
         Args:
             **args: Order by fields names.
             Defaults to ascending, prepend with hypen (-) for desecending ordering.
@@ -481,8 +579,12 @@ class Adapter(BaseAdapter):
             raise Exception("Query already executed, no changes can be made."
                             "%s %s" % (self._solr_query, self._solr_params)
                             )
-        self._solr_params['sort'] = ', '.join(['%s desc' % arg[1:] if arg.startswith('-')
-                                               else '%s asc' % arg for arg in args])
+
+        for arg in args:
+            if arg.startswith('-'):
+                self._solr_params['sort'][arg[1:]] = 'desc'
+            else:
+                self._solr_params['sort'][arg] = 'asc'
 
     def set_params(self, **params):
         """
@@ -691,6 +793,9 @@ class Adapter(BaseAdapter):
                 is_escaped = True
             # __in query is same as OR_QRY but key stays same for all values
             elif key.endswith('__in'):
+                if not val:
+                    raise ValueError("query value list can not be empty for __in query, "
+                                     "please check if it is empty or not before execute filter.")
                 key = key[:-4]
                 val = ' OR '.join(
                     ['%s:%s' % (key, self._escape_query(v, is_escaped)) for v in val])
@@ -738,6 +843,32 @@ class Adapter(BaseAdapter):
             joined_query = '*:*'
         self.compiled_query = joined_query
 
+    def _sort_to_str(self):
+        """
+        Before exec query, this method transforms sort dict string
+
+        from
+
+            {"name": "asc", "timestamp":"desc"}
+
+        to
+
+            "name asc, timestamp desc"
+        """
+
+        params_list = []
+        timestamp = ""
+
+        for k, v in self._solr_params['sort'].items():
+            if k != "timestamp":
+                params_list.append(" ".join([k, v]))
+            else:
+                timestamp = v
+
+        params_list.append(" ".join(['timestamp', timestamp]))
+
+        self._solr_params['sort'] = ", ".join(params_list)
+
     def _process_params(self):
         """
         Adds default row size if it's not given in the query.
@@ -746,10 +877,14 @@ class Adapter(BaseAdapter):
         Returns:
             Processed self._solr_params dict.
         """
+        # transform sort dict into str
+        self._sort_to_str()
+
         if 'rows' not in self._solr_params:
             self._solr_params['rows'] = self._cfg['row_size']
+
         for key, val in self._solr_params.items():
-            if isinstance(val, str):
+            if isinstance(val, str) and six.PY2:
                 self._solr_params[key] = val.encode(encoding='UTF-8')
         return self._solr_params
 
@@ -767,9 +902,6 @@ class Adapter(BaseAdapter):
         Returns:
             Self.
         """
-        # https://github.com/basho/riak-python-client/issues/362
-        # if not self._solr_cache:
-        #     self.set_params(fl='_yz_rk')  # we're going to riak, fetch only keys
         if not self._solr_locked:
             if not self.compiled_query:
                 self._compile_query()
@@ -785,16 +917,8 @@ class Adapter(BaseAdapter):
                 if settings.DEBUG and settings.DEBUG_LEVEL >= 5:
                     print("QRY => %s\nSOLR_PARAMS => %s" % (self.compiled_query, solr_params))
 
-
-                    # if settings.DEBUG:
-                    #     sys.PYOKO_STAT_COUNTER['search'] += 1
-                    #     sys._debug_db_queries.append({
-                    #         'TIMESTAMP': t1,
-                    #         'QUERY': self.compiled_query,
-                    #         'BUCKET': self.index_name,
-                    #         'QUERY_PARAMS': solr_params,
-                    #         'TIME': round(time.time() - t1, 4)})
             except riak.RiakError as err:
                 err.value += self._get_debug_data()
                 raise
             self._solr_locked = True
+            return self._solr_cache['docs']

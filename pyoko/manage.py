@@ -112,11 +112,12 @@ class BaseThreadedCommand(object):
         if model_name != 'all':
             models = [registry.get_model(name) for name in model_name.split(',')]
         else:
-            models = registry.get_base_models()
+            excluded_models = []
             if 'exclude' in params and self.manager.args.exclude:
                 excluded_models = [registry.get_model(name) for name in
                                    self.manager.args.exclude.split(',')]
-                models = [model for model in models if model not in excluded_models]
+
+            models = [model for model in registry.get_base_models() if model not in excluded_models]
         return models
 
     def do_with_submit(self, func, iterables, *args, **kwargs):
@@ -133,6 +134,7 @@ class BaseThreadedCommand(object):
         with con.ThreadPoolExecutor(max_workers=int(threads)) as executor:
             for item in iterables:
                 executor.submit(func, item, *args)
+
 
 class Shell(Command):
     CMD_NAME = 'shell'

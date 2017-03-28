@@ -9,14 +9,13 @@
 
 from __future__ import print_function
 import codecs
-from random import randint
 from sys import stdout
-import threading
 import time
-from riak import ConflictError, RiakError
+import six
+from riak import RiakError
 from pyoko.conf import settings
-from pyoko.db.connection import client, log_bucket
-import os, inspect
+from pyoko.db.connection import client
+import os
 import copy
 from pyoko.manage import BaseThreadedCommand
 from pyoko.manage import ReIndex
@@ -290,4 +289,9 @@ class SchemaUpdater(object):
         #     os.path.abspath(inspect.getfile(inspect.currentframe())))
         with codecs.open("%s/solr_schema_template.xml" % path, 'r', 'utf-8') as fh:
             schema_template = fh.read()
-        return schema_template.format('\n'.join(fields)).encode('utf-8')
+
+        schema = schema_template.format('\n'.join(fields))
+        if six.PY2:
+            return schema.encode('utf-8')
+
+        return schema
