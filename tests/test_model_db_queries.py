@@ -95,7 +95,7 @@ class TestCase:
 
         assert len(filter_result) == 0
 
-        def test_all(self):
+    def test_all(self):
         mb = client.bucket_type('pyoko_models').bucket('student')
         row_size = BaseAdapter()._cfg['row_size']
         Student.objects._clear()
