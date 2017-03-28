@@ -10,11 +10,14 @@ import datetime
 from time import sleep
 import pytest
 from pyoko.conf import settings
-from pyoko.db.adapter.db_riak import BlockSave, BlockDelete
+from pyoko.db.adapter.db_riak import BlockSave, BlockDelete, Adapter
 from pyoko.exceptions import MultipleObjectsReturned
 from pyoko.manage import FlushDB
 from tests.data.test_data import data, clean_data
 from tests.models import Student, TimeTable, User, Role
+from pyoko.db.adapter.base import BaseAdapter
+from pyoko.db.connection import client
+import time
 
 
 class TestCase:
@@ -91,6 +94,49 @@ class TestCase:
                          s.name != 'Jack']
 
         assert len(filter_result) == 0
+
+    def test_all(self):
+        mb = client.bucket_type('pyoko_models').bucket('student')
+        c = Adapter()._solr_params['sort']
+        row_size = BaseAdapter()._cfg['row_size']
+        Student.objects._clear()
+        assert Student.objects.count() == 0
+
+        for i in range(row_size + 100):
+            Student(name=str(i)).save()
+
+        while Student.objects.count() != row_size + 100:
+            time.sleep(0.3)
+
+        # Wanted result from filter method much than default row_size.
+        # It should raise an exception.
+        with pytest.raises(Exception):
+            Student.objects.filter()
+
+        # Results are taken from solr in ordered with 'timestamp' sort parameter.
+        results = mb.search('-deleted:True', 'pyoko_models_student',
+                            **{'sort': 'timestamp desc', 'fl': '_yz_rk, score',
+                               'rows': row_size + 100})
+
+        # Ordered key list is created.
+        ordered_key_list = [doc['_yz_rk'] for doc in results['docs']]
+
+        # Getting data from riak with unordered way is tested.
+        temp_key_list = []
+        for s in Student.objects.all():
+            temp_key_list.append(s.key)
+
+        assert len(temp_key_list) == row_size + 100
+        assert temp_key_list != ordered_key_list
+
+        # Getting data from riak with ordered way is tested.
+        temp_key_list = []
+        for s in Student.objects.order_by().all():
+            temp_key_list.append(s.key)
+
+        assert len(temp_key_list) == row_size + 100
+        assert temp_key_list == ordered_key_list
+        self.prepare_testbed(reset=True)
 
     def test_riak_raw_query(self):
         self.prepare_testbed()
