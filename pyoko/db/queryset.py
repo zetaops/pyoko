@@ -136,7 +136,6 @@ class QuerySet(object):
             elif k == '_cfg':
                 obj._cfg = v.copy()
             else:
-                # if k == '_cfg': print("CFG %s" % v.keys())
                 obj.__dict__[k] = copy.deepcopy(v, memo)
         obj.is_clone = True
         return obj
@@ -144,6 +143,7 @@ class QuerySet(object):
     def save_model(self, model, meta_data=None, index_fields=None):
         """
         saves the model instance to riak
+
         Args:
             meta (dict): JSON serializable meta data for logging of save operation.
                 {'lorem': 'ipsum', 'dolar': 5}
@@ -152,18 +152,6 @@ class QuerySet(object):
         :return:
         """
         return self.adapter.save_model(model, meta_data, index_fields)
-
-    # def _get(self):
-    #     """
-    #     executes solr query if needed then returns first object according to
-    #     selected ReturnType (defaults to Model)
-    #     :return: pyoko.Model or riak.Object or solr document
-    #     """
-    #     data, key = self.adapter.get_one()
-    #     if self._cfg['rtype'] == ReturnType.Model:
-    #         return self._make_model(data, key)
-    #     else:
-    #         return data
 
     def _make_model(self, data, key=None):
         """
@@ -227,7 +215,6 @@ class QuerySet(object):
             """ % (clone_length, self._cfg['row_size']))
 
         return clone
-
 
     def all(self, **filters):
         """

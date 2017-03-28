@@ -35,7 +35,6 @@ from pyoko.conf import settings
 from pyoko.db.connection import client, cache, log_bucket, version_bucket
 import riak
 from pyoko.exceptions import MultipleObjectsReturned, ObjectDoesNotExist, PyokoError
-# TODO: Add OR support
 
 import sys
 
@@ -91,6 +90,7 @@ class BlockDelete(object):
         except ValueError:
             pass
 
+
 # noinspection PyTypeChecker
 class Adapter(BaseAdapter):
     """
@@ -104,6 +104,8 @@ class Adapter(BaseAdapter):
         self.version_bucket = riak.RiakBucket
         self._client = self._cfg.pop('client', client)
         self.index_name = ''
+
+        # yield query result in order
         self.ordered = False
 
         if '_model_class' in conf:
@@ -122,12 +124,13 @@ class Adapter(BaseAdapter):
         self._QUERY_GLUE = ' AND '
         self._solr_query = []  # query parts, will be compiled before execution
         self._solr_params = {
-            'sort': 'timestamp desc',
-            'fl': '_yz_rk, score',
-        }  # search parameters. eg: rows, fl, start, sort etc.
+            "sort": {"timestamp": "desc"},
+            # we need only riak key, score for riak client bug
+            # https://github.com/basho/riak-python-client/issues/362
+            "fl": "_yz_rk, score",
+        }
         self._solr_locked = False
         self._solr_cache = {}
-        # self.key = None
         self._riak_cache = []  # caching riak result,
         # for repeating iterations on same query
 
@@ -563,9 +566,8 @@ class Adapter(BaseAdapter):
     def order_by(self, *args):
         """
         Applies query ordering.
-        If default sort paramaters exist, new parameters are added to them.
-        If intended parameter exists in default sort parameters. New one is overwrited on default one.
-        If timestamp parameter in parameters, is added to end of list.
+
+        New parameters are appended to current ones, overwriting existing ones.
 
         Args:
             **args: Order by fields names.
@@ -578,32 +580,11 @@ class Adapter(BaseAdapter):
                             "%s %s" % (self._solr_query, self._solr_params)
                             )
 
-        sort_params_dict = {}
-
-        default_sort_params = self._solr_params.get('sort', '')
-        if default_sort_params:
-            sort_params_list = default_sort_params.split(',')
-            for sort_param in sort_params_list:
-                sort_param_list = sort_param.strip().split()
-                sort_params_dict[sort_param_list[0]] = sort_param_list[1]
-
         for arg in args:
             if arg.startswith('-'):
-                sort_params_dict[arg[1:]] = 'desc'
+                self._solr_params['sort'][arg[1:]] = 'desc'
             else:
-                sort_params_dict[arg] = 'asc'
-
-        time_val = sort_params_dict.pop('timestamp') if 'timestamp' in sort_params_dict else ''
-
-        params_list = []
-        for k, v in sort_params_dict.items():
-            params_list.append(" ".join([k, v]))
-
-        if time_val:
-            params_list.append(" ".join(['timestamp', time_val]))
-
-        self._solr_params['sort'] = ", ".join(params_list)
-
+                self._solr_params['sort'][arg] = 'asc'
 
     def set_params(self, **params):
         """
@@ -862,6 +843,32 @@ class Adapter(BaseAdapter):
             joined_query = '*:*'
         self.compiled_query = joined_query
 
+    def _sort_to_str(self):
+        """
+        Before exec query, this method transforms sort dict string
+
+        from
+
+            {"name": "asc", "timestamp":"desc"}
+
+        to
+
+            "name asc, timestamp desc"
+        """
+
+        params_list = []
+        timestamp = ""
+
+        for k, v in self._solr_params['sort'].items():
+            if k != "timestamp":
+                params_list.append(" ".join([k, v]))
+            else:
+                timestamp = v
+
+        params_list.append(" ".join(['timestamp', timestamp]))
+
+        self._solr_params['sort'] = ", ".join(params_list)
+
     def _process_params(self):
         """
         Adds default row size if it's not given in the query.
@@ -870,8 +877,12 @@ class Adapter(BaseAdapter):
         Returns:
             Processed self._solr_params dict.
         """
+        # transform sort dict into str
+        self._sort_to_str()
+
         if 'rows' not in self._solr_params:
             self._solr_params['rows'] = self._cfg['row_size']
+
         for key, val in self._solr_params.items():
             if isinstance(val, str) and six.PY2:
                 self._solr_params[key] = val.encode(encoding='UTF-8')
