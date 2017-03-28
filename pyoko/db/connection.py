@@ -68,8 +68,6 @@ class PyokoMG(MultiGetPool):
                     raise NotFound()
 
                 if settings.ENABLE_CACHING:
-                    if isinstance(obj.data, bytes):
-                        obj.data = json.loads(obj.data)
                     cache.set(task.key, json.dumps(obj.data), settings.CACHE_EXPIRE_DURATION)
 
                 task.outq.put((obj.key, obj.data))

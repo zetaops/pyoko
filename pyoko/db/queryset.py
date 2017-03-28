@@ -527,7 +527,8 @@ class QuerySet(object):
         """
         clone = copy.deepcopy(self)
         clone.adapter.ordered = True
-        clone.adapter.order_by(*args)
+        if args:
+            clone.adapter.order_by(*args)
         return clone
 
     def set_params(self, **params):

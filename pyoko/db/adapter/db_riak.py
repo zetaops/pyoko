@@ -468,11 +468,6 @@ class Adapter(BaseAdapter):
 
         obj = self.bucket.get(key)
 
-        # seems riak client has a bug, bucket.get method
-        # returns bytes instead of dict erroneously
-        if isinstance(obj.data, bytes):
-            obj.data = json.loads(obj.data)
-
         if obj.exists:
             return obj.data, obj.key
 
@@ -568,6 +563,9 @@ class Adapter(BaseAdapter):
     def order_by(self, *args):
         """
         Applies query ordering.
+        If default sort paramaters exist, new parameters are added to them.
+        If intended parameter exists in default sort parameters. New one is overwrited on default one.
+        If timestamp parameter in parameters, is added to end of list.
 
         Args:
             **args: Order by fields names.
@@ -579,8 +577,33 @@ class Adapter(BaseAdapter):
             raise Exception("Query already executed, no changes can be made."
                             "%s %s" % (self._solr_query, self._solr_params)
                             )
-        self._solr_params['sort'] = ', '.join(['%s desc' % arg[1:] if arg.startswith('-')
-                                               else '%s asc' % arg for arg in args])
+
+        sort_params_dict = {}
+
+        default_sort_params = self._solr_params.get('sort', '')
+        if default_sort_params:
+            sort_params_str = default_sort_params.split(',')
+            for sort_param in sort_params_str:
+                sort_param_list = sort_param.lstrip().split()
+                sort_params_dict[sort_param_list[0]] = sort_param_list[1]
+
+        for arg in args:
+            if arg.startswith('-'):
+                sort_params_dict[arg[1:]] = 'desc'
+            else:
+                sort_params_dict[arg] = 'asc'
+
+        time_val = sort_params_dict.pop('timestamp') if 'timestamp' in sort_params_dict else ''
+
+        params_list = []
+        for k, v in sort_params_dict.items():
+            params_list.append(" ".join([k, v]))
+
+        if time_val:
+            params_list.append(" ".join(['timestamp', time_val]))
+
+        self._solr_params['sort'] = ", ".join(params_list)
+
 
     def set_params(self, **params):
         """
