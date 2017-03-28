@@ -582,9 +582,9 @@ class Adapter(BaseAdapter):
 
         default_sort_params = self._solr_params.get('sort', '')
         if default_sort_params:
-            sort_params_str = default_sort_params.split(',')
-            for sort_param in sort_params_str:
-                sort_param_list = sort_param.lstrip().split()
+            sort_params_list = default_sort_params.split(',')
+            for sort_param in sort_params_list:
+                sort_param_list = sort_param.strip().split()
                 sort_params_dict[sort_param_list[0]] = sort_param_list[1]
 
         for arg in args:

@@ -97,7 +97,6 @@ class TestCase:
 
     def test_all(self):
         mb = client.bucket_type('pyoko_models').bucket('student')
-        c = Adapter()._solr_params['sort']
         row_size = BaseAdapter()._cfg['row_size']
         Student.objects._clear()
         assert Student.objects.count() == 0
