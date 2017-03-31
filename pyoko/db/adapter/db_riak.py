@@ -23,6 +23,7 @@ from pyoko.fields import DATE_FORMAT, DATE_TIME_FORMAT
 import concurrent.futures as con
 from math import ceil
 from pyoko.db.connection import PyokoMG
+from pyoko.lib.utils import ub_to_str
 
 try:
     from urllib.request import urlopen
@@ -191,7 +192,7 @@ class Adapter(BaseAdapter):
         start = number * clone._cfg['row_size']
         clone._solr_params.update({'start': start})
         clone._solr_locked = False
-        return number, [(clone._cfg['bucket_type'], clone._cfg['bucket_name'], doc.get('_yz_rk'))
+        return number, [(clone._cfg['bucket_type'], clone._cfg['bucket_name'], ub_to_str(doc.get('_yz_rk')))
                         for doc in clone._exec_query()]
 
     def riak_multi_get(self, key_list_tuple):
@@ -492,7 +493,9 @@ class Adapter(BaseAdapter):
             (tuple): obj data dict, obj key
 
         """
+
         if key:
+            key = ub_to_str(key)
             if settings.ENABLE_CACHING:
                 return self.get_from_cache(key) or self.set_to_cache(self._get_from_riak(key))
 

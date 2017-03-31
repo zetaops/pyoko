@@ -13,6 +13,7 @@ from enum import Enum
 from .adapter.db_riak import Adapter
 from pyoko.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 import sys
+from pyoko.lib.utils import ub_to_str
 
 ReturnType = Enum('ReturnType', 'Object Model')
 
@@ -167,7 +168,8 @@ class QuerySet(object):
             raise ObjectDoesNotExist('Deleted object returned')
         model = self._model_class(self._current_context,
                                   _pass_perm_checks=self._pass_perm_checks)
-        model.setattr('key', key if key else data.get('key'))
+
+        model.setattr('key', ub_to_str(key) if key else ub_to_str(data.get('key')))
         return model.set_data(data, from_db=True)
 
     def __repr__(self):
@@ -212,7 +214,9 @@ class QuerySet(object):
             You can narrow your filters, you can apply your own pagination or
             you can use all() method for getting all filter results.
             Example Usage: Unit.objects.all()
-            """ % (clone_length, self._cfg['row_size']))
+            
+            Filters: %s  Model Class: %s 
+            """ % (clone_length, self._cfg['row_size'], filters, self._cfg['model_class']))
 
         return clone
 

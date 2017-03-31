@@ -70,7 +70,7 @@ class PyokoMG(MultiGetPool):
                 if settings.ENABLE_CACHING:
                     cache.set(task.key, json.dumps(obj.data), settings.CACHE_EXPIRE_DURATION)
 
-                task.outq.put((obj.key, obj.data))
+                task.outq.put((task.key, obj.data))
 
             except KeyboardInterrupt:
                 raise

@@ -8,16 +8,32 @@
 # (GPLv3).  See LICENSE.txt for details.
 import sys
 import os
-import copy
 import json
 import re
 import datetime
 import random
 from time import mktime
-from uuid import uuid4
 import importlib
+import six
 
 UN_CAMEL_RE = re.compile('((?<=[a-z0-9])[A-Z]|(?!^)[A-Z](?=[a-z]))')
+
+
+def ub_to_str(string):
+    """
+    converts py2 unicode / py3 bytestring into str
+    Args:
+        string (unicode, byte_string): string to be converted
+        
+    Returns:
+        (str)
+    """
+    if not isinstance(string, str):
+        if six.PY2:
+            return str(string)
+        else:
+            return string.decode()
+    return string
 
 
 class SimpleChoicesManager(object):
