@@ -392,8 +392,7 @@ class BaseDumpHandler(BaseThreadedCommand):
 
             start = 0 if self._remove_dumped else i
 
-            data = model.objects.data().raw('*:*').set_params(
-                sort="timestamp asc",
+            data = model.objects.data().raw('*:*').order_by('timestamp').set_params(
                 rows=self._batch_size,
                 start=start * self._batch_size,
             )
@@ -482,14 +481,8 @@ class CSVDumpHandler(BaseDumpHandler):
         self.write('{bucket}/|{key}/|{value}'.format(
             bucket=bucket.name,
             key=key,
-            value=value if PY2 else value.decode('utf-8'),
+            value=json.dumps(value),
         ))
-
-    def pre_dump_hook(self, bucket):
-        bucket.set_decoder('application/json', lambda a: a)
-
-    def post_dump_hook(self, bucket):
-        bucket.set_decoder('application/json', binary_json_decoder)
 
 
 class DumpData(Command, BaseThreadedCommand):
@@ -605,27 +598,17 @@ and .js extensions will be loaded."""},
         else:
             self.read_file(self.manager.args.path)
 
-        self.do_with_submit(self.set_encoder_each_mdl, self.registry.get_base_models(),
-                            threads=self.threads)
-
     def read_each_file(self, file):
         self.read_file(file)
         self.record_counter = 0
         self.already_existing = 0
 
-    def set_encoder_each_mdl(self, mdl):
-        if self.typ == self.CSV:
-            mdl(super_context).objects.adapter.bucket.set_encoder("application/json",
-                                                                  binary_json_encoder)
-
     def prepare_buckets(self):
         """
-        loads buckets to bucket cache. disables the default json encoders if CSV is selected
+        loads buckets to bucket cache.
         """
         for mdl in self.registry.get_base_models():
             bucket = mdl(super_context).objects.adapter.bucket
-            if self.typ == self.CSV:
-                bucket.set_encoder("application/json", lambda a: a)
             self.buckets[bucket.name] = bucket
 
     def read_file(self, file_path):
@@ -642,9 +625,6 @@ and .js extensions will be loaded."""},
 
         if self.already_existing:
             print("%s existing object(s) NOT updated." % self.already_existing)
-
-
-
 
     def read_whole_file(self, file):
         data = json.loads(file.read())
@@ -666,12 +646,13 @@ and .js extensions will be loaded."""},
         key = key or None
         if key is None:
             data = val.encode('utf-8') if self.typ == self.CSV else val
-            self.buckets[bucket_name].new(key, data).store()
+            self.buckets[bucket_name].new(key, json.loads(data)).store()
             self.record_counter += 1
         else:
             obj = self.buckets[bucket_name].get(key)
             if not obj.exists or self.manager.args.update:
                 obj.data = val.encode('utf-8') if self.typ == self.CSV else val
+                obj.data = json.loads(obj.data)
                 obj.store()
                 self.record_counter += 1
             else:
