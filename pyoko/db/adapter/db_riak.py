@@ -80,7 +80,7 @@ class BlockDelete(BlockSave):
                 self.mdl.objects.filter(
                     updated_at__gt=Adapter.block_save_time, deleted=True).values_list('key')):
             time.sleep(.4)
-            
+
 
 # noinspection PyTypeChecker
 class Adapter(BaseAdapter):
