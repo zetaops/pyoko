@@ -55,6 +55,7 @@ class BlockSave(object):
     def __init__(self, mdl, query_dict=None):
         self.mdl = mdl
         self.query_dict = query_dict or {}
+        self.query_dict['updated_at__gt'] = datetime.now().strftime(DATE_TIME_FORMAT)
 
     def __enter__(self):
         Adapter.block_saved_keys = []
@@ -62,34 +63,20 @@ class BlockSave(object):
         Adapter.COLLECT_SAVES_FOR_MODEL = self.mdl.__name__
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        key_list = list(set(Adapter.block_saved_keys))
-        self.query_dict['key__in'] = key_list
-        try:
-            indexed_obj_count = self.mdl.objects.filter(**self.query_dict)
-            while Adapter.block_saved_keys and indexed_obj_count.count() < len(key_list):
-                time.sleep(.4)
-            Adapter.COLLECT_SAVES = False
-        except ValueError:
-            pass
+        key_list = set(Adapter.block_saved_keys)
+        self.make_sure(key_list)
+        Adapter.COLLECT_SAVES = False
+
+    def make_sure(self, key_list):
+        while Adapter.block_saved_keys and not key_list.issubset(
+                self.mdl.objects.all(**self.query_dict).values_list('key')):
+            time.sleep(.4)
 
 
-class BlockDelete(object):
-    def __init__(self, mdl):
-        self.mdl = mdl
-
-    def __enter__(self):
-        Adapter.block_saved_keys = []
-        Adapter.COLLECT_SAVES = True
-        Adapter.COLLECT_SAVES_FOR_MODEL = self.mdl.__name__
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        try:
-            indexed_obj_count = self.mdl.objects.filter(key__in=Adapter.block_saved_keys)
-            while Adapter.block_saved_keys and indexed_obj_count.count():
-                time.sleep(.4)
-            Adapter.COLLECT_SAVES = False
-        except ValueError:
-            pass
+class BlockDelete(BlockSave):
+    def __init__(self, mdl, query_dict=None):
+        super(BlockDelete, self).__init__(mdl, query_dict)
+        self.query_dict['deleted'] = True
 
 
 # noinspection PyTypeChecker
@@ -98,6 +85,7 @@ class Adapter(BaseAdapter):
     QuerySet is a lazy data access layer for Riak.
     """
     COLLECT_SAVES = False
+    block_saved_keys = []
 
     def __init__(self, **conf):
         super(Adapter, self).__init__(**conf)
