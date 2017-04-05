@@ -392,8 +392,7 @@ class BaseDumpHandler(BaseThreadedCommand):
 
             start = 0 if self._remove_dumped else i
 
-            data = model.objects.data().raw('*:*').set_params(
-                sort="timestamp asc",
+            data = model.objects.data().raw('*:*').order_by('timestamp').set_params(
                 rows=self._batch_size,
                 start=start * self._batch_size,
             )
