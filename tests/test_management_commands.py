@@ -10,12 +10,17 @@
 import codecs
 from time import sleep
 from pyoko.manage import ManagementCommands
+from tests.models import Student
 from .models import Person, User
 import tempfile
 import os
 
 
 def test_load_dump_data():
+    Student.objects._clear()
+    for i in range(5):
+        Student(name = str(i)).blocking_save()
+
     path = '/tmp/load_dump.csv'
     ManagementCommands(args=['dump_data', '--model', 'Student', '--path', path])
     with codecs.open(path, encoding='utf-8') as file:
