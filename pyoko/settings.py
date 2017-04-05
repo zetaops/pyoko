@@ -16,6 +16,7 @@ VERSION_LOG_BUCKET_TYPE = os.environ.get('VERSION_LOG_BUCKET_TYPE', 'log_version
 RIAK_SERVER = os.environ.get('RIAK_SERVER', 'localhost')
 RIAK_PROTOCOL = os.environ.get('RIAK_PROTOCOL', 'http')
 RIAK_PORT = os.environ.get('RIAK_PORT', 8098)
+RIAK_HTTP_PORT = os.environ.get('RIAK_HTTP_PORT', 8098)
 
 #: Redis address and port.
 REDIS_SERVER = os.environ.get('REDIS_SERVER', '127.0.0.1:6379')

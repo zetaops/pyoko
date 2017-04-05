@@ -125,22 +125,58 @@ class Adapter(BaseAdapter):
 
     # ######## Development Methods  #########
 
-    def distinct_values_of(self, field):
-        # FIXME: Add support for query filters
-        query = ""
-        for q in self._solr_query:
-            query += "+AND+%s%%3A%s" % (q[0], q[1])
-        url = 'http://%s:8093/internal_solr/%s/select?q=-deleted%%3ATrue%s&wt=json&facet=true&facet.field=%s' % (
-            settings.RIAK_SERVER, self.index_name, query, field)
-        result = json.loads(bytes_to_str(urlopen(url).read()))
-        dct = {}
-        fresult = result['facet_counts']['facet_fields'][field]
-        for i in range(0, len(fresult), 2):
-            if i == len(fresult) - 1:
-                break
-            if fresult[i + 1]:
-                dct[fresult[i]] = fresult[i + 1]
-        return dct
+    def riak_http_search_query(self, solr_core, solr_params, count_deleted=False):
+        """
+        This method is for advanced SOLR queries. Riak HTTP search query endpoint,
+        sends solr_params and query string as a proxy and returns solr reponse.
+        
+        Args:
+            solr_core (str): solr core on which query will be executed
+            
+            solr_params (str): solr specific query params, such as rows, start, fl, df, wt etc..
+            
+            count_deleted (bool): ignore deleted records or not 
+        
+        Returns:
+            (dict): dict of solr response
+        
+        """
+
+        # append current _solr_query params
+        sq = ["%s%%3A%s" % (q[0], q[1]) for q in self._solr_query]
+        if not count_deleted:
+            sq.append("-deleted%3ATrue")
+
+        search_host = "http://%s:%s/search/query/%s?wt=json&q=%s&%s" % (
+            settings.RIAK_SERVER,
+            settings.RIAK_HTTP_PORT,
+            solr_core,
+            "+AND+".join(sq),
+            solr_params
+        )
+
+        return json.loads(bytes_to_str(urlopen(search_host).read()))
+
+    def distinct_values_of(self, field, count_deleted=False):
+        """
+        Uses riak http search query endpoint for advanced SOLR queries.
+
+        Args:
+            field (str): facet field
+            count_deleted (bool): ignore deleted or not
+
+        Returns: 
+            (dict): pairs of field values and number of counts
+        
+
+        """
+        solr_params = "facet=true&facet.field=%s&rows=0" % field
+        result = self.riak_http_search_query(self.index_name, solr_params, count_deleted)
+        facet_fields = result['facet_counts']['facet_fields'][field]
+        keys = facet_fields[0::2]
+        vals = facet_fields[1::2]
+
+        return dict(zip(keys, vals))
 
     def _clear(self, wait):
         """
