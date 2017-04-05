@@ -145,10 +145,15 @@ class Adapter(BaseAdapter):
         # append current _solr_query params
         sq = ["%s%%3A%s" % (q[0], q[1]) for q in self._solr_query]
         if not count_deleted:
-            sq.append("-deleted%%3ATrue")
+            sq.append("-deleted%3ATrue")
 
-        search_host = "%s:%s/search/query/%s?wt=json&q=%s&%s" % (
-            settings.RIAK_SERVER, settings.RIAK_HTTP_PORT, solr_core, "+AND+".join(sq), solr_params)
+        search_host = "http://%s:%s/search/query/%s?wt=json&q=%s&%s" % (
+            settings.RIAK_SERVER,
+            settings.RIAK_HTTP_PORT,
+            solr_core,
+            "+AND+".join(sq),
+            solr_params
+        )
 
         return json.loads(bytes_to_str(urlopen(search_host).read()))
 
