@@ -1,10 +1,10 @@
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Pyoko REST & AMQP Public API
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~
+Pyoko Data API
+~~~~~~~~~~~~~~
 
 **Version 0.1**
 
-`Pyoko REST` is REST and AMQP data access API built on `Pyoko ORM` queryset specifications and Tornado webserver with `oauth`.
+`Pyoko Data API` is REST and AMQP data access API built on `Pyoko ORM` queryset specifications and Tornado webserver with `oauth`.
 
 It listens on two endpoint, one is a tcp port for http and second is an AMQP queue which is bound to an exchange which gets messages from clients.
 
@@ -31,11 +31,11 @@ Query Modifiers
 Comparison Operators
 ^^^^^^^^^^^^^^^^^^^^
 - eq (equal)
-- neq (not equal)
 - gt (greater than)
 - gte (greater than or equal)
 - lt (less than)
 - lte (less than or equal )
+- range (between given values)
 - in (one of the following items, a shortcut for OR)
 - endswith
 - startswith
@@ -75,9 +75,9 @@ Query Definitions
 - Multiple objects means that all objects which are conjoined with "AND" in itsef, are conjoined with "OR"::
 
     "q":[
-          {"name": "Ali", "age__gte":24]},
+          {"name": "Ali"]},
           {"age__lte": 24,]},
-        ] # Matches persons whose name is "Ali" and age is greater than or equal 24 OR persons whose age is lower than 24.
+        ] # Matches persons whose name is "Ali" OR persons whose age is lower than 24.
 
 
 =====================
