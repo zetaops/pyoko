@@ -195,15 +195,20 @@ class Adapter(BaseAdapter):
         return i
 
     @staticmethod
-    def get_from_solr(clone, number):
+    def get_from_solr(clone, number, row_size):
         """
-        With the given number(0,1,2..) multiplies default row size and determines start parameter.
-        Takes results from solr according to this parameter. For example, if number is 2 and default
-        row size is 1000, takes results from solr between 2000 and 3000.
+        If not start parameter is given, with the given number(0,1,2..) multiplies default row size
+        and determines start parameter. Takes results from solr according to this parameter. For
+        example, if number is 2 and default row size is 1000, takes results from solr between 2000
+        and 3000. But if start parameter is given, start value is found adding given start paramater.
+        For example start paramater is given as 550, if number is 2 and default row size is 1000,
+        takes results from solr between 2550 and 3550.
 
         Args:
             clone: Queryset adapter clone
             number(int): Uses for solr start parameter. Multiplies with default row size.
+            row_size(int): Uses for solr rows parameter. Indicates how many record will be taken
+                           from solr.
 
         Returns:
              tuple with given number and riak_multi_get method input list.
@@ -213,11 +218,12 @@ class Adapter(BaseAdapter):
                                  ('models','personel','PxCdytPZzB6RVJ8QI2XSVQk4mUR')])
 
         """
-        start = number * clone._cfg['row_size']
+        start = number * clone._cfg['row_size'] + clone._cfg['start']
         clone._solr_params.update({'start': start})
+        clone._solr_params.update({'rows': row_size})
         clone._solr_locked = False
-        return number, [(clone._cfg['bucket_type'], clone._cfg['bucket_name'], ub_to_str(doc.get('_yz_rk')))
-                        for doc in clone._exec_query()]
+        return number, [(clone._cfg['bucket_type'], clone._cfg['bucket_name'],
+                         ub_to_str(doc.get('_yz_rk'))) for doc in clone._exec_query()]
 
     def riak_multi_get(self, key_list_tuple):
         """
@@ -257,12 +263,19 @@ class Adapter(BaseAdapter):
         """
         count = copy.deepcopy(self).count()
         chunk_size = ceil(count / float(self._cfg['row_size']))
-        chunk_size_list = range(int(chunk_size))
+        last_chunk_size = count % self._cfg['row_size']
+
+        chunk_size_list = [(i, self._cfg['row_size']) for i in range(int(chunk_size))]
+        if last_chunk_size:
+            chunk_size_list.append((chunk_size_list.pop()[0], last_chunk_size))
+
+        if 'start' in self._solr_params:
+            self._cfg['start'] = self._solr_params['start']
 
         page_list = []
         with con.ThreadPoolExecutor(max_workers=10) as exc:
-            future_page_list = {exc.submit(self.get_from_solr, copy.deepcopy(self), page): page for
-                                page in chunk_size_list}
+            future_page_list = {exc.submit(self.get_from_solr, copy.deepcopy(self), page, row_size):
+                                    (page, row_size) for (page, row_size) in chunk_size_list}
             for multiget_page_list in con.as_completed(future_page_list):
                 page_list.append(multiget_page_list.result())
         exc.shutdown()
