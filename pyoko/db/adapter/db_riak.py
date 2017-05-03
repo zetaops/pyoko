@@ -36,6 +36,7 @@ from pyoko.conf import settings
 from pyoko.db.connection import client, cache, log_bucket, version_bucket
 import riak
 from pyoko.exceptions import MultipleObjectsReturned, ObjectDoesNotExist, PyokoError
+from collections import OrderedDict
 
 import sys
 
@@ -113,7 +114,7 @@ class Adapter(BaseAdapter):
         self._QUERY_GLUE = ' AND '
         self._solr_query = []  # query parts, will be compiled before execution
         self._solr_params = {
-            "sort": {"timestamp": "desc"},
+            "sort": OrderedDict([("timestamp", "desc")]),
             # we need only riak key, score for riak client bug
             # https://github.com/basho/riak-python-client/issues/362
             "fl": "_yz_rk, score",
