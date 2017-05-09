@@ -87,6 +87,40 @@ class TestCase:
         assert Student.objects.filter(deleted=True).count() == 1
         assert Student.objects.count() == 1
 
+    def test_count(self):
+        mb = client.bucket_type('pyoko_models').bucket('student')
+        Student.objects._clear()
+        results = mb.search('-deleted:True', 'pyoko_models_student', **{'rows': 0})
+        assert Student.objects.count() == results['num_found'] == 0
+
+        # 770 records will be saved.
+        for i in range(770):
+            Student(number=str(i % 3)).save()
+
+        # wait until 770 records are saved.
+        while mb.search('-deleted:True', 'pyoko_models_student', **{'rows': 0})['num_found'] != 770:
+            time.sleep(0.3)
+
+        # total count
+        assert Student.objects.count() == 770
+
+        # number '2' results count
+        results = mb.search('-deleted:True AND number:2', 'pyoko_models_student', **{'rows': 0})
+        assert Student.objects.filter(number='2').count() == results['num_found'] == 256
+
+        # total count
+        assert Student.objects.filter(number='2').count() + Student.objects.filter(
+            number='1').count() + Student.objects.filter(number='0').count() == 770
+
+        # set_params and count tests:
+        assert Student.objects.filter(number='2').set_params(start=0).count() == 256
+        assert Student.objects.filter(number='2').set_params(start=0, rows=35).count() == 35
+        assert Student.objects.filter(number='2').set_params(start=125, rows=35).count() == 35
+        assert Student.objects.filter(number='2').set_params(start=0, rows=0).count() == 0
+        assert Student.objects.filter(number='2').set_params(rows=100).count() == 100
+        assert Student.objects.filter(number='2').set_params(start=250, rows=100).count() == 6
+        self.prepare_testbed(reset=True)
+
     def test_filter(self):
         # filter by name, if name not equals filtered names then append to list
         self.prepare_testbed()
