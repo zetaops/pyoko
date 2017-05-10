@@ -119,6 +119,7 @@ class TestCase:
         assert Student.objects.filter(number='2').set_params(start=0, rows=0).count() == 0
         assert Student.objects.filter(number='2').set_params(rows=100).count() == 100
         assert Student.objects.filter(number='2').set_params(start=250, rows=100).count() == 6
+        assert Student.objects.filter(number='2').set_params(start=300, rows=100).count() == 0
         self.prepare_testbed(reset=True)
 
     def test_filter(self):
