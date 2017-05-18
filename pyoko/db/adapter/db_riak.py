@@ -262,7 +262,10 @@ class Adapter(BaseAdapter):
             tuple: obj's data, obj's key
 
         """
-        count = copy.deepcopy(self).count()
+        clone = copy.deepcopy(self)
+        count = clone.count()
+        self.want_deleted = clone.want_deleted
+
         chunk_size = ceil(count / float(self._cfg['row_size']))
         last_chunk_size = count % self._cfg['row_size']
 
