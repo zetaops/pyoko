@@ -282,8 +282,10 @@ class File(BaseField):
         if isinstance(val, dict):
             if self.random_name:
                 val['random_name'] = self.random_name
+            if 'file_name' in val.keys():
+                val['name'] = val.pop('file_name')
+                val['content'] = val.pop('file_content')
             return self.file_manager().store_file(**val)
-
 
     def _load_data(self, instance, value):
 
