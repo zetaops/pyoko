@@ -287,6 +287,14 @@ class File(BaseField):
                 val['content'] = val.pop('file_content')
             return self.file_manager().store_file(**val)
 
+        # If val is not instance of dict, it should be return itself because the val is the key of
+        # the file
+        try:
+            return str(val)
+        except ValueError:
+            raise ValidationError("%r could not be cast to string" % val)
+
+
     def _load_data(self, instance, value):
 
         self.__set__(instance, value)
