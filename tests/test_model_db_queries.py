@@ -76,15 +76,19 @@ class TestCase:
 
     def test_delete_model(self):
         self.prepare_testbed(True)
-        s2 = Student(name='Foo').save()
-        sleep(1)
+        s2 = Student(name='Foo').blocking_save()
+        qs = Student.objects.filter(deleted=True)
+
+        # len is to test __iter__
+        assert len([i for i in qs]) == qs.count() == 0
         assert Student.objects.filter(name='Foo').count() == 1
-        assert Student.objects.filter(deleted=True).count() == 0
         assert Student.objects.count() == 2
-        s2.delete()
-        sleep(1)
+        s2.blocking_delete()
+        qs = Student.objects.filter(deleted=True)
         assert Student.objects.filter(name='Foo').count() == 0
-        assert Student.objects.filter(deleted=True).count() == 1
+
+        # len is to test __iter__
+        assert len([i for i in qs]) == qs.count() == 1
         assert Student.objects.count() == 1
 
     def test_count(self):
