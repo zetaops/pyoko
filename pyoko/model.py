@@ -79,6 +79,7 @@ class Model(Node):
             just_created=None,
             on_save=[],
             _exists=None,
+            help_text=kwargs.get('help_text')
         )
         # self.verbose_name = kwargs.get('verbose_name')
         # self.null = kwargs.get('null', False)
