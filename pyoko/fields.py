@@ -41,6 +41,7 @@ class BaseField(object):
                  choices=None,
                  order=None,
                  unique=False,
+                 help_text=None,
                  **kwargs):
         self._order = order or self.creation_counter
         BaseField.creation_counter += 1
@@ -54,6 +55,7 @@ class BaseField(object):
         self.store = store
         self.default = default
         self.name = kwargs.pop('name', '')
+        self.help_text = help_text
         self.kwargs = kwargs
 
 
