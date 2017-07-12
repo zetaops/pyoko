@@ -633,9 +633,15 @@ and .js extensions will be loaded."""},
                 self.save_obj(bucket_name, key, val)
 
     def read_per_line(self, file):
-        for line in file:
-            bucket_name, key, val = line.split('/|')
-            self.save_obj(bucket_name, key, val.strip())
+        for index, line in enumerate(file):
+            try:
+                bucket_name, key, val = line.split('/|')
+                self.save_obj(bucket_name, key, val.strip())
+            except ValueError:
+                if line.isspace():
+                    pass
+                else:
+                    print("There is something wrong in line %d of the %s file %s." % (index + 1, self.typ, file.name))
 
     def read_json_per_line(self, file):
         for line in file:
