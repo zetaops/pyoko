@@ -281,7 +281,7 @@ class QuerySet(object):
         """
         try:
             return self.get(**kwargs), False
-        except (ObjectDoesNotExist, IndexError):
+        except ObjectDoesNotExist:
             pass
 
         data = defaults or {}
@@ -289,12 +289,32 @@ class QuerySet(object):
         return self._model_class(**data).blocking_save(), True
 
     def get_or_none(self, **kwargs):
+        """
+        Gets an object if it exists in database according to 
+        given query parameters otherwise returns None.
+        
+        Args:
+            **kwargs: query parameters
+
+        Returns: object or None
+
+        """
         try:
             return self.get(**kwargs)
         except ObjectDoesNotExist:
             return None
 
     def delete_if_exists(self, **kwargs):
+        """
+        Deletes an object if it exists in database according to given query 
+        parameters and returns True otherwise does nothing and returns False.
+        
+        Args:
+            **kwargs: query parameters
+
+        Returns(bool): True or False 
+
+        """
         try:
             self.get(**kwargs).blocking_delete()
             return True
