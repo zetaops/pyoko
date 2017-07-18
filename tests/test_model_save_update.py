@@ -51,6 +51,39 @@ class TestCase:
         assert st3.name == defaults['name']
         assert st3.pno == pno
 
+    def test_get_or_none(self):
+        self.prepare_testbed()
+        defaults = dict(name="Foo3", surname="Fee3")
+        pno = '0123456'
+        st, is_new = Student.objects.get_or_create(defaults=defaults, pno=pno)
+        assert is_new
+        assert st.name == defaults['name']
+        assert st.pno == pno
+        sleep(1)
+
+        defaults.update({'pno': '0123456'})
+
+        st2 = Student.objects.get_or_none(**defaults)
+        assert st2 is not None
+        assert st2.pno == pno
+
+        defaults.update({'pno': '0123456777'})
+        st2 = Student.objects.get_or_none(**defaults)
+        assert st2 is None
+
+    def test_delete_if_exists(self):
+        self.prepare_testbed()
+        defaults = dict(name="Foo4", surname="Fee4")
+        pno = '43210'
+        st, is_new = Student.objects.get_or_create(defaults=defaults, pno=pno)
+        assert is_new
+
+        cond = Student.objects.delete_if_exists(**defaults)
+        assert cond
+
+        cond = Student.objects.delete_if_exists(**defaults)
+        assert not cond
+
     def test_update_with_partial_data(self):
         self.prepare_testbed()
         student = Student().set_data(data)

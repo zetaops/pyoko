@@ -279,22 +279,47 @@ class QuerySet(object):
 
 
         """
-        existing = list(self.all(**kwargs))
-        count = len(existing)
         try:
-            if count > 1:
-                raise MultipleObjectsReturned(
-                    "%s objects returned for %s" % (count,
-                                                    self._model_class.__name__))
-            if existing[0].deleted:
-                raise ObjectDoesNotExist('Sync Issue, deleted object returned!')
-            return existing[0], False
-        except (ObjectDoesNotExist, IndexError):
+            return self.get(**kwargs), False
+        except ObjectDoesNotExist:
             pass
 
         data = defaults or {}
         data.update(kwargs)
-        return self._model_class(**data).save(), True
+        return self._model_class(**data).blocking_save(), True
+
+    def get_or_none(self, **kwargs):
+        """
+        Gets an object if it exists in database according to 
+        given query parameters otherwise returns None.
+        
+        Args:
+            **kwargs: query parameters
+
+        Returns: object or None
+
+        """
+        try:
+            return self.get(**kwargs)
+        except ObjectDoesNotExist:
+            return None
+
+    def delete_if_exists(self, **kwargs):
+        """
+        Deletes an object if it exists in database according to given query 
+        parameters and returns True otherwise does nothing and returns False.
+        
+        Args:
+            **kwargs: query parameters
+
+        Returns(bool): True or False 
+
+        """
+        try:
+            self.get(**kwargs).blocking_delete()
+            return True
+        except ObjectDoesNotExist:
+            return False
 
     def update(self, **kwargs):
         """
