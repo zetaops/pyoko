@@ -577,7 +577,7 @@ class Model(Node):
                 if lnkd_model._TYPE == 'ListNode':
                     del lnkd_model[self]
                 elif lnkd_model._TYPE == 'Model':
-                    rel.setattr(key, None)
+                    rel.setattr(key, lnkd_model.__class__())
                 # binding actual relation's save to our save
                 self.on_save.append(lambda self: rel.save(internal=True))
 
