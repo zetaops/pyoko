@@ -79,7 +79,8 @@ class Model(Node):
             just_created=None,
             on_save=[],
             _exists=None,
-            help_text=kwargs.get('help_text')
+            help_text=kwargs.get('help_text'),
+            _initial_data={}
         )
         # self.verbose_name = kwargs.get('verbose_name')
         # self.null = kwargs.get('null', False)
@@ -413,8 +414,9 @@ class Model(Node):
         if self._uniques:
             for u in self._uniques:
                 val = _getattr(u)
-                if self.exist and not (u in self.changed_fields() if not callable(val) else
-                                       (str(u) + "_id") in self.changed_fields()):
+                changed_fields = self.changed_fields(from_db=True)
+                if self.exist and not (u in changed_fields if not callable(val) else
+                                       (str(u) + "_id") in changed_fields):
                     if val and self.objects.filter(**{u: val}).count() > 1:
                         raise IntegrityError("Unique mismatch: %s for %s already exists for value: "
                                              "%s" % (u, self.__class__.__name__, val))
@@ -423,16 +425,17 @@ class Model(Node):
                         raise IntegrityError("Unique mismatch: %s for %s already exists for value: "
                                              "%s" % (u, self.__class__.__name__, val))
         if self.Meta.unique_together:
+            changed_fields = self.changed_fields(from_db=True)
             for uniques in self.Meta.unique_together:
                 vals = dict([(u, _getattr(u)) for u in uniques])
                 if self.exist:
                     query_is_changed = []
                     for uni in vals.keys():
                         if callable(vals[uni]):
-                            is_changed = (str(uni) + "_id") in self.changed_fields()
+                            is_changed = (str(uni) + "_id") in changed_fields
                             query_is_changed.append(is_changed)
                         else:
-                            is_changed = uni in self.changed_fields()
+                            is_changed = uni in changed_fields
                             query_is_changed.append(is_changed)
                     is_unique_changed = any(query_is_changed)
                     if not is_unique_changed:
@@ -498,8 +501,10 @@ class Model(Node):
         self._post_save_hook_called = False
         return self
 
-    def changed_fields(self):
+    def changed_fields(self, from_db=False):
         """
+        Args:
+             from_db (bool): Check changes against actual db data
         Returns:
             list: List of fields names which their values changed.
         """
@@ -509,22 +514,25 @@ class Model(Node):
             # initialized just after above `clean_value` is called. `from_db` flags
             # in 'list node sets' makes differences between clean_data and object._data.
 
-            # Thus, after clean_value, object's data is taken from db again.
-            db_data = self.objects.data().get(self.key)[0]
+            db_data = self._initial_data
+            if from_db:
+                # Thus, after clean_value, object's data is taken from db again.
+                db_data = self.objects.data().get(self.key)[0]
 
             set_current, set_past = set(current_dict.keys()), set(db_data.keys())
             intersect = set_current.intersection(set_past)
             return set(o for o in intersect if db_data[o] != current_dict[o])
 
-    def is_changed(self, field):
+    def is_changed(self, field, from_db=False):
         """
         Args:
-            field (string):Field name.
+            field (string): Field name.
+            from_db (bool): Check changes against actual db data
 
         Returns:
             bool: True if given fields value is changed.
         """
-        return field in self.changed_fields()
+        return field in self.changed_fields(from_db=from_db)
 
     def blocking_save(self, query_dict=None, meta=None, index_fields=None):
         """
