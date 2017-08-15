@@ -499,12 +499,13 @@ class Model(Node):
                 self.post_creation()
         self._pre_save_hook_called = False
         self._post_save_hook_called = False
+        self._initial_data = self._data
         return self
 
     def changed_fields(self, from_db=False):
         """
         Args:
-             from_db (bool): Check changes against actual db data
+            from_db (bool): Check changes against actual db data
         Returns:
             list: List of fields names which their values changed.
         """

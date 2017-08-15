@@ -172,7 +172,7 @@ class QuerySet(object):
 
         model.setattr('key', ub_to_str(key) if key else ub_to_str(data.get('key')))
         model = model.set_data(data, from_db=True)
-        model._initial_data = model._data
+        model._initial_data = model.clean_value()
         return model
 
     def __repr__(self):
