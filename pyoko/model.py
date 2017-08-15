@@ -499,7 +499,8 @@ class Model(Node):
                 self.post_creation()
         self._pre_save_hook_called = False
         self._post_save_hook_called = False
-        self._initial_data = self._data
+        if not internal:
+            self._initial_data = self.clean_value()
         return self
 
     def changed_fields(self, from_db=False):
