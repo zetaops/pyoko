@@ -121,7 +121,6 @@ class ModelMeta(type):
         attrs['save_meta_data'] = None
         attrs['_pre_save_hook_called'] = False
         attrs['_post_save_hook_called'] = False
-        attrs['save_operation'] = False
         DEFAULT_META = {'bucket_type': settings.DEFAULT_BUCKET_TYPE,
                         'field_permissions': {},
                         'app': 'main',

@@ -9,6 +9,7 @@ This module holds the pyoko's Model object
 # (GPLv3).  See LICENSE.txt for details.
 import six
 import time
+
 from pyoko.exceptions import IntegrityError, ObjectDoesNotExist
 from .node import Node, FakeContext
 from . import fields as field
@@ -18,7 +19,6 @@ import weakref
 from pyoko.conf import settings
 from pyoko.db.connection import cache
 super_context = FakeContext()
-old_data = {}
 
 # kept for backwards-compatibility
 from .modelmeta import model_registry
@@ -470,7 +470,6 @@ class Model(Node):
         Returns:
              Saved model instance.
         """
-        global old_data
         for f in self.on_save:
             f(self)
         if not (internal or self._pre_save_hook_called):
@@ -486,7 +485,6 @@ class Model(Node):
         if self._just_created is None:
             self.setattrs(_just_created=self.just_created)
         self.objects.save_model(self, meta_data=meta, index_fields=index_fields)
-        self.save_operation = True
         self._handle_changed_fields(old_data)
         self._process_relations(internal)
         if not (internal or self._post_save_hook_called):
@@ -498,7 +496,6 @@ class Model(Node):
                 self.post_creation()
         self._pre_save_hook_called = False
         self._post_save_hook_called = False
-        self.save_operation = False
         return self
 
     def changed_fields(self):
@@ -507,9 +504,7 @@ class Model(Node):
             list: List of fields names which their values changed.
         """
         if self.exist:
-            global old_data
-            current_dict = old_data if self.save_operation else self.clean_value()
-
+            current_dict = self.clean_value()
             # `from_db` attr is set False as default, when a `ListNode` is
             # initialized just after above `clean_value` is called. `from_db` flags
             # in 'list node sets' makes differences between clean_data and object._data.
@@ -519,7 +514,7 @@ class Model(Node):
 
             set_current, set_past = set(current_dict.keys()), set(db_data.keys())
             intersect = set_current.intersection(set_past)
-            return set(o for o in intersect if db_data[o] != current_dict[o] and o != 'updated_at')
+            return set(o for o in intersect if db_data[o] != current_dict[o])
 
     def is_changed(self, field):
         """
