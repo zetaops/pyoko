@@ -171,7 +171,9 @@ class QuerySet(object):
                                   _pass_perm_checks=self._pass_perm_checks)
 
         model.setattr('key', ub_to_str(key) if key else ub_to_str(data.get('key')))
-        return model.set_data(data, from_db=True)
+        model = model.set_data(data, from_db=True)
+        model._initial_data = model._data
+        return model
 
     def __repr__(self):
         if not self.is_clone:
