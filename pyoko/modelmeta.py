@@ -127,6 +127,7 @@ class ModelMeta(type):
                         'list_fields': [],
                         'list_filters': [],
                         'search_fields': [],
+                        'fake_model': False,
                         }
         if 'Meta' not in attrs:
             attrs['Meta'] = type('Meta', (object,), DEFAULT_META)

@@ -25,7 +25,7 @@ class Registry(object):
         # self.link_registry = defaultdict(list)
 
     def register_model(self, mdl):
-        if mdl.__name__ not in self.registry and mdl.__name__ != 'FakeModel':
+        if mdl.__name__ not in self.registry and mdl.__name__ != 'FakeModel' and not mdl.Meta.fake_model:
             self.registry[mdl.__name__] = mdl
             self.app_registry[mdl.Meta.app][mdl.__name__] = mdl
             self._process_links_from_nodes_of_mdl(mdl)
