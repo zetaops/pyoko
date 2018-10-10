@@ -13,6 +13,7 @@
 Pyoko: A Django-esque NoSQL ORM for Riak KV >= 2.2
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+
 Features
 ^^^^^^^^
 
@@ -247,7 +248,7 @@ Commercial support from ZetaOps_ requires a valid support contract.
 
 .. _ZetaOps: http://zetaops.io
 
-
+Locutus is not dead yet!
 
 License
 ^^^^^^^
